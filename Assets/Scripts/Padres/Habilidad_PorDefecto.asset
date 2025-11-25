@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 781a50c4e9c60ae4481ffa78cf060207, type: 3}
+  m_Name: Habilidad_PorDefecto
+  m_EditorClassIdentifier: 
+  nombreHabilidad: Ataque_basico
+  icono: {fileID: 0}
+  descripcion: 'Ataque basico de los personajes '
+  costeMana: 0
+  cooldownTurnos: 0
+  faccionesProhibidas: 
+  tipoObjetivo: 0
+  efectos: []
+  references:
+    version: 2
+    RefIds: []
