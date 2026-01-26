@@ -141,20 +141,42 @@ namespace Managers
             
             IEntidadCombate entidadRaw = turnManager.EntidadActual;
             
+            Debug.Log($"\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+            Debug.Log($"🎯 TURNO: {entidadRaw.Nombre_Entidad}");
+            
+            // 0. Procesar estados al inicio del turno (veneno, quemado, etc.)
+            if (entidadRaw is Padres.Entidad entidad)
+            {
+                bool puedeActuar = entidad.ProcesarEstadosInicioTurno();
+                
+                // Verificar si murió por daño de estados
+                if (!entidadRaw.EstaVivo())
+                {
+                    ManejarMuerte(entidadRaw);
+                    FinalizarTurno();
+                    return;
+                }
+                
+                // Si está incapacitado (aturdido, congelado), saltar turno
+                if (!puedeActuar)
+                {
+                    Debug.Log($"⏭️ {entidadRaw.Nombre_Entidad} pierde su turno por estado.");
+                    FinalizarTurno();
+                    return;
+                }
+            }
+            
             // 1. Obtener las listas de aliados y enemigos para el targeting
             List<IEntidadCombate> aliados = todasLasEntidades.Where(e => e.EsTipoEntidad(entidadRaw.TipoEntidad)).ToList();
             // ENEMIGOS son los que NO son del mismo tipo de entidad
             List<IEntidadCombate> enemigos = todasLasEntidades.Where(e => !e.EsTipoEntidad(entidadRaw.TipoEntidad)).ToList(); 
-            
-            Debug.Log($"\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-            Debug.Log($"🎯 TURNO: {entidadRaw.Nombre_Entidad}");
 
             // 2. Pedir la Acción (El paso crucial que integra IEntidadActuable)
             // Intentamos castear la entidad actual a IEntidadActuable
             if (entidadRaw is Interfaces.IEntidadActuable actuable) 
             {
                 // El controlador decide el comando y el objetivo
-                (IHabilidadesCommad comando, IEntidadCombate objetivo) = actuable.ObtenerAccionElegida(aliados, enemigos);
+                (IHabilidadesCommand comando, IEntidadCombate objetivo) = actuable.ObtenerAccionElegida(aliados, enemigos);
 
                 if (comando != null && objetivo != null)
                 {
@@ -176,7 +198,7 @@ namespace Managers
 
         // Nuevo método para ejecutar el comando y manejar el post-efecto
         void EjecutarHabilidad(
-            IHabilidadesCommad habilidadComando, 
+            IHabilidadesCommand habilidadComando, 
             IEntidadCombate invocador, 
             IEntidadCombate objetivo,
             List<IEntidadCombate> aliados, 
