@@ -5,26 +5,35 @@ using System.Linq;
 
 namespace Subclases
 {
+    /// <summary>
+    /// Orco: Enemigo resistente con stats balanceados. Ataca objetivos aleatorios.
+    /// </summary>
     public class Orcos : Enemigos
     {
-        private EnemigoData datosClase;
+        // Escalado específico del Orco (stats medios-altos)
+        private static readonly EscaladoEnemigo EscaladoOrco = new EscaladoEnemigo(
+            vida: 150,
+            ataque: 15,
+            defensa: 8f,
+            velocidad: 1
+        );
+        
         public Orcos(EnemigoData datos)
-        : base(
-            datos.nombreEnemigo,
-            datos.vidaBase,
-            datos.ataqueBase,
-            datos.defensaBase,
-            1,
-            datos.velocidadBase,
-            (int)datos.xpOtorgada,
-            datos.atributos,
-            datos.tipoEntidad,
-            datos.estiloCombate
+            : base(
+                datos.nombreEnemigo,
+                datos.vidaBase,
+                datos.ataqueBase,
+                datos.defensaBase,
+                datos.nivelBase,  // Usar nivelBase del ScriptableObject
+                datos.velocidadBase,
+                (int)datos.xpOtorgada,
+                datos.atributos,
+                datos.tipoEntidad,
+                datos.estiloCombate,
+                EscaladoOrco      // Pasar escalado específico
             )
         {
-            datosClase = datos;
         }
-
 
         public override IEntidadCombate DecidirObjetivo(List<IEntidadCombate> jugadores)
         {
@@ -36,22 +45,10 @@ namespace Subclases
             return jugadoresVivos[indice];
         }
 
-        public override int CalcularDañoContra(IEntidadCombate objetivo)
+        public override int CalcularDanoContra(IEntidadCombate objetivo)
         {
-            // Orco hacen menos daño pero atacan rápido
-            return (int)(PuntosDeAtaque_Entidad * 1f);
-        }
-        public override void SubirNivel()
-        {
-            base.SubirNivel();
-            Vida_Entidad += 1000;
-            PuntosDeAtaque_Entidad += 50;
-            PuntosDeDefensa_Entidad += 20;
-
-            VidaActual_Entidad = Vida_Entidad;
-
-            //OnNivelSubido?.Invoke(Nivel_Entidad);
-            //OnVidaCambiada?.Invoke(VidaActual_Entidad, Vida_Entidad);
+            // Orcos hacen dano estandar
+            return PuntosDeAtaque_Entidad;
         }
     }
 }

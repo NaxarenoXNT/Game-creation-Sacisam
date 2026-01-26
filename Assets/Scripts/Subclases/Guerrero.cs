@@ -1,50 +1,44 @@
 using Padres;
 using Interfaces;
-using Unity.VisualScripting;
 
 namespace Subclases
 {
+    /// <summary>
+    /// Guerrero: Clase tanque con alto crecimiento de vida y defensa.
+    /// Especializado en combate cuerpo a cuerpo.
+    /// </summary>
     public class Guerrero : Jugador
     {
-        private ClaseData datosClase;
+        // Escalado específico del Guerrero (vida y defensa altas)
+        private static readonly EscaladoJugador EscaladoGuerrero = new EscaladoJugador(
+            vida: 150,
+            ataque: 12,
+            defensa: 8f,
+            mana: 5,
+            velocidad: 1
+        );
+        
         public Guerrero(ClaseData datos)
-        : base(
-            datos.nombreClase,
-            datos.vidaBase,
-            datos.ataqueBase,
-            datos.defensaBase,
-            1,
-            datos.manaBase,
-            datos.velocidadBase,
-            datos.atributos,
-            datos.tipoEntidad,
-            datos.estiloCombate
+            : base(
+                datos.nombreClase,
+                datos.vidaBase,
+                datos.ataqueBase,
+                datos.defensaBase,
+                1,  // Nivel inicial
+                datos.manaBase,
+                datos.velocidadBase,
+                datos.atributos,
+                datos.tipoEntidad,
+                datos.estiloCombate,
+                EscaladoGuerrero  // Pasar escalado específico
             )
         {
-            datosClase = datos;
         }
 
-
-        
-        public override int CalcularDañoContra(IEntidadCombate objetivo)
+        public override int CalcularDanoContra(IEntidadCombate objetivo)
         {
-            int dañoBase = PuntosDeAtaque_Entidad;
-            return dañoBase;
-        }
-        
-
-        public override void SubirNivel()
-        {
-            base.SubirNivel();
-            Vida_Entidad += 1000;
-            PuntosDeAtaque_Entidad += 100;
-            PuntosDeDefensa_Entidad += 20;
-            Mana_jugador += 40;
-
-            VidaActual_Entidad = Vida_Entidad;
-            ManaActual_jugador = Mana_jugador;
-
-            //OnVidaCambiada?.Invoke(VidaActual_Entidad, Vida_Entidad);
+            // Guerreros hacen dano estandar
+            return PuntosDeAtaque_Entidad;
         }
     }
 }

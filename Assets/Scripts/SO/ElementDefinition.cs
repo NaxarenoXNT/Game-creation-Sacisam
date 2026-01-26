@@ -1,5 +1,5 @@
 using UnityEngine;
-using Flasgs;
+using Flags;
 
 
 [CreateAssetMenu(fileName = "Nuevo Elemento", menuName = "Combate/Element Definition")]

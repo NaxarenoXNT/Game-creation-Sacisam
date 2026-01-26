@@ -1,5 +1,5 @@
 using System;
-using Flasgs;
+using Flags;
 using Interfaces;
 using UnityEngine;
 
@@ -7,13 +7,40 @@ using UnityEngine;
 
 namespace Padres
 {
+    /// <summary>
+    /// Datos de escalado por nivel para jugadores.
+    /// Permite configurar el crecimiento de stats por clase.
+    /// </summary>
+    [System.Serializable]
+    public class EscaladoJugador
+    {
+        public int vidaPorNivel = 50;
+        public int ataquePorNivel = 5;
+        public float defensaPorNivel = 2f;
+        public int manaPorNivel = 10;
+        public int velocidadPorNivel = 1;
+        
+        public EscaladoJugador() { }
+        
+        public EscaladoJugador(int vida, int ataque, float defensa, int mana, int velocidad)
+        {
+            vidaPorNivel = vida;
+            ataquePorNivel = ataque;
+            defensaPorNivel = defensa;
+            manaPorNivel = mana;
+            velocidadPorNivel = velocidad;
+        }
+    }
+
     public abstract class Jugador : Entidad, IJugadorProgresion
     {
         public int Mana_jugador { get; protected set; }
         public int ManaActual_jugador { get; protected set; }
 
-
         public EntityStats entityStats;
+        
+        // Datos de escalado configurables
+        protected EscaladoJugador escalado;
 
         private ElementAttribute _atributos;
         private TipoEntidades _tipoDeJugador;
@@ -28,7 +55,7 @@ namespace Padres
         public override ElementAttribute AtributosEntidad => _atributos;
 
 
-        public Jugador(string nombre, int vida, int ataque, float defensa, int nivel, int mana, int velocidad, ElementAttribute atributos, TipoEntidades tipoDeJugador, CombatStyle estiloDeCombate)
+        public Jugador(string nombre, int vida, int ataque, float defensa, int nivel, int mana, int velocidad, ElementAttribute atributos, TipoEntidades tipoDeJugador, CombatStyle estiloDeCombate, EscaladoJugador escaladoStats = null)
         {
             Nombre_Entidad = nombre;
             Velocidad = velocidad;
@@ -37,7 +64,7 @@ namespace Padres
             PuntosDeAtaque_Entidad = ataque;
             PuntosDeDefensa_Entidad = defensa;
             Nivel_Entidad = nivel;
-            Experiencia_Progreso = 0;
+            Experiencia_Progreso = EscaladoExperiencia(nivel + 1);
             Experiencia_Actual = 0;
             EsDerrotado = false;
             EstaMuerto = false;
@@ -48,6 +75,9 @@ namespace Padres
             _atributos = atributos;
             _tipoDeJugador = tipoDeJugador;
             _estiloDeCombate = estiloDeCombate;
+            
+            // Usar escalado por defecto si no se proporciona
+            escalado = escaladoStats ?? new EscaladoJugador();
         }
 
         // Metodos de vinculacion
@@ -141,7 +171,35 @@ namespace Padres
         public virtual void SubirNivel()
         {
             Nivel_Entidad++;
+            
+            // Aplicar escalado de stats de forma segura
+            AplicarEscaladoNivel();
+            
             OnNivelSubido?.Invoke(Nivel_Entidad);
+        }
+        
+        /// <summary>
+        /// Aplica el escalado de estadísticas al subir de nivel.
+        /// Puede ser sobrescrito para comportamiento personalizado.
+        /// </summary>
+        protected virtual void AplicarEscaladoNivel()
+        {
+            if (escalado == null) return;
+            
+            // Incrementar stats
+            Vida_Entidad += escalado.vidaPorNivel;
+            PuntosDeAtaque_Entidad += escalado.ataquePorNivel;
+            PuntosDeDefensa_Entidad += escalado.defensaPorNivel;
+            Mana_jugador += escalado.manaPorNivel;
+            Velocidad += escalado.velocidadPorNivel;
+            
+            // Curar completamente y restaurar mana al subir de nivel
+            VidaActual_Entidad = Vida_Entidad;
+            ManaActual_jugador = Mana_jugador;
+            
+            // Notificar cambios
+            NotificarVidaCambiada();
+            OnManaCambiado?.Invoke(ManaActual_jugador, Mana_jugador);
         }
     }
 }

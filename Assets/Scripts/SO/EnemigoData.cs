@@ -1,5 +1,5 @@
 using UnityEngine;
-using Flasgs;
+using Flags;
 using Padres;
 
 [CreateAssetMenu(fileName = "Nuevo Enemigo", menuName = "Combate/Enemigo Data")]

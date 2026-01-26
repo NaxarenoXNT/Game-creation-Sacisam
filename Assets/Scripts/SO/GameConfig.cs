@@ -1,6 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
-using Flasgs;
+using Flags;
 
 [CreateAssetMenu(fileName = "GameConfig", menuName = "Combate/Game Config")]
 public class GameConfig : ScriptableObject
@@ -18,19 +18,66 @@ public class GameConfig : ScriptableObject
     
     
     private static GameConfig _instance;
+    private static bool _initialized = false;
+    
+    /// <summary>
+    /// Instancia singleton del GameConfig.
+    /// Se carga automáticamente desde Resources/GameConfig.
+    /// </summary>
     public static GameConfig Instance
     {
         get
         {
-            if (_instance == null)
+            if (_instance == null && !_initialized)
             {
+                _initialized = true;
                 _instance = Resources.Load<GameConfig>("GameConfig");
+                
                 if (_instance == null)
                 {
-                    Debug.LogError("GameConfig no encontrado en Resources. Crea uno en Resources/GameConfig");
+                    Debug.LogError("❌ GameConfig no encontrado en Resources/GameConfig. " +
+                                   "Crea uno usando: Create > Combate > Game Config y muévelo a Assets/Resources/");
+                }
+                else
+                {
+                    Debug.Log("✅ GameConfig cargado correctamente.");
                 }
             }
             return _instance;
+        }
+    }
+    
+    /// <summary>
+    /// Permite inyectar una instancia manualmente (útil para testing).
+    /// </summary>
+    public static void SetInstance(GameConfig config)
+    {
+        _instance = config;
+        _initialized = true;
+    }
+    
+    /// <summary>
+    /// Verifica si el GameConfig está disponible sin forzar la carga.
+    /// </summary>
+    public static bool IsAvailable => _instance != null || Resources.Load<GameConfig>("GameConfig") != null;
+    
+    private void OnEnable()
+    {
+        // Cuando el ScriptableObject se carga en el editor, registrarlo como instancia
+        if (_instance == null)
+        {
+            _instance = this;
+            _initialized = true;
+        }
+    }
+    
+    private void OnDisable()
+    {
+        // Limpiar referencia al descargar (importante para Play Mode)
+        if (_instance == this)
+        {
+            _instance = null;
+            _initialized = false;
         }
     }
     

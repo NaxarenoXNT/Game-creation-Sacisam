@@ -2,11 +2,11 @@ using UnityEngine;
 using System.Collections.Generic;
 using Interfaces;
 using Padres;
-using Flasgs;
+using Flags;
 using Habilidades;
 
 [CreateAssetMenu(fileName = "Nueva Habilidad", menuName = "Combate/Habilidad Data")]
-public class HabilidadData : ScriptableObject, IHabilidadesCommad
+public class HabilidadData : ScriptableObject, IHabilidadesCommand
 {
     [Header("Info General")]
     public string nombreHabilidad;
@@ -27,7 +27,7 @@ public class HabilidadData : ScriptableObject, IHabilidadesCommad
     // [SerializeReference] permite que Unity guarde clases que implementan IAbilityEffect
     [Header("Efectos (Lógica Pura)")]
     [SerializeReference] 
-    public List<IAbilidadEffect> efectos = new List<IAbilidadEffect>();
+    public List<IHabilidadEffect> efectos = new List<IHabilidadEffect>();
 
     // === Implementación de IHabilidadCommand ===
     

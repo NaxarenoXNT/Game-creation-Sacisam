@@ -5,29 +5,35 @@ using System.Linq;
 
 namespace Subclases
 {
+    /// <summary>
+    /// Goblin: Enemigo débil pero rápido. Ataca objetivos aleatorios.
+    /// </summary>
     public class Goblin : Enemigos
     {
-        private EnemigoData datosClase;
+        // Escalado específico del Goblin (stats bajos)
+        private static readonly EscaladoEnemigo EscaladoGoblin = new EscaladoEnemigo(
+            vida: 50,
+            ataque: 8,
+            defensa: 3f,
+            velocidad: 3
+        );
         
         public Goblin(EnemigoData datos)
-        : base(
-            datos.nombreEnemigo,
-            datos.vidaBase,
-            datos.ataqueBase,
-            datos.defensaBase,
-            1,
-            datos.velocidadBase,
-            (int)datos.xpOtorgada,
-            datos.atributos,
-            datos.tipoEntidad,
-            datos.estiloCombate
+            : base(
+                datos.nombreEnemigo,
+                datos.vidaBase,
+                datos.ataqueBase,
+                datos.defensaBase,
+                datos.nivelBase,  // Usar nivelBase del ScriptableObject
+                datos.velocidadBase,
+                (int)datos.xpOtorgada,
+                datos.atributos,
+                datos.tipoEntidad,
+                datos.estiloCombate,
+                EscaladoGoblin    // Pasar escalado específico
             )
         {
-            datosClase = datos;
         }
-
-
-        
 
         public override IEntidadCombate DecidirObjetivo(List<IEntidadCombate> jugadores)
         {
@@ -39,22 +45,10 @@ namespace Subclases
             return jugadoresVivos[indice];
         }
 
-        public override int CalcularDañoContra(IEntidadCombate objetivo)
+        public override int CalcularDanoContra(IEntidadCombate objetivo)
         {
-            // Goblins hacen menos daño pero atacan rápido
+            // Goblins hacen menos dano pero atacan rapido
             return (int)(PuntosDeAtaque_Entidad * 0.8f);
-        }
-        public override void SubirNivel()
-        {
-            base.SubirNivel();
-            Vida_Entidad += 500;
-            PuntosDeAtaque_Entidad += 20;
-            PuntosDeDefensa_Entidad += 5;
-
-            VidaActual_Entidad = Vida_Entidad;
-
-            //OnNivelSubido?.Invoke(Nivel_Entidad);
-            //OnVidaCambiada?.Invoke(VidaActual_Entidad, Vida_Entidad);
         }
     }
 }
