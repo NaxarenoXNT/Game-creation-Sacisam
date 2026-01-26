@@ -1,18 +1,18 @@
 using Interfaces;
 using Padres;
-using Flasgs;
+using Flags;
 using UnityEngine; 
 using System.Collections.Generic;
 using Habilidades;
 
 [System.Serializable]
-public class DamageEffect : IAbilidadEffect
+public class DamageEffect : IHabilidadEffect
 {
-    [Tooltip("Daño base que la habilidad aplica (antes de stats).")]
+    [Tooltip("Dano base que la habilidad aplica (antes de stats).")]
     public int baseDamage = 10;
     
-    [Tooltip("Tipo de daño (Físico, Fuego, etc.).")]
-    public ElementAttribute tipoDaño = ElementAttribute.Fire;
+    [Tooltip("Tipo de dano (Fisico, Fuego, etc.).")]
+    public ElementAttribute tipoDano = ElementAttribute.Fire;
 
     // Asumimos que necesitas un constructor para crear el efecto en el Inspector
     public DamageEffect() { }
@@ -21,15 +21,15 @@ public class DamageEffect : IAbilidadEffect
     {
         if (objetivo == null || !objetivo.EstaVivo()) return;
 
-        // 1. Cálculo de Daño Bruto (aquí se aplica el ATK del invocador)
+        // 1. Calculo de Dano Bruto (aqui se aplica el ATK del invocador)
         // Usamos el ATK actual de la Entidad, que incluye bonos de EntityStats.
-        int dañoBruto = baseDamage + invocador.PuntosDeAtaque_Entidad;
+        int danoBruto = baseDamage + invocador.PuntosDeAtaque_Entidad;
 
-        // 2. Aplicar el daño al objetivo.
-        // La Entidad (el objetivo) es responsable de calcular la mitigación
-        // por defensa, resistencias o inmunidades de facción.
-        objetivo.RecibirDaño(dañoBruto, tipoDaño); 
+        // 2. Aplicar el dano al objetivo.
+        // La Entidad (el objetivo) es responsable de calcular la mitigacion
+        // por defensa, resistencias o inmunidades de faccion.
+        objetivo.RecibirDano(danoBruto, tipoDano); 
         
-        Debug.Log($"   [Efecto Daño]: {objetivo.Nombre_Entidad} recibe {dañoBruto} de {tipoDaño}.");
+        Debug.Log("   [Efecto Dano]: " + objetivo.Nombre_Entidad + " recibe " + danoBruto + " de " + tipoDano + ".");
     }
 }

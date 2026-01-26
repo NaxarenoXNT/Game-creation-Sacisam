@@ -1,12 +1,12 @@
 using Interfaces;
 using Padres;
-using Flasgs;
+using Flags;
 using UnityEngine;
 using Habilidades;
 using System.Collections.Generic;
 
 [System.Serializable]
-public class HealEffect : IAbilidadEffect
+public class HealEffect : IHabilidadEffect
 {
     [Tooltip("Cantidad fija de vida a curar.")]
     public int curacionBase = 25;
