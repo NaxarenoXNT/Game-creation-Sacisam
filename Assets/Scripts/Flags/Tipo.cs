@@ -3,7 +3,7 @@ using System;
 
 
 
-namespace Flasgs
+namespace Flags
 {
     [Flags]
     public enum TipoEntidades
