@@ -1,19 +1,34 @@
+# Directorios generados automáticamente por Unity
 [Ll]ibrary/
 [Tt]emp/
+[Oo]bj/
 [Bb]uild/
 [Bb]uilds/
 [Ll]ogs/
-[Ll]ibrary/
 [Mm]emoryCaptures/
-Obj/
-ProjectSettings/UnityConnectSettings.asset
-UserSettings/
+
+# Archivos de soluciones/proyectos de IDEs
 *.csproj
+*.unityproj
 *.sln
 *.user
+*.userprefs
 *.pidb
 *.booproj
 *.svd
-*.userprefs
+*.pdb
+*.mdb
+
+# Ajustes de Unity que pueden variar entre usuarios o son sensibles
+[Uu]ser[Ss]ettings/
+ProjectSettings/UnityConnectSettings.asset
+ProjectSettings/PresetManager.asset
+ProjectSettings/PackageManagerSettings.asset
+
+# Compilaciones
 *.apk
 *.aab
+*.unitypackage
+
+# Metadatos del Mac OS
+.DS_Store
