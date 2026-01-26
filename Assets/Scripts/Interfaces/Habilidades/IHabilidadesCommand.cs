@@ -5,7 +5,7 @@ using Interfaces;
 
 namespace Habilidades
 {
-    public interface IHabilidadesCommad
+    public interface IHabilidadesCommand
     {
         // === Ejecución y Validación ===
 
