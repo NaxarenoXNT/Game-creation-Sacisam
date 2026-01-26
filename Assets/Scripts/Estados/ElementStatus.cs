@@ -51,10 +51,17 @@ public class ElementStatus
     {
         if (definition == null) return false;
         
+        // Verificar si ya está en el nivel máximo
+        if (level >= definition.maxLevel)
+        {
+            currentXP = 0f; // No acumular XP si ya está al máximo
+            return false;
+        }
+        
         currentXP += amount;
         float xpNeeded = definition.GetXPRequiredForLevel(level + 1);
         
-        if (currentXP >= xpNeeded)
+        if (currentXP >= xpNeeded && level < definition.maxLevel)
         {
             level++;
             currentXP -= xpNeeded;
