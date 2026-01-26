@@ -1,6 +1,6 @@
 using UnityEngine;
 using Padres;
-using Flasgs;
+using Flags;
 using Interfaces;
 using Habilidades;
 using System.Collections.Generic;
@@ -56,7 +56,7 @@ public class EnemyController : MonoBehaviour, IEntidadCombate, IEntidadActuable
         entityStats.VincularEntidad(enemigoLogica);
         
         // 3. Suscribirse a eventos del enemigo
-        enemigoLogica.OnDañoRecibido += ManejarDañoRecibido;
+        enemigoLogica.OnDañoRecibido += ManejarDanoRecibido;
         enemigoLogica.OnMuerte += ManejarMuerte;
         enemigoLogica.OnNivelSubido += ManejarSubidaNivel;
         
@@ -91,16 +91,21 @@ public class EnemyController : MonoBehaviour, IEntidadCombate, IEntidadActuable
         }
     }
     
-    public void AplicarEstado(StatusFlag status, int duracion)
+    // === Sistema de estados ===
+    public void AplicarEstado(StatusFlag status, int duracion, int danoPorTurno = 0, float modificador = 0f)
     {
         if (enemigoLogica == null)
         {
-            Debug.LogWarning("No se puede aplicar estado: enemigo no válido");
+            Debug.LogWarning("No se puede aplicar estado: enemigo no valido");
             return;
         }
         
-        enemigoLogica.AplicarEstado(status, duracion);
+        enemigoLogica.AplicarEstado(status, duracion, danoPorTurno, modificador);
     }
+    
+    public bool TieneEstado(StatusFlag status) => enemigoLogica?.TieneEstado(status) ?? false;
+    
+    public void RemoverEstado(StatusFlag status) => enemigoLogica?.RemoverEstado(status);
 
 
 
@@ -108,9 +113,9 @@ public class EnemyController : MonoBehaviour, IEntidadCombate, IEntidadActuable
     // ============== IMPLEMENTACIÓN DE IENTIDADACTUABLE ===============
     // =================================================================
 
-    public (IHabilidadesCommad comando, Interfaces.IEntidadCombate objetivo) ObtenerAccionElegida(
-        List<Interfaces.IEntidadCombate> aliados, 
-        List<Interfaces.IEntidadCombate> enemigos
+    public (IHabilidadesCommand comando, IEntidadCombate objetivo) ObtenerAccionElegida(
+        List<IEntidadCombate> aliados, 
+        List<IEntidadCombate> enemigos
     )
     {
         // El método DecidirObjetivo en Goblin.cs recibe List<IEntidadCombate>
@@ -156,34 +161,41 @@ public class EnemyController : MonoBehaviour, IEntidadCombate, IEntidadActuable
     
     public bool EsTipoEntidad(TipoEntidades tipo) => enemigoLogica.EsTipoEntidad(tipo);
     public bool UsaEstiloDeCombate(CombatStyle estilo) => enemigoLogica.UsaEstiloDeCombate(estilo);
-    public int CalcularDañoContra(IEntidadCombate objetivo) => enemigoLogica.CalcularDañoContra(objetivo);
-    public void RecibirDaño(int dañoBruto, ElementAttribute tipo)
+    public int CalcularDanoContra(IEntidadCombate objetivo) => enemigoLogica.CalcularDanoContra(objetivo);
+    
+    public void RecibirDano(int danoBruto, ElementAttribute tipo)
     {
         if (enemigoLogica == null)
         {
-            Debug.LogWarning("No se puede recibir daño: enemigo no válido");
+            Debug.LogWarning("No se puede recibir dano: enemigo no valido");
             return;
         }
         
-        enemigoLogica.RecibirDaño(dañoBruto, tipo);
+        enemigoLogica.RecibirDano(danoBruto, tipo);
+    }
+    
+    public int Curar(int cantidad)
+    {
+        if (enemigoLogica == null) return 0;
+        return enemigoLogica.Curar(cantidad);
     }
     
     
     
     // ========== MANEJADORES DE EVENTOS ==========
     
-    private void ManejarDañoRecibido(int cantidad)
+    private void ManejarDanoRecibido(int cantidad)
     {
-        Debug.Log($"💢 {enemigoLogica.Nombre_Entidad} recibió {cantidad} de daño. Vida: {enemigoLogica.VidaActual_Entidad}/{enemigoLogica.Vida_Entidad}");
-        // Aquí irían animaciones, efectos visuales, etc.
+        Debug.Log(enemigoLogica.Nombre_Entidad + " recibio " + cantidad + " de dano. Vida: " + enemigoLogica.VidaActual_Entidad + "/" + enemigoLogica.Vida_Entidad);
+        // Aqui irian animaciones, efectos visuales, etc.
         // Por ahora solo cambiar color temporalmente
         StartCoroutine(FlashDamage());
     }
     
     private void ManejarMuerte()
     {
-        Debug.Log($"☠️ {enemigoLogica.Nombre_Entidad} ha muerto!");
-        // Aquí irían animaciones de muerte, drops, etc.
+        Debug.Log(enemigoLogica.Nombre_Entidad + " ha muerto!");
+        // Aqui irian animaciones de muerte, drops, etc.
         
         StartCoroutine(DestruirDespuesDeMorir());
     }
@@ -230,7 +242,7 @@ public class EnemyController : MonoBehaviour, IEntidadCombate, IEntidadActuable
     {
         if (enemigoLogica != null)
         {
-            enemigoLogica.OnDañoRecibido -= ManejarDañoRecibido;
+            enemigoLogica.OnDañoRecibido -= ManejarDanoRecibido;
             enemigoLogica.OnMuerte -= ManejarMuerte;
             enemigoLogica.OnNivelSubido -= ManejarSubidaNivel;
         }

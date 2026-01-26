@@ -1,26 +1,39 @@
 using UnityEngine;
 using Padres;
-using Flasgs;
+using Flags;
 using Interfaces;
+using Habilidades;
+using System.Collections.Generic;
 
 /// <summary>
-/// Controlador de entidad que conecta la lógica con Unity
+/// Controlador de entidad que conecta la logica con Unity
 /// Funciona tanto para jugadores como para enemigos
 /// </summary>
-public class EntityController : MonoBehaviour, IEntidadCombate, IJugadorProgresion
+public class EntityController : MonoBehaviour, IEntidadCombate, IJugadorProgresion, IEntidadActuable, IGestorHabilidades
 {
-    [Header("Configuración")]
+    [Header("Configuracion")]
     [SerializeField] private ClaseData datosClase;
+    
+    [Header("Habilidades")]
+    [SerializeField] private HabilidadData habilidadPorDefecto;
+    [SerializeField] private List<HabilidadData> habilidadesDisponibles = new List<HabilidadData>();
     
     [Header("Referencias")]
     [SerializeField] private EntityStats entityStats;
     
-    // Instancia de la entidad (lógica pura)
+    // Instancia de la entidad (logica pura)
     private Entidad entidadLogica;
     
-    // Propiedades públicas
+    // Sistema de cooldowns
+    private GestorCooldowns gestorCooldowns = new GestorCooldowns();
+    
+    // Propiedades publicas
     public Entidad EntidadLogica => entidadLogica;
     public EntityStats EntityStats => entityStats;
+    
+    // IGestorHabilidades
+    public GestorCooldowns Cooldowns => gestorCooldowns;
+    public List<HabilidadData> HabilidadesDisponibles => habilidadesDisponibles;
 
     // Aplicar eventos de IProgresion
     public event System.Action<int> OnNivelSubido
@@ -169,26 +182,139 @@ public class EntityController : MonoBehaviour, IEntidadCombate, IJugadorProgresi
     
     public bool EsTipoEntidad(TipoEntidades tipo) => entidadLogica.EsTipoEntidad(tipo);
     public bool UsaEstiloDeCombate(CombatStyle estilo) => entidadLogica.UsaEstiloDeCombate(estilo);
-    public int CalcularDañoContra(IEntidadCombate objetivo) => entidadLogica.CalcularDañoContra(objetivo);
+    public int CalcularDanoContra(IEntidadCombate objetivo) => entidadLogica.CalcularDanoContra(objetivo);
 
-    public void AplicarEstado(StatusFlag status, int duracion)
+    // === Sistema de estados ===
+    public void AplicarEstado(StatusFlag status, int duracion, int danoPorTurno = 0, float modificador = 0f)
     {
-        entidadLogica.AplicarEstado(status, duracion);
-        // Notificar a EntityStats para efectos visuales/UI
-        //entityStats.AgregarEstadoVisual(status, duracion);
+        entidadLogica.AplicarEstado(status, duracion, danoPorTurno, modificador);
     }
     
-    public void RecibirDaño(int dañoBruto, ElementAttribute tipo)
+    public bool TieneEstado(StatusFlag status) => entidadLogica.TieneEstado(status);
+    
+    public void RemoverEstado(StatusFlag status) => entidadLogica.RemoverEstado(status);
+    
+    public void RecibirDano(int danoBruto, ElementAttribute tipo)
     {
         if (entidadLogica == null)
         {
-            Debug.LogWarning("No se puede recibir daño: entidad no válida");
+            Debug.LogWarning("No se puede recibir dano: entidad no valida");
             return;
         }
         
-        entidadLogica.RecibirDaño(dañoBruto, tipo);
+        entidadLogica.RecibirDano(danoBruto, tipo);
+    }
+    
+    public int Curar(int cantidad)
+    {
+        if (entidadLogica == null) return 0;
+        return entidadLogica.Curar(cantidad);
     }
 
+
+    // =================================================================
+    // ============== IMPLEMENTACION DE IGESTORHABILIDADES =============
+    // =================================================================
+    
+    public bool PuedeUsarHabilidad(HabilidadData habilidad)
+    {
+        if (habilidad == null) return false;
+        
+        // Verificar cooldown
+        if (!gestorCooldowns.EstaDisponible(habilidad))
+            return false;
+        
+        // Verificar mana si es jugador
+        if (entidadLogica is Jugador jugador)
+        {
+            return jugador.ManaActual_jugador >= habilidad.costeMana;
+        }
+        
+        return true;
+    }
+    
+    public void IniciarCooldown(HabilidadData habilidad)
+    {
+        gestorCooldowns.IniciarCooldown(habilidad);
+    }
+    
+    public void ProcesarInicioTurno()
+    {
+        gestorCooldowns.ProcesarInicioTurno();
+    }
+
+
+    // =================================================================
+    // ============== IMPLEMENTACION DE IENTIDADACTUABLE ===============
+    // =================================================================
+    
+    /// <summary>
+    /// Obtiene la accion elegida por el jugador. 
+    /// Por ahora usa la habilidad por defecto y ataca al primer enemigo vivo.
+    /// TODO: Integrar con sistema de UI para seleccion manual.
+    /// </summary>
+    public (IHabilidadesCommand comando, IEntidadCombate objetivo) ObtenerAccionElegida(
+        List<IEntidadCombate> aliados, 
+        List<IEntidadCombate> enemigos
+    )
+    {
+        // Obtener la habilidad a usar (por defecto o la primera disponible que no este en cooldown)
+        HabilidadData habilidad = null;
+        
+        if (habilidadPorDefecto != null && PuedeUsarHabilidad(habilidadPorDefecto))
+        {
+            habilidad = habilidadPorDefecto;
+        }
+        else
+        {
+            // Buscar primera habilidad disponible
+            foreach (var hab in habilidadesDisponibles)
+            {
+                if (PuedeUsarHabilidad(hab))
+                {
+                    habilidad = hab;
+                    break;
+                }
+            }
+        }
+        
+        if (habilidad == null)
+        {
+            Debug.LogWarning(gameObject.name + ": No tiene habilidad disponible (todas en cooldown o sin mana).");
+            return (null, null);
+        }
+        
+        // Determinar el objetivo segun el tipo de habilidad
+        IEntidadCombate objetivo = null;
+        
+        switch (habilidad.tipoObjetivo)
+        {
+            case TargetType.EnemigoUnico:
+            case TargetType.EnemigoTodos:
+                // Seleccionar el primer enemigo vivo (TODO: UI para seleccion)
+                objetivo = enemigos.Find(e => e.EstaVivo());
+                break;
+                
+            case TargetType.AliadoUnico:
+            case TargetType.AliadoTodos:
+                // Seleccionar el primer aliado vivo
+                objetivo = aliados.Find(a => a.EstaVivo());
+                break;
+                
+            case TargetType.Self:
+                objetivo = this;
+                break;
+        }
+        
+        // Verificar viabilidad
+        if (objetivo == null || !habilidad.EsViable(this, objetivo, aliados, enemigos))
+        {
+            Debug.Log($"⏭️ {Nombre_Entidad}: Habilidad no viable o sin objetivo válido.");
+            return (null, null);
+        }
+        
+        return (habilidad, objetivo);
+    }
 
 
     // =================================================================

@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
-using Flasgs;
+using Flags;
 using Padres;
 using Interfaces;
 
