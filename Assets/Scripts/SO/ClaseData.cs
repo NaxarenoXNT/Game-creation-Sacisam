@@ -36,8 +36,8 @@ using Flags;
           return nombreClase switch
           {
               "Guerrero" => new Guerrero(this),
-              //"Mago" => new Mago(this),
-              //"Arquero" => new Arquero(this),
+              "Mago" => new Mago(this),
+              "Arquero" => new Arquero(this),
               _ => throw new System.Exception($"Clase {nombreClase} no implementada")
           };
       }
