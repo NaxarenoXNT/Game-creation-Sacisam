@@ -178,10 +178,7 @@ namespace Padres
             OnNivelSubido?.Invoke(Nivel_Entidad);
         }
         
-        /// <summary>
-        /// Aplica el escalado de estadísticas al subir de nivel.
-        /// Puede ser sobrescrito para comportamiento personalizado.
-        /// </summary>
+        
         protected virtual void AplicarEscaladoNivel()
         {
             if (escalado == null) return;
@@ -199,6 +196,20 @@ namespace Padres
             
             // Notificar cambios
             NotificarVidaCambiada();
+            OnManaCambiado?.Invoke(ManaActual_jugador, Mana_jugador);
+        }
+
+                internal void AjustarMana(int delta)
+        {
+            Mana_jugador = Math.Max(0, Mana_jugador + delta);
+            ManaActual_jugador = Math.Min(Mana_jugador, Math.Max(0, ManaActual_jugador + delta));
+            OnManaCambiado?.Invoke(ManaActual_jugador, Mana_jugador);
+        }
+
+        internal void AjustarManaPercent(float multiplicador)
+        {
+            Mana_jugador = Math.Max(0, (int)(Mana_jugador * multiplicador));
+            ManaActual_jugador = Math.Min(ManaActual_jugador, Mana_jugador);
             OnManaCambiado?.Invoke(ManaActual_jugador, Mana_jugador);
         }
     }
