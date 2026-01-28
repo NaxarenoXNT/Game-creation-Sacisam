@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8c810ac8d8eafbe4c8f4eacdef23ab03, type: 3}
+  m_Name: Paladin
+  m_EditorClassIdentifier: 
+  id: Paladin
+  nombreMostrar: 
+  descripcion: 
+  icono: {fileID: 0}
+  claseOrigen: {fileID: 0}
+  claseDestino: {fileID: 0}
+  tier: 1
+  rareza: 0
+  pesoOferta: 1
+  visible: 1
+  hintOculto: Aquellos que castigan el mal y purifican las tierras, tienen derecho
+    de hablar con Mistah
+  traitsRequeridos: []
+  nivelMin: 15
+  exclusiones: []
+  efectos: []
