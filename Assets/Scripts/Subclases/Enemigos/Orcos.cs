@@ -33,6 +33,8 @@ namespace Subclases
                 EscaladoOrco      // Pasar escalado específico
             )
         {
+            // Inicializar habilidades y pasivas desde EnemigoData
+            InicializarDesdeEnemigoData(datos);
         }
 
         public override IEntidadCombate DecidirObjetivo(List<IEntidadCombate> jugadores)

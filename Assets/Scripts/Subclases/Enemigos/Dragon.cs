@@ -2,12 +2,13 @@ using Padres;
 using System.Collections.Generic;
 using System.Linq;
 using Interfaces;
+using Combate;
 
 namespace Subclases
 {
     /// <summary>
     /// Dragon: Enemigo poderoso con alto escalado. Prioriza objetivos con más vida.
-    /// Tiene 30% de probabilidad de crítico (x2 daño).
+    /// Tiene 30% de probabilidad de crítico (x2 daño) usando el sistema de CombatStats.
     /// </summary>
     public class Dragon : Enemigos
     {
@@ -18,9 +19,6 @@ namespace Subclases
             defensa: 15f,
             velocidad: 2
         );
-        
-        private const float PROBABILIDAD_CRITICO = 0.3f;
-        private const int MULTIPLICADOR_CRITICO = 2;
         
         public Dragon(EnemigoData datos) 
             : base(
@@ -37,6 +35,13 @@ namespace Subclases
                 EscaladoDragon    // Pasar escalado específico
             )
         {
+            // Inicializar habilidades y pasivas desde EnemigoData
+            InicializarDesdeEnemigoData(datos);
+            
+            // Configurar stats de combate especiales del Dragon
+            CombatStats.critChance = 0.30f;      // 30% crítico
+            CombatStats.critMultiplier = 2.0f;    // x2 daño crítico
+            CombatStats.elementoAtaque = datos.atributos;
         }
         
         public override IEntidadCombate DecidirObjetivo(List<IEntidadCombate> jugadores)
@@ -48,17 +53,7 @@ namespace Subclases
             return jugadoresVivos.OrderByDescending(j => j.VidaActual_Entidad).First();
         }
         
-        public override int CalcularDanoContra(IEntidadCombate objetivo)
-        {
-            int danoBase = PuntosDeAtaque_Entidad;
-            
-            if (UnityEngine.Random.value < PROBABILIDAD_CRITICO)
-            {
-                UnityEngine.Debug.Log(Nombre_Entidad + " hace un ataque critico!");
-                return danoBase * MULTIPLICADOR_CRITICO;
-            }
-            
-            return danoBase;
-        }
+        // Usa el CalcularDanoContra de la clase base (Entidad) que ahora usa el sistema completo
+        // El crítico se maneja automáticamente via CombatStats
     }
 }

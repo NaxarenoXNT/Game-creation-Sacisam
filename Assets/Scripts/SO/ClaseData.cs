@@ -2,7 +2,7 @@ using UnityEngine;
 using Padres;
 using Subclases;
 using Flags;
-
+using System.Collections.Generic;
 
 
 [CreateAssetMenu(fileName = "Nueva Clase", menuName = "Combate/Clase Jugador")]
@@ -11,6 +11,8 @@ using Flags;
       [Header("Info General")]
       public string nombreClase;
       public Sprite iconoClase;
+      [TextArea(2, 3)]
+      public string descripcionClase;
       
       [Header("Stats Base")]
       public int vidaBase = 100;
@@ -28,8 +30,19 @@ using Flags;
       public AnimatorOverrideController animatorOverride;
       public GameObject prefabProyectil;
       
-      //[Header("Habilidades")]
-      //public HabilidadData[] habilidadesIniciales;
+      [Header("Habilidades Iniciales")]
+      [Tooltip("Habilidades activas con las que empieza la clase")]
+      public List<HabilidadData> habilidadesIniciales = new List<HabilidadData>();
+      
+      [Tooltip("Habilidades pasivas con las que empieza la clase")]
+      public List<PasivaData> pasivasIniciales = new List<PasivaData>();
+      
+      [Header("Límites")]
+      [Tooltip("Máximo de habilidades activas equipadas (0 = sin límite)")]
+      public int limiteHabilidadesActivas = 8;
+      
+      [Tooltip("Máximo de habilidades pasivas equipadas (0 = sin límite)")]
+      public int limitePasivas = 4;
       
       public Jugador CrearInstancia()
       {

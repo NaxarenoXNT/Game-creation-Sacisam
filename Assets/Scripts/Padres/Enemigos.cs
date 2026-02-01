@@ -3,6 +3,8 @@ using Interfaces;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using Habilidades;
+using Combate;
 
 
 namespace Padres
@@ -36,6 +38,12 @@ namespace Padres
         
         // Datos de escalado configurables
         protected EscaladoEnemigo escalado;
+        
+        // Sistema de habilidades activas
+        public GestorHabilidades GestorHabilidades { get; protected set; }
+        
+        // Habilidad por defecto (ataque básico)
+        public HabilidadData HabilidadPorDefecto { get; protected set; }
 
         private ElementAttribute _atributos;
         private TipoEntidades _tipoDeEnemigo;
@@ -67,6 +75,40 @@ namespace Padres
 
             EsDerrotado = false;
             EstaMuerto = false;
+            
+            // Inicializar gestores
+            InicializarGestorPasivas();
+            GestorHabilidades = new GestorHabilidades(this);
+            
+            // Inicializar stats de combate con valores base para enemigos
+            CombatStats = new CombatStats
+            {
+                critChance = 0.05f,  // 5% base para enemigos
+                critMultiplier = 1.5f,
+                elementoAtaque = atributos
+            };
+        }
+
+        /// <summary>
+        /// Inicializa las habilidades desde EnemigoData.
+        /// Llamar después de la construcción en las clases derivadas.
+        /// </summary>
+        public void InicializarDesdeEnemigoData(EnemigoData datos)
+        {
+            if (datos == null) return;
+            
+            // Configurar habilidades
+            GestorHabilidades = new GestorHabilidades(this, datos.habilidades);
+            HabilidadPorDefecto = datos.habilidadPorDefecto;
+            
+            // Agregar pasivas
+            if (datos.pasivas != null)
+            {
+                foreach (var pasiva in datos.pasivas)
+                {
+                    GestorPasivas?.AgregarPasiva(pasiva);
+                }
+            }
         }
 
         /// <summary>

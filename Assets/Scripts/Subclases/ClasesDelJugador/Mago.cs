@@ -30,6 +30,8 @@ namespace Subclases
                 EscaladoMago  // Pasar escalado específico
             )
         {
+            // Inicializar habilidades y pasivas desde ClaseData
+            InicializarDesdeClaseData(datos);
         }
 
         public override int CalcularDanoContra(IEntidadCombate objetivo)

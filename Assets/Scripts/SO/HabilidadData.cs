@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using System.Linq;
 using Interfaces;
 using Padres;
 using Flags;
@@ -11,12 +12,23 @@ public class HabilidadData : ScriptableObject, IHabilidadesCommand
     [Header("Info General")]
     public string nombreHabilidad;
     public Sprite icono;
+    [TextArea(2, 4)]
     public string descripcion;
 
-    [Header("Restricciones y Costos")]
-    public float costeMana = 0;
-    public float cooldownTurnos = 0;
+    [Header("Categoría")]
+    [Tooltip("Tipo funcional de la habilidad (para IA y UI)")]
+    public CategoriaHabilidad categoria = CategoriaHabilidad.Ataque;
+
+    [Header("Costos de Recursos")]
+    [Tooltip("Lista de recursos que consume la habilidad. Dejar vacío para habilidades sin costo.")]
+    public List<CostoRecurso> costosRecursos = new List<CostoRecurso>();
+
+    [Header("Cooldown")]
+    [Tooltip("Turnos de espera después de usar la habilidad")]
+    [Min(0)]
+    public int cooldownTurnos = 0;
     
+    [Header("Restricciones")]
     [Tooltip("Tipos de entidad que NO pueden usar esta habilidad.")]
     public List<TipoEntidades> faccionesProhibidas = new List<TipoEntidades>();
 
@@ -39,8 +51,8 @@ public class HabilidadData : ScriptableObject, IHabilidadesCommand
             return false;
         }
 
-        // Verificar costo de Maná (asumiendo que IEntidadCombate tiene una forma de acceder al maná).
-        if (invocador is IJugadorProgresion jugador && jugador.ManaActual_jugador < costeMana)
+        // Verificar costos de recursos (nuevo sistema flexible)
+        if (!VerificarCostosRecursos(invocador))
         {
             return false;
         }
@@ -51,6 +63,85 @@ public class HabilidadData : ScriptableObject, IHabilidadesCommand
         
         // en caso de complejizar la habilidad, aquí se pueden añadir más verificaciones.
         return true;
+    }
+
+    /// <summary>
+    /// Verifica si el invocador tiene todos los recursos necesarios para usar la habilidad.
+    /// </summary>
+    public bool VerificarCostosRecursos(IEntidadCombate invocador)
+    {
+        // Si no hay costos, siempre es viable
+        if (costosRecursos == null || costosRecursos.Count == 0)
+            return true;
+
+        // Si el invocador no implementa IRecursoProvider, usar fallback a maná clásico
+        if (invocador is IRecursoProvider provider)
+        {
+            foreach (var costo in costosRecursos)
+            {
+                if (!costo.EsSignificativo()) continue;
+                
+                float costoReal = costo.CalcularCostoReal(provider.ObtenerRecursoMaximo(costo.tipo));
+                if (!provider.TieneRecursoSuficiente(costo.tipo, costoReal))
+                {
+                    Debug.Log($"❌ {nombreHabilidad}: Falta {costo.tipo} (necesita {costoReal})");
+                    return false;
+                }
+            }
+        }
+        else if (invocador is IJugadorProgresion jugador)
+        {
+            // Fallback: solo verificar maná para compatibilidad con sistema antiguo
+            var costoMana = costosRecursos.FirstOrDefault(c => c.tipo == TipoRecurso.Mana);
+            if (costoMana != null && costoMana.EsSignificativo())
+            {
+                if (jugador.ManaActual_jugador < costoMana.cantidad)
+                    return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Consume los recursos necesarios para usar la habilidad.
+    /// Llamar después de verificar que EsViable() retorna true.
+    /// </summary>
+    public void ConsumirRecursos(IEntidadCombate invocador)
+    {
+        if (costosRecursos == null || costosRecursos.Count == 0)
+            return;
+
+        if (invocador is IRecursoProvider provider)
+        {
+            foreach (var costo in costosRecursos)
+            {
+                if (!costo.EsSignificativo()) continue;
+                
+                float costoReal = costo.CalcularCostoReal(provider.ObtenerRecursoMaximo(costo.tipo));
+                provider.ConsumirRecurso(costo.tipo, costoReal);
+                Debug.Log($"💰 Consumido: {costoReal} {costo.tipo}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Verifica si la habilidad tiene algún costo de recurso.
+    /// </summary>
+    public bool TieneCosto()
+    {
+        return costosRecursos != null && costosRecursos.Any(c => c.EsSignificativo());
+    }
+
+    /// <summary>
+    /// Obtiene una descripción legible de los costos.
+    /// </summary>
+    public string ObtenerDescripcionCostos()
+    {
+        if (!TieneCosto()) return "Sin costo";
+        
+        var costosSignificativos = costosRecursos.Where(c => c.EsSignificativo());
+        return string.Join(" + ", costosSignificativos.Select(c => c.ToString()));
     }
 
     public void Ejecutar(IEntidadCombate invocadorRaw, IEntidadCombate objetivoRaw, List<IEntidadCombate> aliados, List<IEntidadCombate> enemigos)

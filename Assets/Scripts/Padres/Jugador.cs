@@ -2,7 +2,8 @@ using System;
 using Flags;
 using Interfaces;
 using UnityEngine;
-
+using Habilidades;
+using Combate;
 
 
 namespace Padres
@@ -41,6 +42,9 @@ namespace Padres
         
         // Datos de escalado configurables
         protected EscaladoJugador escalado;
+        
+        // Sistema de habilidades activas
+        public GestorHabilidades GestorHabilidades { get; protected set; }
 
         private ElementAttribute _atributos;
         private TipoEntidades _tipoDeJugador;
@@ -78,6 +82,39 @@ namespace Padres
             
             // Usar escalado por defecto si no se proporciona
             escalado = escaladoStats ?? new EscaladoJugador();
+            
+            // Inicializar gestores
+            InicializarGestorPasivas();
+            GestorHabilidades = new GestorHabilidades(this);
+            
+            // Inicializar stats de combate con valores base
+            CombatStats = new CombatStats
+            {
+                critChance = CombatConfig.Instance?.baseCritChance ?? 0.05f,
+                critMultiplier = CombatConfig.Instance?.baseCritMultiplier ?? 1.5f,
+                elementoAtaque = atributos
+            };
+        }
+
+        /// <summary>
+        /// Inicializa las habilidades desde ClaseData.
+        /// Llamar después de la construcción en las clases derivadas.
+        /// </summary>
+        public void InicializarDesdeClaseData(ClaseData datos)
+        {
+            if (datos == null) return;
+            
+            // Configurar límites
+            GestorHabilidades = new GestorHabilidades(this, datos.habilidadesIniciales, datos.limiteHabilidadesActivas);
+            
+            // Agregar pasivas iniciales
+            if (datos.pasivasIniciales != null)
+            {
+                foreach (var pasiva in datos.pasivasIniciales)
+                {
+                    GestorPasivas?.AgregarPasiva(pasiva);
+                }
+            }
         }
 
         // Metodos de vinculacion

@@ -2,7 +2,8 @@ using System;
 using Interfaces;
 using Flags;
 using UnityEngine;
-
+using Habilidades;
+using Combate;
 
 
 
@@ -18,6 +19,12 @@ namespace Padres
         
         // Sistema de estados activos
         public GestorEstados GestorEstados { get; protected set; } = new GestorEstados();
+        
+        // Sistema de pasivas
+        public GestorPasivas GestorPasivas { get; protected set; }
+        
+        // Estadísticas de combate (crítico, elemental, resistencias)
+        public CombatStats CombatStats { get; protected set; } = new CombatStats();
 
         public float PuntosDeDefensa_Entidad { get; protected set; }
         public float Experiencia_Progreso { get; protected set; }
@@ -44,6 +51,59 @@ namespace Padres
         protected void NotificarDañoRecibido(int cantidad) => OnDañoRecibido?.Invoke(cantidad);
         protected void NotificarMuerte() => OnMuerte?.Invoke();
 
+        /// <summary>
+        /// Inicializa el gestor de pasivas. Llamar desde el constructor de clases derivadas.
+        /// </summary>
+        protected void InicializarGestorPasivas()
+        {
+            GestorPasivas = new GestorPasivas(this);
+        }
+
+        #region Modificadores de Stats (para pasivas y buffs)
+        
+        /// <summary>
+        /// Modifica la vida máxima. Usado por pasivas y buffs.
+        /// </summary>
+        public void ModificarVidaMaxima(int cantidad)
+        {
+            Vida_Entidad += cantidad;
+            if (Vida_Entidad < 1) Vida_Entidad = 1;
+            
+            // Ajustar vida actual si excede el máximo
+            if (VidaActual_Entidad > Vida_Entidad)
+                VidaActual_Entidad = Vida_Entidad;
+                
+            OnVidaCambiada?.Invoke(VidaActual_Entidad, Vida_Entidad);
+        }
+
+        /// <summary>
+        /// Modifica el ataque. Usado por pasivas y buffs.
+        /// </summary>
+        public void ModificarAtaque(int cantidad)
+        {
+            PuntosDeAtaque_Entidad += cantidad;
+            if (PuntosDeAtaque_Entidad < 0) PuntosDeAtaque_Entidad = 0;
+        }
+
+        /// <summary>
+        /// Modifica la defensa. Usado por pasivas y buffs.
+        /// </summary>
+        public void ModificarDefensa(float cantidad)
+        {
+            PuntosDeDefensa_Entidad += cantidad;
+            if (PuntosDeDefensa_Entidad < 0) PuntosDeDefensa_Entidad = 0;
+        }
+
+        /// <summary>
+        /// Modifica la velocidad. Usado por pasivas y buffs.
+        /// </summary>
+        public void ModificarVelocidad(int cantidad)
+        {
+            Velocidad += cantidad;
+            if (Velocidad < 1) Velocidad = 1;
+        }
+
+        #endregion
     
         /// <summary>
         /// Verifica si la entidad puede actuar este turno.
@@ -62,14 +122,24 @@ namespace Padres
 
         public virtual void RecibirDano(int danoBruto, ElementAttribute tipo)
         {
-            // 1. Logica de Mitigacion por Facciones (Sobrescribir en NoMuerto.cs, Elemental.cs)
+            // 1. Mitigación por Facciones (Sobrescribir en NoMuerto.cs, Elemental.cs)
             int danoDespuesFaccion = AplicarMitigacionPorFaccion(danoBruto, tipo);
 
-            // 2. Logica de Mitigacion por Defensa (formula logaritmica)
-            float multiplicadorDefensa = 1f - (PuntosDeDefensa_Entidad / (PuntosDeDefensa_Entidad + 100f));
+            // 2. Mitigación por Defensa (fórmula logarítmica nueva)
+            // DEF_MULT = 1 / (1 + ln(1 + DEF) / K)
+            float k = CombatConfig.Instance?.defenseConstantK ?? 5f;
+            float multiplicadorDefensa = DamageCalculator.CalculateDefenseMultiplier(PuntosDeDefensa_Entidad, k);
             int danoMitigado = Mathf.Max(1, (int)(danoDespuesFaccion * multiplicadorDefensa));
+            
+            // 3. Mitigación por Resistencia Elemental
+            if (tipo != ElementAttribute.None && CombatStats?.resistencias != null)
+            {
+                float resistencia = CombatStats.resistencias.GetResistance(tipo);
+                float elemMult = Mathf.Clamp(1f - resistencia, 0.1f, 1.5f);
+                danoMitigado = Mathf.Max(1, (int)(danoMitigado * elemMult));
+            }
 
-            // 3. Aplicar dano y actualizar vida
+            // 4. Aplicar daño y actualizar vida
             VidaActual_Entidad -= danoMitigado;
 
             if (VidaActual_Entidad < 0)
@@ -85,14 +155,90 @@ namespace Padres
                 Morir();
             }
         }
+
+        /// <summary>
+        /// Recibe daño ignorando la defensa del objetivo.
+        /// Útil para habilidades de daño verdadero o efectos de estado.
+        /// </summary>
+        public virtual void RecibirDanoPuro(int danoBruto, ElementAttribute tipo)
+        {
+            // Solo aplica mitigación por facción, NO por defensa
+            int danoDespuesFaccion = AplicarMitigacionPorFaccion(danoBruto, tipo);
+            
+            VidaActual_Entidad -= danoDespuesFaccion;
+
+            if (VidaActual_Entidad < 0)
+            {
+                VidaActual_Entidad = 0;
+            }
+
+            OnDañoRecibido?.Invoke(danoDespuesFaccion);
+            OnVidaCambiada?.Invoke(VidaActual_Entidad, Vida_Entidad);
+
+            if (!EstaVivo())
+            {
+                Morir();
+            }
+        }
+
         protected virtual int AplicarMitigacionPorFaccion(int danoBruto, ElementAttribute tipo)
         {
             // Logica base: no hay modificacion (se usa el dano bruto)
             return danoBruto;
         }
+        
+        /// <summary>
+        /// Calcula el daño contra un objetivo usando la fórmula completa.
+        /// BASE_OFFENSE = (ATK + ELEM_ATK) * RACE_ATK
+        /// OFFENSE = BASE_OFFENSE * (isCrit ? CRIT_MULT : 1)
+        /// DEF_MULT = 1 / (1 + ln(1 + DEF * RACE_DEF) / K)
+        /// PHYSICAL_DAMAGE = OFFENSE * DEF_MULT
+        /// ELEMENTAL_DAMAGE = ELEM_ATK * clamp(1 - RES_e, 0.1, 1.5)
+        /// FINAL_DAMAGE = PHYSICAL_DAMAGE + ELEMENTAL_DAMAGE
+        /// </summary>
         public virtual int CalcularDanoContra(IEntidadCombate objetivo)
         {
-            return PuntosDeAtaque_Entidad;
+            return CalcularDanoContraConResultado(objetivo).finalDamage;
+        }
+        
+        /// <summary>
+        /// Calcula el daño con resultado detallado (incluye si fue crítico, daño elemental, etc).
+        /// </summary>
+        public virtual DamageResult CalcularDanoContraConResultado(IEntidadCombate objetivo)
+        {
+            var config = CombatConfig.Instance;
+            
+            // Preparar datos del atacante
+            var attackerData = new AttackerData
+            {
+                attack = PuntosDeAtaque_Entidad,
+                elementalAttack = CombatStats?.elementalAttack ?? 0,
+                attackElement = CombatStats?.elementoAtaque ?? AtributosEntidad,
+                critChance = CombatStats?.critChance ?? config?.baseCritChance ?? 0.05f,
+                critMultiplier = CombatStats?.critMultiplier ?? config?.baseCritMultiplier ?? 1.5f,
+                critAppliesToElemental = CombatStats?.critAppliesToElemental ?? false,
+                entityType = TipoEntidad
+            };
+            
+            // Preparar datos del defensor
+            CombatStats defenderStats = null;
+            if (objetivo is Entidad entidadObjetivo)
+            {
+                defenderStats = entidadObjetivo.CombatStats;
+            }
+            
+            var defenderData = new DefenderData
+            {
+                defense = objetivo.PuntosDeDefensa_Entidad,
+                resistances = defenderStats?.resistencias,
+                entityType = objetivo.TipoEntidad
+            };
+            
+            // Calcular daño usando el sistema central
+            float k = config?.defenseConstantK ?? 5f;
+            var raceModifiers = config?.raceModifiers;
+            
+            return DamageCalculator.CalculateDamage(attackerData, defenderData, raceModifiers, k);
         }
         public virtual int Curar(int cantidad)
         {

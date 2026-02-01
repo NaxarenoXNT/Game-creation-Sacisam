@@ -1,6 +1,7 @@
 using UnityEngine;
 using Flags;
 using Padres;
+using System.Collections.Generic;
 
 [CreateAssetMenu(fileName = "Nuevo Enemigo", menuName = "Combate/Enemigo Data")]
 public class EnemigoData : ScriptableObject
@@ -26,7 +27,16 @@ public class EnemigoData : ScriptableObject
 
     [Header("Visual")]
     public AnimatorOverrideController animatorOverride;
-    public HabilidadData HabilidadPorDefecto;
+    
+    [Header("Habilidades")]
+    [Tooltip("Habilidades que puede usar este enemigo")]
+    public List<HabilidadData> habilidades = new List<HabilidadData>();
+    
+    [Tooltip("Habilidades pasivas del enemigo")]
+    public List<PasivaData> pasivas = new List<PasivaData>();
+    
+    [Tooltip("Habilidad por defecto si no puede usar ninguna otra")]
+    public HabilidadData habilidadPorDefecto;
     
     // Método factory - acá decidís qué clase instanciar
     public Enemigos CrearInstancia()
