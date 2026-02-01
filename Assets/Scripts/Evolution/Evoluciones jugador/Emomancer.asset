@@ -1,0 +1,52 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8c810ac8d8eafbe4c8f4eacdef23ab03, type: 3}
+  m_Name: Emomancer
+  m_EditorClassIdentifier: 
+  id: Emomancer
+  nombreMostrar: Emomancer
+  descripcion: Te convertiste en un ser despreciable que ve a todos los seres vivos
+    como su fuente de poder
+  icono: {fileID: 0}
+  claseOrigen: {fileID: 11400000, guid: bce27c7afa929614b8a59c4a162f88ff, type: 2}
+  claseDestino: {fileID: 11400000, guid: bce27c7afa929614b8a59c4a162f88ff, type: 2}
+  tier: 1
+  rareza: 2
+  pesoOferta: 1
+  visible: 1
+  hintOculto: 
+  traitsRequeridos: []
+  nivelMin: 20
+  exclusiones: []
+  efectos:
+  - tipo: 0
+    stat: 1
+    valor: 300
+    habilidad: {fileID: 0}
+    habilidadId: 
+    habilidadTags: []
+    cooldownTarget: 2
+    cooldownDelta: 0
+    elemento: 128
+    statusPasivo:
+      statusAplicar: 0
+      duracionTurnos: 0
+      danoPorTurno: 0
+      modificadorStats: 0
+    karmaDelta: -0.2
+    faccionId: 
+    reputacionDelta: 0
+    worldRuleKey: 
+    aiBias: 2
+    lootTableId: 
+    lootPesoExtra: 0
+    tagAgregar: 

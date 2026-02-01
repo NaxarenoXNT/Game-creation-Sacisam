@@ -93,6 +93,29 @@ namespace Evolution
             usosHabilidad[habilidadId]++;
         }
 
+        public void RegistrarHabilidadDesbloqueada(string habilidadId)
+        {
+            if (!string.IsNullOrEmpty(habilidadId))
+                habilidadesDesbloqueadas.Add(habilidadId);
+        }
+
+        public void RemoverHabilidadDesbloqueada(string habilidadId)
+        {
+            if (!string.IsNullOrEmpty(habilidadId))
+                habilidadesDesbloqueadas.Remove(habilidadId);
+        }
+
+        public bool TieneHabilidad(string habilidadId)
+        {
+            return !string.IsNullOrEmpty(habilidadId) && habilidadesDesbloqueadas.Contains(habilidadId);
+        }
+
+        public int GetUsosHabilidad(string habilidadId)
+        {
+            if (string.IsNullOrEmpty(habilidadId)) return 0;
+            return usosHabilidad.TryGetValue(habilidadId, out int usos) ? usos : 0;
+        }
+
         public void RegistrarMision(string misionId)
         {
             if (!string.IsNullOrEmpty(misionId))

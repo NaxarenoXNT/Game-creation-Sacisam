@@ -1,5 +1,6 @@
 using Flags;
 using Padres;
+using UnityEngine;
 
 namespace Evolution
 {
@@ -19,7 +20,16 @@ namespace Evolution
                     AplicarStatPercent(jugador, efecto);
                     break;
                 case EvolutionEffectType.AddAbility:
-                    // TODO: Añadir habilidad al pool del jugador
+                    AplicarAddAbility(jugador, efecto);
+                    break;
+                case EvolutionEffectType.AddPassive:
+                    AplicarAddPassive(jugador, efecto);
+                    break;
+                case EvolutionEffectType.RemoveAbility:
+                    AplicarRemoveAbility(jugador, efecto);
+                    break;
+                case EvolutionEffectType.RemovePassive:
+                    AplicarRemovePassive(jugador, efecto);
                     break;
                 case EvolutionEffectType.AddElement:
                     // TODO: Combinar atributo elemental del jugador con efecto.elemento
@@ -50,6 +60,87 @@ namespace Evolution
                     break;
             }
         }
+
+        #region Habilidades Activas
+        
+        private void AplicarAddAbility(Jugador jugador, EvolutionEffect e)
+        {
+            if (e.habilidad == null)
+            {
+                Debug.LogWarning("[EvolutionApplier] AddAbility: No hay habilidad configurada");
+                return;
+            }
+
+            if (jugador.GestorHabilidades == null)
+            {
+                Debug.LogError("[EvolutionApplier] El jugador no tiene GestorHabilidades inicializado");
+                return;
+            }
+
+            bool exito = jugador.GestorHabilidades.AgregarHabilidad(e.habilidad);
+            if (exito)
+            {
+                Debug.Log($"[Evolution] {jugador.Nombre_Entidad} aprendió: {e.habilidad.nombreHabilidad}");
+            }
+        }
+
+        private void AplicarRemoveAbility(Jugador jugador, EvolutionEffect e)
+        {
+            if (jugador.GestorHabilidades == null) return;
+
+            // Intentar por referencia directa primero
+            if (e.habilidad != null)
+            {
+                jugador.GestorHabilidades.RemoverHabilidad(e.habilidad);
+                Debug.Log($"[Evolution] {jugador.Nombre_Entidad} olvidó: {e.habilidad.nombreHabilidad}");
+            }
+            // O por ID/nombre
+            else if (!string.IsNullOrEmpty(e.habilidadId))
+            {
+                jugador.GestorHabilidades.RemoverHabilidad(e.habilidadId);
+                Debug.Log($"[Evolution] {jugador.Nombre_Entidad} olvidó: {e.habilidadId}");
+            }
+        }
+
+        #endregion
+
+        #region Habilidades Pasivas
+
+        private void AplicarAddPassive(Jugador jugador, EvolutionEffect e)
+        {
+            if (e.pasiva == null)
+            {
+                Debug.LogWarning("[EvolutionApplier] AddPassive: No hay pasiva configurada");
+                return;
+            }
+
+            if (jugador.GestorPasivas == null)
+            {
+                Debug.LogError("[EvolutionApplier] El jugador no tiene GestorPasivas inicializado");
+                return;
+            }
+
+            bool exito = jugador.GestorPasivas.AgregarPasiva(e.pasiva);
+            if (exito)
+            {
+                Debug.Log($"[Evolution] {jugador.Nombre_Entidad} obtuvo pasiva: {e.pasiva.nombrePasiva}");
+            }
+        }
+
+        private void AplicarRemovePassive(Jugador jugador, EvolutionEffect e)
+        {
+            if (jugador.GestorPasivas == null) return;
+
+            if (e.pasiva != null)
+            {
+                jugador.GestorPasivas.RemoverPasiva(e.pasiva);
+                Debug.Log($"[Evolution] {jugador.Nombre_Entidad} perdió pasiva: {e.pasiva.nombrePasiva}");
+            }
+        }
+
+        #endregion
+
+        #region Stats
 
         private void AplicarStatFlat(Jugador jugador, EvolutionEffect e)
         {
@@ -104,5 +195,7 @@ namespace Evolution
                     break;
             }
         }
+
+        #endregion
     }
 }

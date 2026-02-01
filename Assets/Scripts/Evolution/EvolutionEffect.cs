@@ -9,7 +9,10 @@ namespace Evolution
     {
         AddStatFlat,
         AddStatPercent,
-        AddAbility,
+        AddAbility,         // Agrega habilidad activa
+        AddPassive,         // Agrega habilidad pasiva
+        RemoveAbility,      // Remueve habilidad activa
+        RemovePassive,      // Remueve habilidad pasiva
         ModifyCooldowns,
         AddElement,
         AddStatusPassive,
@@ -57,10 +60,15 @@ namespace Evolution
         public TargetStat stat;
         public float valor;
 
-        [Header("Habilidades")]
+        [Header("Habilidades Activas")]
+        [Tooltip("Habilidad activa a agregar/remover")]
         public HabilidadData habilidad;
         public string habilidadId;
         public string[] habilidadTags;
+        
+        [Header("Habilidades Pasivas")]
+        [Tooltip("Habilidad pasiva a agregar/remover")]
+        public PasivaData pasiva;
 
         [Header("Cooldowns")]
         public CooldownTarget cooldownTarget;

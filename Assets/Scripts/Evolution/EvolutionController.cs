@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using Managers;
 
 namespace Evolution
 {
@@ -72,34 +73,103 @@ namespace Evolution
 
         private void SuscribirEventos()
         {
-            // TODO: Conectar con tu EventBus existente
-            // Ejemplo:
-            // EventBus.OnEnemigoDerrotado += HandleEnemigoDerrotado;
-            // EventBus.OnMisionCompletada += HandleMisionCompletada;
-            // EventBus.OnHabilidadUsada += HandleHabilidadUsada;
-            // EventBus.OnKarmaModificado += HandleKarmaModificado;
-            // EventBus.OnReputacionModificada += HandleReputacionModificada;
-            // EventBus.OnBiomaEntrado += HandleBiomaEntrado;
-            // EventBus.OnNivelSubido += HandleNivelSubido;
-            // EventBus.OnEstadoAplicado += HandleEstadoAplicado;
-            // EventBus.OnDañoInfligido += HandleDaño;
+            // Suscribirse a eventos del EventBus
+            EventBus.Suscribir<EventoHabilidadUsada>(HandleHabilidadUsadaEvento);
+            EventBus.Suscribir<EventoHabilidadDesbloqueada>(HandleHabilidadDesbloqueada);
+            EventBus.Suscribir<EventoHabilidadRemovida>(HandleHabilidadRemovida);
+            EventBus.Suscribir<EventoPasivaDesbloqueada>(HandlePasivaDesbloqueada);
+            EventBus.Suscribir<EventoPasivaRemovida>(HandlePasivaRemovida);
+            EventBus.Suscribir<EventoMuerte>(HandleMuerte);
+            EventBus.Suscribir<EventoDanoRecibido>(HandleDano);
+            EventBus.Suscribir<EventoCuracion>(HandleCuracion);
+            
+            // TODO: Agregar más suscripciones según necesites
+            // EventBus.Suscribir<EventoMisionCompletada>(HandleMision);
         }
 
         private void DesuscribirEventos()
         {
-            // TODO: Desuscribir de EventBus
+            EventBus.Desuscribir<EventoHabilidadUsada>(HandleHabilidadUsadaEvento);
+            EventBus.Desuscribir<EventoHabilidadDesbloqueada>(HandleHabilidadDesbloqueada);
+            EventBus.Desuscribir<EventoHabilidadRemovida>(HandleHabilidadRemovida);
+            EventBus.Desuscribir<EventoPasivaDesbloqueada>(HandlePasivaDesbloqueada);
+            EventBus.Desuscribir<EventoPasivaRemovida>(HandlePasivaRemovida);
+            EventBus.Desuscribir<EventoMuerte>(HandleMuerte);
+            EventBus.Desuscribir<EventoDanoRecibido>(HandleDano);
+            EventBus.Desuscribir<EventoCuracion>(HandleCuracion);
         }
 
-        // Métodos ejemplo para handlers de eventos:
+        #endregion
+
+        #region Handlers de Eventos del EventBus
+
+        private void HandleHabilidadUsadaEvento(EventoHabilidadUsada evento)
+        {
+            if (evento.Habilidad != null)
+            {
+                state.RegistrarUsoHabilidad(evento.Habilidad.name);
+                if (debugMode) Debug.Log($"[Evolution] Uso registrado: {evento.Habilidad.nombreHabilidad}");
+            }
+        }
+
+        private void HandleHabilidadDesbloqueada(EventoHabilidadDesbloqueada evento)
+        {
+            if (evento.Habilidad != null)
+            {
+                state.RegistrarHabilidadDesbloqueada(evento.Habilidad.name);
+                if (debugMode) Debug.Log($"[Evolution] Habilidad desbloqueada: {evento.Habilidad.nombreHabilidad}");
+            }
+        }
+
+        private void HandleHabilidadRemovida(EventoHabilidadRemovida evento)
+        {
+            if (evento.Habilidad != null)
+            {
+                state.RemoverHabilidadDesbloqueada(evento.Habilidad.name);
+                if (debugMode) Debug.Log($"[Evolution] Habilidad removida: {evento.Habilidad.nombreHabilidad}");
+            }
+        }
+
+        private void HandlePasivaDesbloqueada(EventoPasivaDesbloqueada evento)
+        {
+            // Opcionalmente trackear pasivas también
+            if (debugMode && evento.Pasiva != null)
+                Debug.Log($"[Evolution] Pasiva desbloqueada: {evento.Pasiva.nombrePasiva}");
+        }
+
+        private void HandlePasivaRemovida(EventoPasivaRemovida evento)
+        {
+            if (debugMode && evento.Pasiva != null)
+                Debug.Log($"[Evolution] Pasiva removida: {evento.Pasiva.nombrePasiva}");
+        }
+
+        private void HandleMuerte(EventoMuerte evento)
+        {
+            if (evento.Entidad != null && evento.Asesino != null)
+            {
+                // Si el jugador mató a algo
+                state.RegistrarKill(evento.Entidad.TipoEntidad);
+            }
+        }
+
+        private void HandleDano(EventoDanoRecibido evento)
+        {
+            if (evento.Atacante != null)
+            {
+                state.RegistrarDaño(evento.Cantidad, 0);
+            }
+        }
+
+        private void HandleCuracion(EventoCuracion evento)
+        {
+            state.RegistrarCuracion(evento.Cantidad);
+        }
+
+        // Métodos públicos para llamar manualmente si es necesario
         public void HandleEnemigoDerrotado(Flags.TipoEntidades tipo)
         {
             state.RegistrarKill(tipo);
             if (debugMode) Debug.Log($"[Evolution] Kill registrado: {tipo}");
-        }
-
-        public void HandleHabilidadUsada(string habilidadId)
-        {
-            state.RegistrarUsoHabilidad(habilidadId);
         }
 
         public void HandleMisionCompletada(string misionId)
