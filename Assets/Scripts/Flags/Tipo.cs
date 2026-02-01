@@ -26,6 +26,7 @@ namespace Flags
         Air = 1 << 4,
         Geo = 1 << 5,
         Electric = 1 << 6,
+        BloodSpilet = 1 << 7,
 
     }
     
