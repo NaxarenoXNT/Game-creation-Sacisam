@@ -91,6 +91,114 @@ public class EventoEstadoAplicado
 }
 ```
 
+### Eventos de Detección/Encuentro (Nuevo)
+
+```csharp
+// Candidato (enemigo) detectado en rango
+public struct EventoCandidatoDetectado : IEvento
+{
+    public ICombatCandidate Candidato;
+    public bool EnRangoEngagement;
+}
+
+// Candidato entró en rango de combate
+public struct EventoCandidatoEnRangoCombate : IEvento
+{
+    public ICombatCandidate Candidato;
+}
+
+// Candidato salió del rango de combate
+public struct EventoCandidatoSalioRangoCombate : IEvento
+{
+    public ICombatCandidate Candidato;
+}
+
+// Encuentro de combate iniciado
+public struct EventoEncounterIniciado : IEvento
+{
+    public List<EntityController> Party;
+    public List<EnemyController> Enemigos;
+}
+
+// Enemigos agregados mid-combat
+public struct EventoEnemigosAgregados : IEvento
+{
+    public List<EnemyController> NuevosEnemigos;
+}
+```
+
+### Eventos de Party/Personajes (Nuevo)
+
+```csharp
+// Personaje registrado como propiedad del jugador
+public struct EventoPersonajeRegistrado : IEvento
+{
+    public EntityController Personaje;
+}
+
+// El personaje principal (controlado) cambió
+public struct EventoMainCambiado : IEvento
+{
+    public EntityController MainAnterior;
+    public EntityController NuevoMain;
+}
+
+// Personaje se unió al party activo
+public struct EventoPersonajeUnidoParty : IEvento
+{
+    public EntityController Personaje;
+    public int TamanoPartyActual;
+}
+
+// Personaje salió del party activo
+public struct EventoPersonajeSalioParty : IEvento
+{
+    public EntityController Personaje;
+    public bool FueEstacionado;
+}
+
+// Personaje fue estacionado (hibernando)
+public struct EventoPersonajeEstacionado : IEvento
+{
+    public EntityController Personaje;
+    public Vector3 Ubicacion;
+    public string NombreUbicacion;
+}
+```
+
+### Eventos de Refuerzos (Nuevo)
+
+```csharp
+// Se solicitaron refuerzos durante combate
+public struct EventoRefuerzosSolicitados : IEvento
+{
+    public List<EntityController> RefuerzosDisponibles;
+    public int CantidadSolicitada;
+    public Vector3 PosicionCombate;
+}
+
+// Refuerzo programado para llegar
+public struct EventoRefuerzoProgramado : IEvento
+{
+    public EntityController Personaje;
+    public int TurnoLlegada;
+    public int TurnosRestantes;
+}
+
+// Refuerzo llegó al combate
+public struct EventoRefuerzoLlegado : IEvento
+{
+    public EntityController Personaje;
+    public int TurnoLlegada;
+}
+
+// Refuerzos cancelados (combate terminó antes)
+public struct EventoRefuerzosCancelados : IEvento
+{
+    public List<EntityController> RefuerzosCancelados;
+}
+```
+
 ### Eventos de Progresión
 
 ```csharp

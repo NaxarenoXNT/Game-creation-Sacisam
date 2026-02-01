@@ -87,6 +87,41 @@ IIdentificable  → Nombre_Entidad, Nivel_Entidad, TipoEntidad
 // Interfaces de comportamiento
 IEntidadActuable   → ObtenerAccionElegida()
 IGestorHabilidades → PuedeUsarHabilidad(), IniciarCooldown()
+
+// Interface de detección de combate (nuevo)
+ICombatCandidate   → CanJoinCombat(), OnSelectedForCombat()
+```
+
+## Sistema de Combate y Party
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    SISTEMAS DE COMBATE                          │
+│                                                                 │
+│  ┌─────────────────┐    ┌─────────────────┐                    │
+│  │PlayerInterestZone│───►│CombatEncounter │                    │
+│  │  (Detección)     │    │    Manager     │                    │
+│  └─────────────────┘    └───────┬─────────┘                    │
+│                                 │                               │
+│                      ┌──────────▼──────────┐                   │
+│                      │   CombateManager    │                   │
+│                      │ (Turnos y combate)  │                   │
+│                      └──────────┬──────────┘                   │
+│                                 │                               │
+│                      ┌──────────▼──────────┐                   │
+│                      │    TurnManager      │                   │
+│                      └─────────────────────┘                   │
+│                                                                 │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │              PlayerPartyManager (Singleton)              │   │
+│  │   Main ◄──► ActiveParty ◄──► Stationed/Reinforcements   │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │              ReinforcementSystem                         │   │
+│  │  (Gestiona llegada de aliados durante combate)          │   │
+│  └─────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ## Diagrama de Dependencias
@@ -120,7 +155,9 @@ IGestorHabilidades → PuedeUsarHabilidad(), IniciarCooldown()
          ▼
 ┌─────────────────────────────────────────┐
 │              Managers                    │
-│  (CombateManager, EventBus, SaveSystem)  │
+│  CombateManager, CombatEncounterManager  │
+│  PlayerPartyManager, ReinforcementSystem │
+│  TurnManager, EventBus, SaveSystem       │
 └─────────────────────────────────────────┘
 ```
 
@@ -131,4 +168,5 @@ IGestorHabilidades → PuedeUsarHabilidad(), IniciarCooldown()
 3. **Inversión de Dependencias**: Interfaces para desacoplamiento
 4. **Patrón Command**: HabilidadData implementa IHabilidadesCommand
 5. **Patrón Observer**: Eventos para comunicación reactiva
-6. **Singleton Controlado**: GameConfig con validación
+6. **Singleton Controlado**: GameConfig, PlayerPartyManager con validación
+7. **Detección Dinámica**: ICombatCandidate para combates automáticos
