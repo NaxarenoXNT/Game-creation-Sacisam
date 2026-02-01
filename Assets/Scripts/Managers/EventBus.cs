@@ -7,6 +7,15 @@ namespace Managers
     /// <summary>
     /// Sistema de eventos global para comunicacion desacoplada entre sistemas.
     /// Permite publicar y suscribirse a eventos sin referencias directas.
+    /// 
+    /// Los eventos están organizados en archivos separados (carpeta Events/):
+    /// - IEvento.cs: Interfaz base
+    /// - EventosCombate.cs: Combate, turnos, habilidades
+    /// - EventosEntidad.cs: Daño, curación, muerte, estados
+    /// - EventosProgresion.cs: Niveles, XP
+    /// - EventosUI.cs: Mensajes, actualizaciones de UI
+    /// - EventosEncounter.cs: Detección, encuentros
+    /// - EventosParty.cs: Party, refuerzos
     /// </summary>
     public static class EventBus
     {
@@ -141,116 +150,5 @@ namespace Managers
             }
             return 0;
         }
-    }
-    
-    /// <summary>
-    /// Interfaz base para todos los eventos.
-    /// </summary>
-    public interface IEvento { }
-    
-    // =================================================================
-    // =================== EVENTOS DE COMBATE ==========================
-    // =================================================================
-    
-    public struct EventoCombateIniciado : IEvento
-    {
-        public List<Interfaces.IEntidadCombate> Jugadores;
-        public List<Interfaces.IEntidadCombate> Enemigos;
-    }
-    
-    public struct EventoCombateFinalizado : IEvento
-    {
-        public bool Victoria;
-        public int XPGanada;
-        public int OroGanado;
-    }
-    
-    public struct EventoTurnoIniciado : IEvento
-    {
-        public Interfaces.IEntidadCombate Entidad;
-        public int NumeroTurno;
-    }
-    
-    public struct EventoTurnoFinalizado : IEvento
-    {
-        public Interfaces.IEntidadCombate Entidad;
-    }
-    
-    public struct EventoHabilidadUsada : IEvento
-    {
-        public Interfaces.IEntidadCombate Invocador;
-        public Interfaces.IEntidadCombate Objetivo;
-        public HabilidadData Habilidad;
-    }
-    
-    // =================================================================
-    // =================== EVENTOS DE ENTIDAD ==========================
-    // =================================================================
-    
-    public struct EventoDanoRecibido : IEvento
-    {
-        public Interfaces.IEntidadCombate Entidad;
-        public int Cantidad;
-        public Flags.ElementAttribute TipoDano;
-        public Interfaces.IEntidadCombate Atacante;
-    }
-    
-    public struct EventoCuracion : IEvento
-    {
-        public Interfaces.IEntidadCombate Entidad;
-        public int Cantidad;
-    }
-    
-    public struct EventoMuerte : IEvento
-    {
-        public Interfaces.IEntidadCombate Entidad;
-        public Interfaces.IEntidadCombate Asesino;
-    }
-    
-    public struct EventoEstadoAplicado : IEvento
-    {
-        public Interfaces.IEntidadCombate Entidad;
-        public Flags.StatusFlag Estado;
-        public int Duracion;
-    }
-    
-    public struct EventoEstadoRemovido : IEvento
-    {
-        public Interfaces.IEntidadCombate Entidad;
-        public Flags.StatusFlag Estado;
-    }
-    
-    // =================================================================
-    // =================== EVENTOS DE PROGRESION =======================
-    // =================================================================
-    
-    public struct EventoNivelSubido : IEvento
-    {
-        public Interfaces.IEntidadCombate Entidad;
-        public int NuevoNivel;
-    }
-    
-    public struct EventoXPGanada : IEvento
-    {
-        public Interfaces.IEntidadCombate Entidad;
-        public float Cantidad;
-        public float Total;
-        public float Necesaria;
-    }
-    
-    // =================================================================
-    // =================== EVENTOS DE UI ===============================
-    // =================================================================
-    
-    public struct EventoMostrarMensaje : IEvento
-    {
-        public string Mensaje;
-        public float Duracion;
-        public Color? ColorTexto;
-    }
-    
-    public struct EventoActualizarUI : IEvento
-    {
-        public string PanelId;
     }
 }

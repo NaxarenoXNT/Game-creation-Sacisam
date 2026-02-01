@@ -8,33 +8,71 @@ namespace Managers
 {
     public class CombateManager : MonoBehaviour
     {
-        [Header("Referencias en Escena")]
+        [Header("Modo de Operación")]
+        [Tooltip("Si true, usa las referencias manuales. Si false, espera al EncounterManager.")]
+        [SerializeField] private bool useLegacyMode = false;
+        
+        [Tooltip("Si true, espera input de UI para jugadores. Si false, usa IA para todos.")]
+        [SerializeField] private bool usePlayerUIInput = true;
+        
+        [Header("Referencias Manuales (Legacy Mode)")]
         [Tooltip("EntityController del jugador que debe estar en la escena")]
         [SerializeField] private EntityController jugadorController;
         
         [Tooltip("Lista de EnemyControllers que deben estar en la escena")]
-        [SerializeField] private List<EnemyController> enemigosControllers;
+        [SerializeField] private List<EnemyController> enemigosControllers = new List<EnemyController>();
+        
+        [Header("Estado")]
+        [SerializeField] private bool combateActivo = false;
         
         private TurnManager turnManager;
         private List<IEntidadCombate> todasLasEntidades = new List<IEntidadCombate>();
+        
+        // Referencias para el nuevo sistema
+        private List<EntityController> partyControllers = new List<EntityController>();
+        
+        // Estado de espera de input del jugador
+        private bool esperandoInputJugador = false;
+        private EntityController entidadEsperandoInput;
+        private List<IEntidadCombate> aliadosActuales;
+        private List<IEntidadCombate> enemigosActuales;
+        private int numeroTurno = 0;
+        
+        /// <summary>Si hay un combate en progreso.</summary>
+        public bool CombateActivo => combateActivo;
+        
+        /// <summary>Si está esperando input del jugador.</summary>
+        public bool EsperandoInputJugador => esperandoInputJugador;
 
         
         void Start()
         {
-            IniciarCombate();
+            // Suscribirse a eventos de UI
+            EventBus.Suscribir<EventoObjetivoSeleccionado>(OnObjetivoSeleccionado);
+            
+            // Solo iniciar automáticamente en modo legacy
+            if (useLegacyMode)
+            {
+                IniciarCombate();
+            }
+        }
+        
+        void OnDestroy()
+        {
+            EventBus.Desuscribir<EventoObjetivoSeleccionado>(OnObjetivoSeleccionado);
         }
         
         void IniciarCombate()
         {
             Debug.Log("╔════════════════════════════════════╗");
-            Debug.Log("║     INICIANDO COMBATE              ║");
+            Debug.Log("║     INICIANDO COMBATE (LEGACY)     ║");
             Debug.Log("╚════════════════════════════════════╝");
             
             // ========== VALIDAR JUGADOR ==========
             if (jugadorController == null)
             {
                 // Intentar buscar en escena
-                jugadorController = FindObjectOfType<EntityController>();
+                jugadorController = FindFirstObjectByType<EntityController>();
             }
             
             if (jugadorController == null || jugadorController.EntidadLogica == null)
@@ -47,6 +85,7 @@ namespace Managers
             // ========== AGREGAR JUGADOR ==========
             IEntidadCombate jugador = jugadorController.EntidadLogica;
             todasLasEntidades.Add(jugador);
+            partyControllers.Add(jugadorController);
             
             Debug.Log($"\n⚔️  JUGADOR: {jugador.Nombre_Entidad} [Nv.{jugador.Nivel_Entidad}]");
             Debug.Log($"   HP: {jugador.VidaActual_Entidad}/{jugador.Vida_Entidad} | ATK: {jugador.PuntosDeAtaque_Entidad} | DEF: {jugador.PuntosDeDefensa_Entidad} | VEL: {jugador.Velocidad}");
@@ -69,7 +108,7 @@ namespace Managers
             if (enemigosControllers == null || enemigosControllers.Count == 0)
             {
                 // Intentar buscar en escena
-                enemigosControllers = new List<EnemyController>(FindObjectsOfType<EnemyController>());
+                enemigosControllers = new List<EnemyController>(FindObjectsByType<EnemyController>(FindObjectsSortMode.None));
             }
             
             if (enemigosControllers.Count == 0)
@@ -80,10 +119,160 @@ namespace Managers
             }
             
             // ========== AGREGAR ENEMIGOS ==========
-            Debug.Log($"\n👹 ENEMIGOS ({enemigosControllers.Count}):");
+            AgregarEnemigosInterno(enemigosControllers);
+            
+            // ========== VERIFICAR QUE HAYA ENTIDADES ==========
+            if (todasLasEntidades.Count <= 1)
+            {
+                Debug.LogError("❌ ERROR: No hay suficientes entidades para el combate.");
+                return;
+            }
+            
+            // ========== INICIALIZAR SISTEMA DE TURNOS ==========
+            IniciarSistemaDeTurnos();
+        }
+        
+        /// <summary>
+        /// Inicia un combate con entidades proporcionadas por el EncounterManager.
+        /// </summary>
+        public void IniciarCombateConEntidades(List<EntityController> party, List<EnemyController> enemigos)
+        {
+            if (combateActivo)
+            {
+                Debug.LogWarning("[CombateManager] Ya hay un combate activo!");
+                return;
+            }
+            
+            Debug.Log("╔════════════════════════════════════╗");
+            Debug.Log("║     INICIANDO COMBATE (ENCOUNTER)  ║");
+            Debug.Log("╚════════════════════════════════════╝");
+            
+            // Limpiar estado anterior
+            todasLasEntidades.Clear();
+            partyControllers.Clear();
+            enemigosControllers.Clear();
+            
+            // ========== AGREGAR PARTY ==========
+            Debug.Log($"\n⚔️  PARTY ({party.Count} miembros):");
+            
+            foreach (var member in party)
+            {
+                if (member == null || member.EntidadLogica == null)
+                {
+                    Debug.LogWarning("⚠️ Miembro del party no inicializado, saltando...");
+                    continue;
+                }
+                
+                todasLasEntidades.Add(member.EntidadLogica);
+                partyControllers.Add(member);
+                
+                Debug.Log($"   • {member.Nombre_Entidad} [Nv.{member.Nivel_Entidad}]");
+                Debug.Log($"     HP: {member.VidaActual_Entidad}/{member.Vida_Entidad} | ATK: {member.PuntosDeAtaque_Entidad}");
+            }
+            
+            // ========== AGREGAR ENEMIGOS ==========
+            AgregarEnemigosInterno(enemigos);
+            
+            // ========== VERIFICAR QUE HAYA ENTIDADES ==========
+            if (todasLasEntidades.Count <= 1)
+            {
+                Debug.LogError("❌ ERROR: No hay suficientes entidades para el combate.");
+                return;
+            }
+            
+            // ========== INICIALIZAR SISTEMA DE TURNOS ==========
+            IniciarSistemaDeTurnos();
+        }
+        
+        /// <summary>
+        /// Agrega enemigos al combate actual (para refuerzos).
+        /// </summary>
+        public void AgregarEnemigosAlCombate(List<EnemyController> nuevosEnemigos)
+        {
+            if (!combateActivo)
+            {
+                Debug.LogWarning("[CombateManager] No hay combate activo para agregar enemigos.");
+                return;
+            }
+            
+            Debug.Log($"\n👹 +{nuevosEnemigos.Count} REFUERZOS ENEMIGOS:");
+            
+            foreach (var enemyController in nuevosEnemigos)
+            {
+                if (enemyController == null || enemyController.EnemigoLogica == null)
+                {
+                    Debug.LogWarning($"⚠️ EnemyController no está inicializado, saltando...");
+                    continue;
+                }
+                
+                // Verificar que no esté ya en combate
+                if (enemigosControllers.Contains(enemyController))
+                {
+                    Debug.LogWarning($"⚠️ {enemyController.Nombre_Entidad} ya está en combate.");
+                    continue;
+                }
+                
+                IEntidadCombate enemigo = enemyController.EnemigoLogica;
+                todasLasEntidades.Add(enemigo);
+                enemigosControllers.Add(enemyController);
+                
+                // Agregar al sistema de turnos
+                turnManager?.AgregarEntidad(enemigo);
+                
+                Debug.Log($"   + {enemigo.Nombre_Entidad} [Nv.{enemigo.Nivel_Entidad}]");
+                Debug.Log($"     HP: {enemigo.VidaActual_Entidad}/{enemigo.Vida_Entidad} | ATK: {enemigo.PuntosDeAtaque_Entidad}");
+            }
+        }
+        
+        /// <summary>
+        /// Agrega un aliado (refuerzo) al combate actual.
+        /// </summary>
+        public void AgregarAliadoAlCombate(EntityController aliado)
+        {
+            if (!combateActivo)
+            {
+                Debug.LogWarning("[CombateManager] No hay combate activo para agregar aliados.");
+                return;
+            }
+            
+            if (aliado == null || aliado.EntidadLogica == null)
+            {
+                Debug.LogWarning("[CombateManager] Aliado no válido.");
+                return;
+            }
+            
+            // Verificar que no esté ya en combate
+            if (partyControllers.Contains(aliado))
+            {
+                Debug.LogWarning($"[CombateManager] {aliado.Nombre_Entidad} ya está en combate.");
+                return;
+            }
+            
+            Debug.Log($"\n🛡️ +REFUERZO ALIADO:");
+            
+            IEntidadCombate jugador = aliado.EntidadLogica;
+            todasLasEntidades.Add(jugador);
+            partyControllers.Add(aliado);
+            
+            // Agregar al sistema de turnos
+            turnManager?.AgregarEntidad(jugador);
+            
+            Debug.Log($"   + {jugador.Nombre_Entidad} [Nv.{jugador.Nivel_Entidad}]");
+            Debug.Log($"     HP: {jugador.VidaActual_Entidad}/{jugador.Vida_Entidad} | ATK: {jugador.PuntosDeAtaque_Entidad}");
+            
+            // Publicar evento de refuerzo llegado
+            EventBus.Publicar(new EventoRefuerzoLlegado { Refuerzo = aliado });
+        }
+        
+        /// <summary>
+        /// Agrega enemigos a las listas internas.
+        /// </summary>
+        private void AgregarEnemigosInterno(List<EnemyController> enemigos)
+        {
+            Debug.Log($"\n👹 ENEMIGOS ({enemigos.Count}):");
             
             int enemigoIndex = 1;
-            foreach (var enemyController in enemigosControllers)
+            foreach (var enemyController in enemigos)
             {
                 if (enemyController == null || enemyController.EnemigoLogica == null)
                 {
@@ -94,6 +283,7 @@ namespace Managers
                 
                 IEntidadCombate enemigo = enemyController.EnemigoLogica;
                 todasLasEntidades.Add(enemigo);
+                enemigosControllers.Add(enemyController);
                 
                 Debug.Log($"   {enemigoIndex}. {enemigo.Nombre_Entidad} [Nv.{enemigo.Nivel_Entidad}]");
                 Debug.Log($"      HP: {enemigo.VidaActual_Entidad}/{enemigo.Vida_Entidad} | ATK: {enemigo.PuntosDeAtaque_Entidad} | DEF: {enemigo.PuntosDeDefensa_Entidad} | VEL: {enemigo.Velocidad}");
@@ -106,19 +296,27 @@ namespace Managers
                 
                 enemigoIndex++;
             }
+        }
+        
+        /// <summary>
+        /// Inicializa el sistema de turnos y comienza el combate.
+        /// </summary>
+        private void IniciarSistemaDeTurnos()
+        {
+            combateActivo = true;
             
-            // ========== VERIFICAR QUE HAYA ENTIDADES ==========
-            if (todasLasEntidades.Count <= 1)
-            {
-                Debug.LogError("❌ ERROR: No hay suficientes entidades para el combate.");
-                return;
-            }
-            
-            // ========== INICIALIZAR SISTEMA DE TURNOS ==========
             turnManager = new TurnManager();
             turnManager.InicializarTurnos(todasLasEntidades);
             
             MostrarOrdenTurnos();
+            
+            // Publicar evento de combate iniciado
+            EventBus.Publicar(new EventoCombateIniciado
+            {
+                Jugadores = todasLasEntidades.Where(e => e is IJugadorProgresion).ToList(),
+                Enemigos = todasLasEntidades.Where(e => !(e is IJugadorProgresion)).ToList()
+            });
+            
             ProcesarTurno();
         }
         
@@ -139,10 +337,20 @@ namespace Managers
         {
             if (!VerificarCombateActivo()) return;
             
+            numeroTurno++;
             IEntidadCombate entidadRaw = turnManager.EntidadActual;
+            bool esJugador = entidadRaw is IJugadorProgresion;
             
             Debug.Log($"\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-            Debug.Log($"🎯 TURNO: {entidadRaw.Nombre_Entidad}");
+            Debug.Log($"🎯 TURNO {numeroTurno}: {entidadRaw.Nombre_Entidad}");
+            
+            // Publicar evento de turno iniciado
+            EventBus.Publicar(new EventoTurnoIniciado
+            {
+                Entidad = entidadRaw,
+                NumeroTurno = numeroTurno,
+                EsJugador = esJugador
+            });
             
             // 0. Procesar estados al inicio del turno (veneno, quemado, etc.)
             if (entidadRaw is Padres.Entidad entidad)
@@ -167,25 +375,45 @@ namespace Managers
             }
             
             // 1. Obtener las listas de aliados y enemigos para el targeting
-            List<IEntidadCombate> aliados = todasLasEntidades.Where(e => e.EsTipoEntidad(entidadRaw.TipoEntidad)).ToList();
-            // ENEMIGOS son los que NO son del mismo tipo de entidad
-            List<IEntidadCombate> enemigos = todasLasEntidades.Where(e => !e.EsTipoEntidad(entidadRaw.TipoEntidad)).ToList(); 
+            aliadosActuales = todasLasEntidades.Where(e => e.EsTipoEntidad(entidadRaw.TipoEntidad)).ToList();
+            enemigosActuales = todasLasEntidades.Where(e => !e.EsTipoEntidad(entidadRaw.TipoEntidad)).ToList(); 
 
-            // 2. Pedir la Acción (El paso crucial que integra IEntidadActuable)
-            // Intentamos castear la entidad actual a IEntidadActuable
+            // 2. ¿Es un jugador y queremos usar UI?
+            if (esJugador && usePlayerUIInput)
+            {
+                // Buscar el EntityController correspondiente
+                EntityController controller = ObtenerControllerDeEntidad(entidadRaw);
+                
+                if (controller != null)
+                {
+                    // Esperar input de la UI
+                    esperandoInputJugador = true;
+                    entidadEsperandoInput = controller;
+                    
+                    EventBus.Publicar(new EventoEsperandoAccionJugador
+                    {
+                        Entidad = controller,
+                        Aliados = aliadosActuales,
+                        Enemigos = enemigosActuales
+                    });
+                    
+                    Debug.Log($"⏳ Esperando input del jugador para {entidadRaw.Nombre_Entidad}...");
+                    return; // No continuar, esperar callback
+                }
+            }
+            
+            // 3. Si es enemigo o no hay UI, usar IA
             if (entidadRaw is Interfaces.IEntidadActuable actuable) 
             {
-                // El controlador decide el comando y el objetivo
-                (IHabilidadesCommand comando, IEntidadCombate objetivo) = actuable.ObtenerAccionElegida(aliados, enemigos);
+                (IHabilidadesCommand comando, IEntidadCombate objetivo) = actuable.ObtenerAccionElegida(aliadosActuales, enemigosActuales);
 
                 if (comando != null && objetivo != null)
                 {
-                    // 3. Ejecutar el Comando (El Manager ejecuta lo que le dieron)
-                    EjecutarHabilidad(comando, entidadRaw, objetivo, aliados, enemigos); 
+                    EjecutarHabilidad(comando, entidadRaw, objetivo, aliadosActuales, enemigosActuales); 
                 }
                 else
                 {
-                    Debug.Log($"⏭️ {entidadRaw.Nombre_Entidad} no realizó ninguna acción (no viable o esperando input).");
+                    Debug.Log($"⏭️ {entidadRaw.Nombre_Entidad} no realizó ninguna acción.");
                 }
             }
             else
@@ -194,6 +422,74 @@ namespace Managers
             }
             
             FinalizarTurno();
+        }
+        
+        /// <summary>
+        /// Callback cuando la UI selecciona un objetivo.
+        /// </summary>
+        private void OnObjetivoSeleccionado(EventoObjetivoSeleccionado evento)
+        {
+            if (!esperandoInputJugador) return;
+            if (evento.Atacante != entidadEsperandoInput) return;
+            
+            esperandoInputJugador = false;
+            
+            IEntidadCombate invocador = evento.Atacante.EntidadLogica;
+            
+            // Caso: Ceder turno (objetivo null)
+            if (evento.Objetivo == null && evento.Habilidad == null)
+            {
+                Debug.Log($"⏭️ {invocador.Nombre_Entidad} cede su turno.");
+                FinalizarTurno();
+                return;
+            }
+            
+            // Caso: Defender (objetivo es self, habilidad null)
+            if (evento.Objetivo == invocador && evento.Habilidad == null)
+            {
+                Debug.Log($"🛡️ {invocador.Nombre_Entidad} se defiende.");
+                // TODO: Aplicar buff de defensa temporal
+                FinalizarTurno();
+                return;
+            }
+            
+            // Caso: Usar habilidad
+            if (evento.Habilidad != null && evento.Objetivo != null)
+            {
+                // Iniciar cooldown
+                if (evento.Atacante.Cooldowns != null)
+                {
+                    evento.Atacante.Cooldowns.IniciarCooldown(evento.Habilidad);
+                }
+                
+                // Ejecutar habilidad
+                EjecutarHabilidad(evento.Habilidad, invocador, evento.Objetivo, aliadosActuales, enemigosActuales);
+                
+                // Publicar evento de habilidad usada
+                EventBus.Publicar(new EventoHabilidadUsada
+                {
+                    Invocador = invocador,
+                    Objetivo = evento.Objetivo,
+                    Habilidad = evento.Habilidad
+                });
+            }
+            
+            FinalizarTurno();
+        }
+        
+        /// <summary>
+        /// Obtiene el EntityController de una entidad de combate.
+        /// </summary>
+        private EntityController ObtenerControllerDeEntidad(IEntidadCombate entidad)
+        {
+            foreach (var controller in partyControllers)
+            {
+                if (controller.EntidadLogica == entidad)
+                {
+                    return controller;
+                }
+            }
+            return null;
         }
 
         // Nuevo método para ejecutar el comando y manejar el post-efecto
@@ -219,8 +515,7 @@ namespace Managers
         
        
         
-        
-        
+                
         void ManejarMuerte(IEntidadCombate entidad)
         {
             Debug.Log($"\n☠️  {entidad.Nombre_Entidad} [Nv.{entidad.Nivel_Entidad}] ha sido derrotado!");
@@ -274,6 +569,25 @@ namespace Managers
         {
             if (!VerificarCombateActivo()) return;
             
+            // Publicar evento de turno finalizado
+            if (turnManager?.EntidadActual != null)
+            {
+                EventBus.Publicar(new EventoTurnoFinalizado
+                {
+                    Entidad = turnManager.EntidadActual
+                });
+            }
+            
+            // Reducir cooldowns del jugador actual
+            if (entidadEsperandoInput != null)
+            {
+                entidadEsperandoInput.Cooldowns?.ProcesarInicioTurno();
+            }
+            
+            // Limpiar estado
+            esperandoInputJugador = false;
+            entidadEsperandoInput = null;
+            
             Debug.Log("⏭️  Finalizando turno...\n");
             Invoke(nameof(SiguienteTurno), 1f);
         }
@@ -300,6 +614,8 @@ namespace Managers
                 Debug.Log("║          💀 DERROTA                ║");
                 Debug.Log("║   Todos los jugadores han caído    ║");
                 Debug.Log("╚════════════════════════════════════╝");
+                
+                FinalizarCombate(false);
                 return false;
             }
             
@@ -309,10 +625,37 @@ namespace Managers
                 Debug.Log("║          🏆 VICTORIA               ║");
                 Debug.Log("║  Todos los enemigos derrotados     ║");
                 Debug.Log("╚════════════════════════════════════╝");
+                
+                FinalizarCombate(true);
                 return false;
             }
             
             return true;
+        }
+        
+        /// <summary>
+        /// Finaliza el combate y publica el evento correspondiente.
+        /// </summary>
+        private void FinalizarCombate(bool victoria)
+        {
+            combateActivo = false;
+            
+            // Calcular XP total ganada (aproximado)
+            int xpTotal = 0;
+            // TODO: Calcular XP total de enemigos derrotados
+            
+            // Publicar evento de fin de combate
+            EventBus.Publicar(new EventoCombateFinalizado
+            {
+                Victoria = victoria,
+                XPGanada = xpTotal,
+                OroGanado = 0 // TODO: Implementar sistema de oro
+            });
+            
+            // Limpiar listas
+            todasLasEntidades.Clear();
+            partyControllers.Clear();
+            enemigosControllers.Clear();
         }
         
         // ========== MÉTODOS DE DEBUG ==========
@@ -320,8 +663,8 @@ namespace Managers
         [ContextMenu("Debug: Buscar Entidades en Escena")]
         private void DebugBuscarEntidades()
         {
-            jugadorController = FindObjectOfType<EntityController>();
-            enemigosControllers = new List<EnemyController>(FindObjectsOfType<EnemyController>());
+            jugadorController = FindFirstObjectByType<EntityController>();
+            enemigosControllers = new List<EnemyController>(FindObjectsByType<EnemyController>(FindObjectsSortMode.None));
             
             Debug.Log($"Encontrados: {(jugadorController != null ? "1" : "0")} jugador, {enemigosControllers.Count} enemigos");
         }

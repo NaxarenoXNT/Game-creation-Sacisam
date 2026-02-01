@@ -60,6 +60,22 @@ namespace Managers
             );
         }
         
+        /// <summary>
+        /// Agrega una entidad a la cola de turnos (para refuerzos durante combate).
+        /// </summary>
+        public void AgregarEntidad(IEntidadCombate entidad)
+        {
+            if (entidad == null || !entidad.EstaVivo()) return;
+            
+            // Verificar que no esté ya en la cola
+            if (colaDeTurnos.Contains(entidad)) return;
+            
+            // Agregar al final de la cola
+            colaDeTurnos.Enqueue(entidad);
+            
+            Debug.Log($"[TurnManager] Entidad agregada a la cola: {entidad.Nombre_Entidad}");
+        }
+        
         public bool HayEntidadesVivas()
         {
             return colaDeTurnos.Any(e => e.EstaVivo());
