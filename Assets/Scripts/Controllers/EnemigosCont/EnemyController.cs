@@ -3,19 +3,37 @@ using Padres;
 using Flags;
 using Interfaces;
 using Habilidades;
+using Combate;
 using System.Collections.Generic;
 
 /// <summary>
 /// Controlador de enemigo que conecta la lógica con Unity
 /// Versión simplificada enfocada en enemigos
 /// </summary>
-public class EnemyController : MonoBehaviour, IEntidadCombate, IEntidadActuable
+public class EnemyController : MonoBehaviour, IEntidadCombate, IEntidadActuable, ICombatCandidate
 {
     [Header("Configuración")]
     [SerializeField] private EnemigoData datosEnemigo;
 
     [Header("Referencias")]
     [SerializeField] private EntityStats entityStats;
+    
+    [Header("Combat Candidate Settings")]
+    [Tooltip("Prioridad base para entrar en combate (mayor = más probable)")]
+    [SerializeField] private float baseCombatPriority = 1f;
+    
+    [Tooltip("Si está en modo aggro (persiguiendo al jugador)")]
+    [SerializeField] private bool isAggro = false;
+    
+    [Tooltip("Distancia máxima para iniciar combate (0 = usar reglas globales)")]
+    [SerializeField] private float maxEngagementDistance = 0f;
+    
+    [Tooltip("Requiere aggro para entrar en combate")]
+    [SerializeField] private bool requiresAggroToEngage = false;
+    
+    // Estado de combate
+    private bool isInCombat = false;
+    private string candidateId;
     
     // Instancia de la entidad 
     
@@ -24,9 +42,14 @@ public class EnemyController : MonoBehaviour, IEntidadCombate, IEntidadActuable
     // Propiedades públicas
     public Enemigos EnemigoLogica => enemigoLogica;
     public EntityStats EntityStats => entityStats;
+    public bool IsInCombat => isInCombat;
+    public bool IsAggro => isAggro;
     
     private void Awake()
     {
+        // Generar ID único
+        candidateId = $"{gameObject.name}_{GetInstanceID()}";
+        
         // Obtener o crear EntityStats
         if (entityStats == null)
         {
@@ -122,8 +145,7 @@ public class EnemyController : MonoBehaviour, IEntidadCombate, IEntidadActuable
         Interfaces.IEntidadCombate objetivo = EnemigoLogica.DecidirObjetivo(enemigos); 
         
         // Decisión de Habilidad (Temporal: Usaremos la habilidad por defecto del ScriptableObject)
-        // Necesitas una propiedad 'HabilidadPorDefecto' en tu EnemigoData para que esto funcione.
-        HabilidadData habilidad = datosEnemigo.HabilidadPorDefecto; 
+        HabilidadData habilidad = datosEnemigo.habilidadPorDefecto; 
         
         // Si el enemigo no tiene objetivo o la habilidad no es viable, devuelve null.
         if (objetivo == null || habilidad == null || !habilidad.EsViable(this, objetivo, aliados, enemigos))
@@ -162,6 +184,8 @@ public class EnemyController : MonoBehaviour, IEntidadCombate, IEntidadActuable
     public bool EsTipoEntidad(TipoEntidades tipo) => enemigoLogica.EsTipoEntidad(tipo);
     public bool UsaEstiloDeCombate(CombatStyle estilo) => enemigoLogica.UsaEstiloDeCombate(estilo);
     public int CalcularDanoContra(IEntidadCombate objetivo) => enemigoLogica.CalcularDanoContra(objetivo);
+    public DamageResult CalcularDanoContraConResultado(IEntidadCombate objetivo) => enemigoLogica.CalcularDanoContraConResultado(objetivo);
+    public CombatStats CombatStats => enemigoLogica.CombatStats;
     
     public void RecibirDano(int danoBruto, ElementAttribute tipo)
     {
@@ -249,4 +273,113 @@ public class EnemyController : MonoBehaviour, IEntidadCombate, IEntidadActuable
     }
     
     
+    // =================================================================
+    // ============== IMPLEMENTACIÓN DE ICOMBATCANDIDATE ===============
+    // =================================================================
+    
+    /// <summary>ID único de este candidato.</summary>
+    public string CandidateId => candidateId;
+    
+    /// <summary>Transform para cálculos de distancia.</summary>
+    public Transform CandidateTransform => transform;
+    
+    /// <summary>Prioridad de combate (aggro aumenta prioridad).</summary>
+    public float CombatPriority => isAggro ? baseCombatPriority + 10f : baseCombatPriority;
+    
+    /// <summary>
+    /// Evalúa si este enemigo puede unirse al combate.
+    /// </summary>
+    public bool CanJoinCombat(CombatContext context)
+    {
+        // Ya está en combate
+        if (isInCombat)
+            return false;
+        
+        // No está inicializado
+        if (enemigoLogica == null)
+            return false;
+        
+        // Está muerto
+        if (!EstaVivo())
+            return false;
+        
+        // Requiere aggro pero no lo tiene
+        if (requiresAggroToEngage && !isAggro)
+            return false;
+        
+        // Verificar distancia personalizada
+        if (maxEngagementDistance > 0)
+        {
+            float distance = Vector3.Distance(transform.position, context.PlayerPosition);
+            if (distance > maxEngagementDistance)
+                return false;
+        }
+        
+        // Verificar límite de enemigos
+        // (El EncounterManager ya lo verifica, pero podemos tener lógica adicional)
+        
+        // TODO: Agregar más condiciones específicas del enemigo
+        // - Verificar si está en cooldown de combate
+        // - Verificar estado de misión
+        // - Verificar hora del día / bioma
+        // - Verificar si hay otros enemigos del mismo grupo
+        
+        return true;
+    }
+    
+    /// <summary>
+    /// Llamado cuando el enemigo es seleccionado para combate.
+    /// </summary>
+    public void OnSelectedForCombat()
+    {
+        isInCombat = true;
+        isAggro = true; // Entrar en combate activa aggro
+        
+        Debug.Log($"⚔️ {Nombre_Entidad} entró en combate!");
+        
+        // Aquí podrías:
+        // - Activar animación de alerta
+        // - Cambiar comportamiento de IA
+        // - Reproducir sonido de aggro
+    }
+    
+    /// <summary>
+    /// Llamado cuando el enemigo es removido del combate.
+    /// </summary>
+    public void OnRemovedFromCombat()
+    {
+        isInCombat = false;
+        
+        // Mantener aggro si sigue vivo (para perseguir al jugador)
+        // o resetearlo si murió
+        if (!EstaVivo())
+        {
+            isAggro = false;
+        }
+        
+        Debug.Log($"🏃 {Nombre_Entidad} salió del combate");
+    }
+    
+    // === Métodos de control de Aggro ===
+    
+    /// <summary>
+    /// Activa el modo aggro manualmente.
+    /// </summary>
+    public void SetAggro(bool aggro)
+    {
+        isAggro = aggro;
+        
+        if (aggro)
+        {
+            Debug.Log($"😠 {Nombre_Entidad} está en aggro!");
+        }
+    }
+    
+    /// <summary>
+    /// Establece la prioridad de combate.
+    /// </summary>
+    public void SetCombatPriority(float priority)
+    {
+        baseCombatPriority = priority;
+    }
 }

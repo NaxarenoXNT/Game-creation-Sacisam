@@ -3,6 +3,7 @@ using Padres;
 using Flags;
 using Interfaces;
 using Habilidades;
+using Combate;
 using System.Collections.Generic;
 
 /// <summary>
@@ -13,6 +14,10 @@ public class EntityController : MonoBehaviour, IEntidadCombate, IJugadorProgresi
 {
     [Header("Configuracion")]
     [SerializeField] private ClaseData datosClase;
+    
+    [Header("Ownership")]
+    [Tooltip("Indica si este personaje pertenece al jugador")]
+    [SerializeField] private bool isPlayerOwned = false;
     
     [Header("Habilidades")]
     [SerializeField] private HabilidadData habilidadPorDefecto;
@@ -31,9 +36,25 @@ public class EntityController : MonoBehaviour, IEntidadCombate, IJugadorProgresi
     public Entidad EntidadLogica => entidadLogica;
     public EntityStats EntityStats => entityStats;
     
+    /// <summary>Indica si este personaje pertenece al jugador.</summary>
+    public bool IsPlayerOwned => isPlayerOwned;
+    
+    /// <summary>
+    /// Marca este personaje como propiedad del jugador o no.
+    /// Llamado por PlayerPartyManager al registrar/desregistrar.
+    /// </summary>
+    public void SetPlayerOwned(bool owned)
+    {
+        isPlayerOwned = owned;
+        Debug.Log($"[EntityController] {Nombre_Entidad} → IsPlayerOwned = {owned}");
+    }
+    
     // IGestorHabilidades
     public GestorCooldowns Cooldowns => gestorCooldowns;
     public List<HabilidadData> HabilidadesDisponibles => habilidadesDisponibles;
+    
+    /// <summary>Sprite/icono del personaje (desde ClaseData).</summary>
+    public Sprite SpritePersonaje => datosClase?.iconoClase;
 
     // Aplicar eventos de IProgresion
     public event System.Action<int> OnNivelSubido
@@ -183,6 +204,8 @@ public class EntityController : MonoBehaviour, IEntidadCombate, IJugadorProgresi
     public bool EsTipoEntidad(TipoEntidades tipo) => entidadLogica.EsTipoEntidad(tipo);
     public bool UsaEstiloDeCombate(CombatStyle estilo) => entidadLogica.UsaEstiloDeCombate(estilo);
     public int CalcularDanoContra(IEntidadCombate objetivo) => entidadLogica.CalcularDanoContra(objetivo);
+    public DamageResult CalcularDanoContraConResultado(IEntidadCombate objetivo) => entidadLogica.CalcularDanoContraConResultado(objetivo);
+    public CombatStats CombatStats => entidadLogica.CombatStats;
 
     // === Sistema de estados ===
     public void AplicarEstado(StatusFlag status, int duracion, int danoPorTurno = 0, float modificador = 0f)
@@ -224,13 +247,9 @@ public class EntityController : MonoBehaviour, IEntidadCombate, IJugadorProgresi
         if (!gestorCooldowns.EstaDisponible(habilidad))
             return false;
         
-        // Verificar mana si es jugador
-        if (entidadLogica is Jugador jugador)
-        {
-            return jugador.ManaActual_jugador >= habilidad.costeMana;
-        }
-        
-        return true;
+        // Verificar costos de recursos usando el nuevo sistema
+        // El método internamente verifica si la entidad implementa IRecursoProvider
+        return habilidad.VerificarCostosRecursos(entidadLogica);
     }
     
     public void IniciarCooldown(HabilidadData habilidad)
