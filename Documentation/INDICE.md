@@ -1,10 +1,11 @@
 # Índice de Documentación - Saclisam
 
+> **📚 Índice Especializado:** Para documentación completa del sistema de enemigos, chunks y pooling, ver [INDICE_ENEMIGOS_CHUNKS.md](INDICE_ENEMIGOS_CHUNKS.md)
+
 ## Guías Generales
 | # | Documento | Descripción |
 |---|-----------|-------------|
 | 00 | [GUIA_UNITY](00_GUIA_UNITY.md) | Guía de configuración de Unity |
-| -- | [Guia](Guia.md) | Guía general del proyecto |
 | -- | [TODO](TODO.md) | Estado y tareas pendientes |
 
 ---
@@ -16,8 +17,12 @@
 | 01 | [Arquitectura](01_Arquitectura.md) | Visión general de la arquitectura |
 | 09 | [EventBus](09_EventBus.md) | Sistema de eventos desacoplado |
 | 12 | [Guardado](12_Guardado.md) | Sistema de persistencia |
-| 14 | [ObjectPool](14_ObjectPool.md) | Pool de objetos reutilizables |
+| **14** | [**ObjectPool_Refactor**](14_ObjectPool_Refactor.md) | **Sistema de pooling refactorizado** ⭐ |
 | 15 | [SceneReference](15_SceneReference.md) | Referencias a escenas |
+| **24** | [**ChunkSystem**](24_ChunkSystem.md) | **Sistema de chunks y optimización de mundo** ⭐ |
+| **25** | [**Sistema_Chunks_Enemigos**](25_Sistema_Chunks_Enemigos.md) | **Integración completa: Enemigos + Chunks + Pool** ⭐ |
+
+> 💡 **Para docs 14, 24 y 25:** Ver índice especializado → [INDICE_ENEMIGOS_CHUNKS.md](INDICE_ENEMIGOS_CHUNKS.md)
 
 ---
 
@@ -51,7 +56,8 @@
 | # | Documento | Descripción |
 |---|-----------|-------------|
 | 16 | [Evoluciones_Traits_Chains](16_Evoluciones_Traits_Chains.md) | Sistema de evoluciones |
-| -- | [Evoluciones](Evoluciones.md) | Documentación adicional de evoluciones |
+| 19 | [Evoluciones](19_Evoluciones.md) | Sistema de evoluciones data-driven |
+| 22 | [Misiones](22_Misiones.md) | Sistema de misiones y mundo vivo |
 
 ---
 
@@ -71,31 +77,50 @@
 | [correccionesParaCombateManager](correccionesParaCombateManager.md) | Correcciones del CombateManager |
 
 ---
-
-## Mapa de Sistemas (Nuevo)
+Actualizado)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                         SACLISAM                                │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│  EXPLORACIÓN          COMBATE              PROGRESIÓN           │
-│  ────────────         ───────              ──────────           │
-│  PlayerInterestZone   CombateManager       Evoluciones          │
-│  PlayerPartyManager   TurnManager          XP/Niveles           │
-│        │              CombatEncounter      Habilidades          │
+│  MUNDO                EXPLORACIÓN          COMBATE              │
+│  ─────                ────────────         ───────              │
+│  WorldChunkManager    PlayerInterest      CombateManager       │
+│  DynamicEnemyPool     PlayerParty         TurnManager          │
+│        │                   │               CombatEncounter      │
 │        │                   │                    │               │
 │        └───────────────────┼────────────────────┘               │
 │                            │                                    │
 │                       EventBus                                  │
 │                      (Comunicación)                             │
+│                            │                                    │
+│  ┌─────────────────────────┼────────────────────┐               │
+│  │                    PROGRESIÓN                │               │
+│  │  Evoluciones | XP/Niveles | Habilidades      │               │
+│  └──────────────────────────────────────────────┘               │
+│                      (Comunicación)                             │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
+Sistema de Chunks
+```csharp
+// Registrar chunk con enemigos
+WorldChunkManager.Instance.RegisterChunk(chunkData);
 
----
+// Obtener chunk actual del jugador
+var coords = WorldChunkManager.Instance.WorldToChunkCoords(playerPos);
+var chunk = WorldChunkManager.Instance.GetChunk(coords);
+```
 
-## Quick Reference
+### Pooling de Enemigos
+```csharp
+// Obtener enemigo del pool
+var enemy = DynamicEnemyPoolManager.Instance.ObtenerController(enemigoData);
+
+// Devolver al pool
+DynamicEnemyPoolManager.Instance.DevolverController(enemy, enemigoData);
+```
 
 ### Iniciar Combate Dinámico
 ```csharp
@@ -113,6 +138,12 @@ PlayerPartyManager.Instance.SetMainCharacter(nuevoMain);
 ```csharp
 ReinforcementSystem.Instance.RequestReinforcements(combatPosition);
 ```
+
+### Suscribirse a Eventos
+```csharp
+EventBus.Suscribir<EventoCombateIniciado>(OnCombate);
+EventBus.Suscribir<EventoMainCambiado>(OnMainChanged);
+EventBus.Suscribir<EventoEnemigoDerrotado>(OnEnemyKill
 
 ### Suscribirse a Eventos
 ```csharp

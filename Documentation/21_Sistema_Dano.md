@@ -10,7 +10,7 @@ El sistema de daño utiliza una fórmula centralizada que considera ataque físi
 │                                                                 │
 │  BASE_OFFENSE = (ATK + ELEM_ATK) * RACE_ATK                    │
 │  OFFENSE = BASE_OFFENSE * (isCrit ? CRIT_MULT : 1)             │
-│  DEF_MULT = 1 / (1 + ln(1 + DEF * RACE_DEF) / K)               │
+│  DEF_MULT = 1 / (1 + DEF * RACE_DEF / K)   [Hiperbólica]       │
 │  PHYSICAL_DAMAGE = OFFENSE * DEF_MULT                          │
 │  ELEM_MULT = clamp(1 - RES_e, 0.1, 1.5)                        │
 │  ELEMENTAL_DAMAGE = ELEM_ATK * ELEM_MULT                       │
@@ -42,25 +42,26 @@ El sistema de daño utiliza una fórmula centralizada que considera ataque físi
 | `CRIT_MULT` | `CombatStats.critMultiplier` | Multiplicador de daño crítico |
 | `DEF` | `PuntosDeDefensa_Entidad` | Defensa del objetivo |
 | `RACE_DEF` | `RaceModifiers` | Multiplicador de defensa por raza |
-| `K` | `CombatConfig.defenseConstantK` | Constante de la fórmula (default: 5) |
+| `K` | `CombatConfig.defenseConstantK` | Constante de la fórmula (default: 22) |
 | `RES_e` | `CombatStats.resistencias` | Resistencia elemental del objetivo |
 
 ---
 
 ## Curva de Defensa
 
-La fórmula `DEF_MULT = 1 / (1 + ln(1 + DEF) / K)` con K=5 produce:
+La fórmula hiperbólica `DEF_MULT = 1 / (1 + DEF / K)` con K=22 produce:
 
 | Defensa | % Daño Recibido | % Mitigación |
 |---------|-----------------|--------------|
-| 100 | ~52% | ~48% |
-| 500 | ~42% | ~58% |
-| 1,000 | ~38% | ~62% |
-| 5,000 | ~30% | ~70% |
-| 10,000 | ~27% | ~73% |
-| 50,000 | ~21% | ~79% |
+| 10 | ~69% | ~31% |
+| 22 | ~50% | ~50% |
+| 50 | ~31% | ~69% |
+| 100 | ~18% | ~82% |
+| 200 | ~10% | ~90% |
+| 500 | ~4% | ~96% |
 
-La curva logarítmica asegura que la defensa siempre sea útil pero nunca llegue a 100% de mitigación.
+La curva hiperbólica tiene asíntota natural: la mitigación nunca llega al 100%.
+Con K=22, una defensa igual a K da exactamente 50% de mitigación.
 
 ---
 
@@ -198,8 +199,8 @@ Configuración global del sistema de combate.
 ### Propiedades
 
 ```csharp
-[Header("Fórmula de Defensa")]
-public float defenseConstantK = 5f;
+[Header("Fórmula de Defensa (Hiperbólica)")]
+public float defenseConstantK = 22f;
 
 [Header("Multiplicadores Elementales")]
 public float minElementalMultiplier = 0.1f;  // Daño mínimo
