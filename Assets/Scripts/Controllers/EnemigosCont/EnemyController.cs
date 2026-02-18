@@ -5,15 +5,33 @@ using Interfaces;
 using Habilidades;
 using Combate;
 using System.Collections.Generic;
+using Managers;
+using World.ChunkSystem;
+using IA.Roaming;
 
 /// <summary>
-/// Controlador de enemigo que conecta la lógica con Unity
-/// Versión simplificada enfocada en enemigos
+/// Controlador de enemigo que conecta la lógica con Unity.
+/// Versión simplificada enfocada en enemigos.
+/// Implementa IPooleable para soporte de object pooling.
 /// </summary>
-public class EnemyController : MonoBehaviour, IEntidadCombate, IEntidadActuable, ICombatCandidate
+public class EnemyController : MonoBehaviour, IEntidadCombate, IEntidadActuable, ICombatCandidate, IPooleable
 {
     [Header("Configuración")]
     [SerializeField] private EnemigoData datosEnemigo;
+    
+    // Referencia al EnemigoData original (para re-inicializar desde pool)
+    private EnemigoData datosEnemigoOriginales;
+    
+    // Referencia al spawn config (para tracking de muerte)
+    private string spawnId;
+    private Vector2Int chunkCoords;
+    
+    // Sistema de roaming (IA fuera de combate)
+    private EnemyRoamingFSM roamingFSM;
+    private EnemySpawnConfig spawnConfig;
+    
+    // Modelo visual instanciado dinámicamente
+    private GameObject visualInstance;
 
     [Header("Referencias")]
     [SerializeField] private EntityStats entityStats;
@@ -42,8 +60,10 @@ public class EnemyController : MonoBehaviour, IEntidadCombate, IEntidadActuable,
     // Propiedades públicas
     public Enemigos EnemigoLogica => enemigoLogica;
     public EntityStats EntityStats => entityStats;
+    public EnemigoData DatosEnemigo => datosEnemigoOriginales;
     public bool IsInCombat => isInCombat;
     public bool IsAggro => isAggro;
+    public EnemyRoamingFSM RoamingFSM => roamingFSM;
     
     private void Awake()
     {
@@ -71,6 +91,40 @@ public class EnemyController : MonoBehaviour, IEntidadCombate, IEntidadActuable,
     public void Inicializar(EnemigoData datos)
     {
         datosEnemigo = datos;
+        datosEnemigoOriginales = datos; // Guardar referencia para pooling
+        
+        CrearEntidadLogica(datos);
+    }
+    
+    /// <summary>
+    /// Inicializa el controller con datos del chunk.
+    /// </summary>
+    public void InicializarDesdeChunk(EnemigoData datos, string spawnId, Vector2Int chunkCoords, EnemySpawnConfig config = null)
+    {
+        this.spawnId = spawnId;
+        this.chunkCoords = chunkCoords;
+        this.spawnConfig = config;
+        
+        Inicializar(datos);
+        
+        // Instanciar modelo visual si está configurado
+        InstanciarModeloVisual(datos);
+        
+        // Inicializar FSM de roaming si tenemos configuración
+        if (config != null)
+        {
+            roamingFSM = new EnemyRoamingFSM(this, config, debugLogs: false);
+            Debug.Log($"[EnemyController] FSM inicializado para {datos.nombreEnemigo}");
+        }
+    }
+    
+    private void CrearEntidadLogica(EnemigoData datos)
+    {
+        // Limpiar entidad anterior si existe
+        if (enemigoLogica != null)
+        {
+            DesuscribirEventos();
+        }
         
         // 1. Crear la instancia lógica correcta según el tipo
         enemigoLogica = datos.CrearInstancia();
@@ -79,9 +133,7 @@ public class EnemyController : MonoBehaviour, IEntidadCombate, IEntidadActuable,
         entityStats.VincularEntidad(enemigoLogica);
         
         // 3. Suscribirse a eventos del enemigo
-        enemigoLogica.OnDañoRecibido += ManejarDanoRecibido;
-        enemigoLogica.OnMuerte += ManejarMuerte;
-        enemigoLogica.OnNivelSubido += ManejarSubidaNivel;
+        SuscribirEventos();
         
         // 4. Aplicar elementos iniciales si tiene
         AplicarElementosIniciales();
@@ -111,6 +163,77 @@ public class EnemyController : MonoBehaviour, IEntidadCombate, IEntidadActuable,
                     entityStats.AplicarElemento(flag);
                 }
             }
+        }
+    }
+    
+    /// <summary>
+    /// Instancia el modelo visual del enemigo como hijo del controller.
+    /// </summary>
+    private void InstanciarModeloVisual(EnemigoData datos)
+    {
+        // Limpiar modelo anterior si existe
+        if (visualInstance != null)
+        {
+            Destroy(visualInstance);
+            visualInstance = null;
+        }
+        
+        // Instanciar nuevo modelo si está configurado
+        if (datos.modeloPrefab != null)
+        {
+            visualInstance = Instantiate(datos.modeloPrefab, transform);
+            visualInstance.transform.localPosition = Vector3.zero;
+            visualInstance.transform.localRotation = Quaternion.identity;
+            
+            // Aplicar animator override si existe
+            if (datos.animatorOverride != null)
+            {
+                var animator = visualInstance.GetComponent<Animator>();
+                if (animator != null)
+                {
+                    animator.runtimeAnimatorController = datos.animatorOverride;
+                    Debug.Log($"🎭 Animator aplicado a {datos.nombreEnemigo}");
+                }
+                else
+                {
+                    Debug.LogWarning($"⚠️ AnimatorOverride configurado pero el modelo no tiene Animator: {datos.nombreEnemigo}");
+                }
+            }
+            
+            Debug.Log($"✨ Modelo visual instanciado: {datos.nombreEnemigo} → {datos.modeloPrefab.name}");
+        }
+        else
+        {
+            Debug.LogWarning($"⚠️ EnemigoData '{datos.nombreEnemigo}' no tiene modeloPrefab asignado. El enemigo será invisible.");
+        }
+    }
+    
+    // === Unity Lifecycle ===
+    
+    private void Update()
+    {
+        // Solo actualizar FSM si no está en combate
+        if (!isInCombat && roamingFSM != null)
+        {
+            roamingFSM.Update();
+        }
+    }
+    
+    private void FixedUpdate()
+    {
+        // Solo actualizar física del FSM si no está en combate
+        if (!isInCombat && roamingFSM != null)
+        {
+            roamingFSM.FixedUpdate();
+        }
+    }
+    
+    private void OnDrawGizmos()
+    {
+        // Dibujar gizmos del detector si está activo
+        if (roamingFSM != null && roamingFSM.PlayerDetector != null)
+        {
+            roamingFSM.PlayerDetector.DrawGizmos();
         }
     }
     
@@ -219,9 +342,32 @@ public class EnemyController : MonoBehaviour, IEntidadCombate, IEntidadActuable,
     private void ManejarMuerte()
     {
         Debug.Log(enemigoLogica.Nombre_Entidad + " ha muerto!");
-        // Aqui irian animaciones de muerte, drops, etc.
         
-        StartCoroutine(DestruirDespuesDeMorir());
+        // IMPORTANTE: Copiar datos ANTES de cualquier operación
+        // (el controller puede ser devuelto al pool y reciclado)
+        var evento = new EventoEnemigoDerrotado
+        {
+            IDInstanciaEnemigo = candidateId,
+            TipoEnemigo = enemigoLogica.TipoEntidad,
+            NombreEnemigo = enemigoLogica.Nombre_Entidad,
+            NivelEnemigo = enemigoLogica.Nivel_Entidad,
+            XPOtorgada = (enemigoLogica as Enemigos)?.XPOtorgada ?? 0f,
+            PosicionMuerte = transform.position,
+            Asesino = null, // TODO: Pasar atacante si está disponible
+            Timestamp = Time.time
+        };
+        
+        // Publicar evento con datos copiados
+        EventBus.Publicar(evento);
+        
+        // Notificar al WorldChunkManager que este enemigo murió
+        if (WorldChunkManager.Instance != null && !string.IsNullOrEmpty(spawnId))
+        {
+            WorldChunkManager.Instance.NotificarEnemigoDerrotado(spawnId, chunkCoords, this);
+        }
+        
+        // Animación de muerte y devolverlo al pool lo maneja el WorldChunkManager
+        StartCoroutine(EfectoMuerteYDesactivar());
     }
     
     private void ManejarSubidaNivel(int nuevoNivel)
@@ -244,7 +390,7 @@ public class EnemyController : MonoBehaviour, IEntidadCombate, IEntidadActuable,
         }
     }
     
-    private System.Collections.IEnumerator DestruirDespuesDeMorir()
+    private System.Collections.IEnumerator EfectoMuerteYDesactivar()
     {
         // Efecto visual de muerte
         Renderer renderer = GetComponent<Renderer>();
@@ -253,23 +399,121 @@ public class EnemyController : MonoBehaviour, IEntidadCombate, IEntidadActuable,
             renderer.material.color = Color.black;
         }
         
-        yield return new WaitForSeconds(1f);
+        // Esperar animación de muerte
+        yield return new WaitForSeconds(2f);
         
-        Debug.Log($"🗑️ Destruyendo GameObject: {gameObject.name}");
-        Destroy(gameObject);
+        // El WorldChunkManager se encargará de devolver al pool
+        // Solo desactivamos aquí para evitar double-return
+        gameObject.SetActive(false);
     }
 
 
     // ========== LIMPIEZA ==========
 
+    private void SuscribirEventos()
+    {
+        if (enemigoLogica == null) return;
+        
+        enemigoLogica.OnDañoRecibido += ManejarDanoRecibido;
+        enemigoLogica.OnMuerte += ManejarMuerte;
+        enemigoLogica.OnNivelSubido += ManejarSubidaNivel;
+    }
+    
+    private void DesuscribirEventos()
+    {
+        if (enemigoLogica == null) return;
+        
+        enemigoLogica.OnDañoRecibido -= ManejarDanoRecibido;
+        enemigoLogica.OnMuerte -= ManejarMuerte;
+        enemigoLogica.OnNivelSubido -= ManejarSubidaNivel;
+    }
+    
     private void OnDestroy()
     {
-        if (enemigoLogica != null)
+        DesuscribirEventos();
+    }
+    
+    // =================================================================
+    // ============== IMPLEMENTACIÓN DE IPOOLEABLE ====================
+    // =================================================================
+    
+    /// <summary>
+    /// Llamado cuando el controller sale del pool (se activa).
+    /// Re-crea la entidad lógica para evitar memory leaks.
+    /// </summary>
+    public void OnObtenidoDelPool()
+    {
+        // Re-crear entidad lógica con los datos originales.
+        // Si datosEnemigoOriginales es null, el objeto es nuevo y será inicializado
+        // por InicializarDesdeChunk() inmediatamente después de Obtener().
+        if (datosEnemigoOriginales != null)
         {
-            enemigoLogica.OnDañoRecibido -= ManejarDanoRecibido;
-            enemigoLogica.OnMuerte -= ManejarMuerte;
-            enemigoLogica.OnNivelSubido -= ManejarSubidaNivel;
+            CrearEntidadLogica(datosEnemigoOriginales);
+            
+            Debug.Log($"♻️ EnemyController obtenido del pool: {enemigoLogica.Nombre_Entidad}");
         }
+        // else: objeto recién creado por el pool, InicializarDesdeChunk lo inicializará.
+        
+        // Resetear estado de combate
+        isInCombat = false;
+        isAggro = false;
+        
+        // Resetear FSM si existe
+        if (roamingFSM != null)
+        {
+            roamingFSM.Reset();
+        }
+        
+        // Regenerar ID único
+        candidateId = $"{gameObject.name}_{GetInstanceID()}_{Time.frameCount}";
+        
+        // Resetear animador si existe
+        var animator = GetComponent<Animator>();
+        if (animator != null)
+        {
+            animator.Rebind();
+            animator.Update(0f);
+        }
+    }
+    
+    /// <summary>
+    /// Llamado cuando el controller vuelve al pool (se desactiva).
+    /// Limpia todas las referencias y eventos.
+    /// </summary>
+    public void OnDevueltoAlPool()
+    {
+        Debug.Log($"♻️ EnemyController devuelto al pool: {enemigoLogica?.Nombre_Entidad ?? "Unknown"}");
+        
+        // Destruir modelo visual instanciado
+        if (visualInstance != null)
+        {
+            Destroy(visualInstance);
+            visualInstance = null;
+            Debug.Log("🗑️ Modelo visual destruido");
+        }
+        
+        // Desuscribir eventos (esto ya limpia todas las referencias)
+        DesuscribirEventos();
+        
+        // Limpiar visuales
+        entityStats?.LimpiarVisuales();
+        
+        // Resetear renderer si existe (por si hay render en el controller mismo)
+        var renderer = GetComponent<Renderer>();
+        if (renderer != null)
+        {
+            renderer.material.color = Color.white;
+        }
+        
+        // Resetear estado de combate
+        isInCombat = false;
+        isAggro = false;
+        
+        // Limpiar referencias de chunk
+        spawnId = null;
+        chunkCoords = Vector2Int.zero;
+        spawnConfig = null;
+        roamingFSM = null;
     }
     
     
@@ -335,6 +579,12 @@ public class EnemyController : MonoBehaviour, IEntidadCombate, IEntidadActuable,
         isInCombat = true;
         isAggro = true; // Entrar en combate activa aggro
         
+        // Pausar FSM de roaming
+        if (roamingFSM != null)
+        {
+            roamingFSM.Pause();
+        }
+        
         Debug.Log($"⚔️ {Nombre_Entidad} entró en combate!");
         
         // Aquí podrías:
@@ -349,6 +599,12 @@ public class EnemyController : MonoBehaviour, IEntidadCombate, IEntidadActuable,
     public void OnRemovedFromCombat()
     {
         isInCombat = false;
+        
+        // Reanudar FSM de roaming si está vivo
+        if (EstaVivo() && roamingFSM != null)
+        {
+            roamingFSM.Resume();
+        }
         
         // Mantener aggro si sigue vivo (para perseguir al jugador)
         // o resetearlo si murió

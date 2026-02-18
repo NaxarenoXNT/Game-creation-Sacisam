@@ -41,7 +41,20 @@ public class EntityStats : MonoBehaviour
     
     private void Awake()
     {
+        // Cargar GameConfig (puede ser null en Awake, se reintentará después)
         gameConfig = GameConfig.Instance;
+    }
+    
+    /// <summary>
+    /// Obtiene GameConfig de forma lazy, reintentando si no estaba disponible en Awake.
+    /// </summary>
+    private GameConfig GetGameConfig()
+    {
+        if (gameConfig == null)
+        {
+            gameConfig = GameConfig.Instance;
+        }
+        return gameConfig;
     }
     
     
@@ -86,17 +99,20 @@ public class EntityStats : MonoBehaviour
             return;
         }
         
-        if (gameConfig == null)
+        var config = GetGameConfig();
+        if (config == null)
         {
-            Debug.LogError("GameConfig no está disponible");
+            Debug.LogError("❌ GameConfig no está disponible. " +
+                          "Verifica que GameConfig.asset exista en Assets/Resources/");
             return;
         }
         
         // Obtener la definición del elemento
-        ElementDefinition definition = gameConfig.GetDefinition(elementFlag);
+        ElementDefinition definition = config.GetDefinition(elementFlag);
         if (definition == null)
         {
-            Debug.LogError($"No se encontró definición para {elementFlag}");
+            Debug.LogWarning($"[EntityStats] No se encontró definición para '{elementFlag}' en GameConfig. " +
+                             "Agrega el mapping en Assets/Resources/GameConfig.asset → Element Mappings.");
             return;
         }
         
@@ -131,9 +147,10 @@ public class EntityStats : MonoBehaviour
     
     public void RemoverElemento(ElementAttribute elementFlag)
     {
-        if (gameConfig == null) return;
+        var config = GetGameConfig();
+        if (config == null) return;
         
-        ElementDefinition definition = gameConfig.GetDefinition(elementFlag);
+        ElementDefinition definition = config.GetDefinition(elementFlag);
         if (definition == null) return;
         
         ElementStatus status = activeStatuses.Find(s => s.definition == definition);
@@ -194,9 +211,10 @@ public class EntityStats : MonoBehaviour
     
     public ElementStatus GetElementStatus(ElementAttribute elementFlag)
     {
-        if (gameConfig == null) return null;
+        var config = GetGameConfig();
+        if (config == null) return null;
         
-        ElementDefinition definition = gameConfig.GetDefinition(elementFlag);
+        ElementDefinition definition = config.GetDefinition(elementFlag);
         if (definition == null) return null;
         
         return activeStatuses.Find(s => s.definition == definition);
@@ -235,5 +253,28 @@ public class EntityStats : MonoBehaviour
             // Reutiliza la función existente para agregar XP
             AñadirXPAElemento(status.definition.elementFlag, xpPorElemento); 
         }
+    }
+    
+    /// <summary>
+    /// Limpia visuales y efectos temporales (útil al devolver al pool).
+    /// </summary>
+    public void LimpiarVisuales()
+    {
+        // Resetear colores de materiales
+        var renderer = GetComponent<Renderer>();
+        if (renderer != null)
+        {
+            renderer.material.color = Color.white;
+        }
+        
+        // Detener partículas activas
+        var particleSystems = GetComponentsInChildren<ParticleSystem>();
+        foreach (var ps in particleSystems)
+        {
+            ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        }
+        
+        // Aquí puedes agregar más limpieza de efectos visuales si es necesario
+        // Por ejemplo: desactivar trails, resetear animaciones, etc.
     }
 }
