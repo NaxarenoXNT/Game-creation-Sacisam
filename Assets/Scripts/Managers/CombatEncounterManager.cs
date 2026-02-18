@@ -39,6 +39,7 @@ namespace Managers
         // Referencias
         private CombateManager combateManager;
         private PlayerPartyManager partyManager;
+        private EnemyReinforcementQueue reinforcementQueue;
         
         // Singleton opcional
         private static CombatEncounterManager _instance;
@@ -55,9 +56,14 @@ namespace Managers
         {
             get
             {
-                if (usePlayerPartyManager && partyManager != null)
+                if (usePlayerPartyManager)
                 {
-                    return partyManager.ActiveParty;
+                    // Lazy re-fetch: Start() might have run before PlayerPartyManager was ready
+                    if (partyManager == null)
+                        partyManager = PlayerPartyManager.Instance;
+
+                    if (partyManager != null)
+                        return partyManager.ActiveParty;
                 }
                 return manualPartyMembers;
             }
@@ -86,6 +92,13 @@ namespace Managers
         {
             combateManager = FindFirstObjectByType<CombateManager>();
             partyManager = PlayerPartyManager.Instance;
+            
+            // Obtener o crear el sistema de cola de refuerzos
+            reinforcementQueue = GetComponent<EnemyReinforcementQueue>();
+            if (reinforcementQueue == null)
+            {
+                reinforcementQueue = gameObject.AddComponent<EnemyReinforcementQueue>();
+            }
             
             // Suscribirse a eventos
             EventBus.Suscribir<EventoCombateFinalizado>(OnCombatFinished);
@@ -393,7 +406,39 @@ namespace Managers
                 .Where(p => p != null && p.EstaVivo())
                 .Take(combatRules.maxAlliesPerEncounter > 0 ? combatRules.maxAlliesPerEncounter : int.MaxValue)
                 .ToList();
-            
+
+            // Diagnóstico
+            Debug.Log($"[EncounterManager] Party antes de combate: {validParty.Count} miembros" +
+                      $" | usePlayerPartyManager={usePlayerPartyManager}" +
+                      $" | partyManager={partyManager?.GetType().Name ?? "null"}" +
+                      $" | ActiveParty.Count={partyManager?.ActivePartyCount ?? -1}");
+
+            // Fallback: si el party está vacío, intentar obtener el main character directamente
+            if (validParty.Count == 0)
+            {
+                Debug.LogWarning("[EncounterManager] Party vacío, buscando main character como fallback...");
+
+                // Intentar desde PlayerPartyManager
+                var pm = partyManager ?? PlayerPartyManager.Instance;
+                var main = pm?.MainCharacter;
+                if (main != null && main.EntidadLogica != null && main.EstaVivo())
+                {
+                    validParty.Add(main);
+                    Debug.Log($"[EncounterManager] Fallback: usando MainCharacter '{main.Nombre_Entidad}'");
+                }
+                else
+                {
+                    // Último recurso: buscar cualquier EntityController vivo en la escena
+                    var found = Object.FindFirstObjectByType<EntityController>();
+                    if (found != null && found.EntidadLogica != null && found.EstaVivo())
+                    {
+                        validParty.Add(found);
+                        Debug.LogWarning($"[EncounterManager] Fallback de escena: usando '{found.Nombre_Entidad}'. " +
+                                         "Revisa que PlayerInitializer llame a RegisterCharacter.");
+                    }
+                }
+            }
+
             // Publicar evento de inicio
             EventBus.Publicar(new EventoEncounterIniciado
             {
@@ -481,6 +526,141 @@ namespace Managers
                 XPGanada = 0,
                 OroGanado = 0
             });
+        }
+        
+        #endregion
+        
+        #region API Pública - Sistema de Roaming
+        
+        /// <summary>
+        /// Llamado por un enemigo en estado Chasing para solicitar inicio de combate.
+        /// Busca enemigos cercanos y los agrega al combate o a la cola.
+        /// </summary>
+        public void RequestCombatFromEnemy(EnemyController initiator)
+        {
+            if (initiator == null || !initiator.EstaVivo())
+            {
+                Debug.LogWarning("[EncounterManager] Solicitud de combate de enemigo inválido");
+                return;
+            }
+            
+            // Verificar cooldown
+            if (Time.time - lastEncounterTime < combatRules.encounterCooldown)
+            {
+                Debug.Log($"[EncounterManager] Cooldown activo, combate denegado");
+                return;
+            }
+            
+            Debug.Log($"[EncounterManager] {initiator.Nombre_Entidad} solicita inicio de combate");
+            
+            // Buscar enemigos cercanos (aliados del que inició)
+            var nearbyEnemies = FindNearbyAllies(initiator, combatRules.maxEnemiesPerEncounter > 0 ? combatRules.maxEnemiesPerEncounter : 5);
+            
+            // Asegurarse de que el iniciador esté en la lista
+            if (!nearbyEnemies.Contains(initiator))
+            {
+                nearbyEnemies.Insert(0, initiator);
+            }
+            
+            // Limitar a máximo permitido
+            int maxEnemies = combatRules.maxEnemiesPerEncounter > 0 ? combatRules.maxEnemiesPerEncounter : 5;
+            
+            List<ICombatCandidate> selectedEnemies = nearbyEnemies
+                .Take(maxEnemies)
+                .Cast<ICombatCandidate>()
+                .ToList();
+            
+            // Los que sobran van a la cola
+            var remainingEnemies = nearbyEnemies.Skip(maxEnemies).ToList();
+            if (remainingEnemies.Count > 0)
+            {
+                reinforcementQueue.EnqueueEnemies(remainingEnemies);
+                Debug.Log($"[EncounterManager] {remainingEnemies.Count} enemigos agregados a la cola de espera");
+            }
+            
+            // Iniciar combate con los seleccionados
+            if (selectedEnemies.Count > 0)
+            {
+                StartEncounter(selectedEnemies);
+            }
+        }
+        
+        /// <summary>
+        /// Busca enemigos (aliados) cercanos a un enemigo específico.
+        /// </summary>
+        private List<EnemyController> FindNearbyAllies(EnemyController initiator, int maxCount)
+        {
+            var nearbyAllies = new List<EnemyController>();
+            nearbyAllies.Add(initiator); // El iniciador siempre está incluido
+            
+            if (maxCount <= 1)
+                return nearbyAllies;
+            
+            // Radio de búsqueda de aliados (usar valor por defecto hasta que Unity recompile)
+            // TODO: Cambiar a initiator.DatosEnemigo?.rangoAliados después de reiniciar Unity
+            float searchRadius = 20f; // Goblins default
+            
+            // Buscar todos los colliders en el radio
+            Collider[] colliders = Physics.OverlapSphere(initiator.transform.position, searchRadius, combatRules.enemyLayers);
+            
+            foreach (var collider in colliders)
+            {
+                if (nearbyAllies.Count >= maxCount)
+                    break;
+                
+                var enemyController = collider.GetComponent<EnemyController>();
+                
+                // Filtrar inválidos
+                if (enemyController == null || enemyController == initiator)
+                    continue;
+                
+                if (!enemyController.EstaVivo() || enemyController.IsInCombat)
+                    continue;
+                
+                // Agregar a la lista
+                nearbyAllies.Add(enemyController);
+            }
+            
+            Debug.Log($"[EncounterManager] Encontrados {nearbyAllies.Count - 1} aliados cercanos a {initiator.Nombre_Entidad}");
+            
+            return nearbyAllies;
+        }
+        
+        /// <summary>
+        /// Intenta agregar un enemigo al combate actual (usado por la cola de refuerzos).
+        /// </summary>
+        public bool TryAddEnemyToCombat(EnemyController enemy)
+        {
+            if (enemy == null || !enemy.EstaVivo())
+                return false;
+            
+            if (!combatInProgress)
+            {
+                Debug.LogWarning("[EncounterManager] No hay combate activo para agregar enemigo");
+                return false;
+            }
+            
+            // Verificar límite
+            int maxEnemies = combatRules.maxEnemiesPerEncounter > 0 ? combatRules.maxEnemiesPerEncounter : 5;
+            if (enemiesInCombat.Count >= maxEnemies)
+            {
+                Debug.LogWarning($"[EncounterManager] Límite de enemigos alcanzado ({maxEnemies})");
+                return false;
+            }
+            
+            // Agregar al combate
+            enemy.OnSelectedForCombat();
+            enemiesInCombat.Add(enemy);
+            
+            // Notificar al CombateManager
+            if (combateManager != null)
+            {
+                combateManager.AgregarEnemigosAlCombate(new List<EnemyController> { enemy });
+            }
+            
+            Debug.Log($"[EncounterManager] ✅ {enemy.Nombre_Entidad} agregado al combate como refuerzo");
+            
+            return true;
         }
         
         #endregion
