@@ -125,6 +125,12 @@ public class EntityController : MonoBehaviour, IEntidadCombate, IJugadorProgresi
             }
         }
         
+        // Auto-agregar habilidad por defecto a la lista si no está ya
+        if (habilidadPorDefecto != null && !habilidadesDisponibles.Contains(habilidadPorDefecto))
+        {
+            habilidadesDisponibles.Insert(0, habilidadPorDefecto);
+        }
+
         // Inicializar con datos si están asignados
         if (datosClase != null)
         {
