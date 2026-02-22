@@ -1,45 +1,65 @@
-using UnityEngine;
+﻿using UnityEngine;
 using Managers;
 
 namespace Camera
 {
-    /// <summary>
-    /// Controlador de cámara isométrica que sigue al Main character.
-    /// Se integra con PlayerPartyManager para seguir dinámicamente al personaje principal.
-    /// </summary>
+    
     public class IsometricCameraController : MonoBehaviour
     {
         public static IsometricCameraController Instance { get; private set; }
-        
+
         [Header("Configuración")]
         [SerializeField] private CameraSettings settings;
-        
+
         [Header("Objetivo Manual (Fallback)")]
         [Tooltip("Si no hay PlayerPartyManager, seguir a este transform")]
         [SerializeField] private Transform manualTarget;
-        
+
         [Header("Debug")]
         [SerializeField] private bool showDebugGizmos = false;
-        
-        // Estado actual
+
+        private CameraMode currentMode;
+        private CameraMode requestedMode;
+        private bool inCombat = false;
+
+        private bool isTransitioning = false;
+        private float transitionTimer = 0f;
+        private Vector3 transitionStartPos;
+        private Quaternion transitionStartRot;
+
         private Transform currentTarget;
-        private float currentZoom;
-        private float targetZoom;
-        private float currentYaw;
-        private float targetYaw;
-        private Vector3 currentPosition;
-        
-        // Input
-        private bool isRotating;
-        private float lastMouseX;
-        
-        // Cache
+
+        // Estado isométrico
+        private float isoZoom;
+        private float isoTargetZoom;
+        private float isoYaw;
+        private float isoTargetYaw;
+        private Vector3 isoCurrentPos;
+        private bool isoIsRotating;
+        private float isoLastMouseX;
+
+        // Estado tercera persona
+        private float tpZoom;
+        private float tpTargetZoom;
+        private float tpYaw;
+        private float tpTargetYaw;
+        private Vector3 tpCurrentPos;
+        private float tpLastMouseX;         
+
+        // ── Cache ────────────────────────────────────────────────────────
         private UnityEngine.Camera mainCamera;
-        
-        public Transform CurrentTarget => currentTarget;
-        public float CurrentZoom => currentZoom;
-        public float CurrentYaw => currentYaw;
-        
+
+        // ── Propiedades públicas ─────────────────────────────────────────
+        public CameraMode CurrentMode    => currentMode;
+        public bool        InCombat      => inCombat;
+        public Transform   CurrentTarget => currentTarget;
+        /// <summary>Yaw actual del modo activo (usado por GameInputManager para orientar el movimiento).</summary>
+        public float       CurrentYaw    => currentMode == CameraMode.Isometric ? isoYaw : tpYaw;
+
+        // ══════════════════════════════════════════════════════════════════
+        // Unity Lifecycle
+        // ══════════════════════════════════════════════════════════════════
+
         void Awake()
         {
             if (Instance != null && Instance != this)
@@ -48,305 +68,518 @@ namespace Camera
                 return;
             }
             Instance = this;
-            
+
             mainCamera = GetComponent<UnityEngine.Camera>();
             if (mainCamera == null)
-            {
                 mainCamera = GetComponentInChildren<UnityEngine.Camera>();
-            }
-            
-            // Valores iniciales
-            if (settings != null)
-            {
-                currentZoom = settings.defaultZoomDistance;
-                targetZoom = settings.defaultZoomDistance;
-                currentYaw = settings.initialYawAngle;
-                targetYaw = settings.initialYawAngle;
-            }
-            else
-            {
-                currentZoom = 12f;
-                targetZoom = 12f;
-                currentYaw = 45f;
-                targetYaw = 45f;
-            }
+
+            InitValues();
         }
-        
+
         void Start()
         {
-            // Intentar obtener el Main de PlayerPartyManager
+            EventBus.Suscribir<EventoCombateIniciado>(OnCombateIniciado);
+            EventBus.Suscribir<EventoCombateFinalizado>(OnCombateFinalizado);
+
             if (PlayerPartyManager.Instance != null)
             {
                 currentTarget = PlayerPartyManager.Instance.MainTransform;
                 PlayerPartyManager.Instance.OnMainChanged += OnMainCharacterChanged;
-                
-                Debug.Log($"[IsometricCamera] Siguiendo a: {PlayerPartyManager.Instance.MainCharacter?.Nombre_Entidad ?? "null"}");
+                Debug.Log($"[Camera] Siguiendo a: {PlayerPartyManager.Instance.MainCharacter?.Nombre_Entidad ?? "null"}");
             }
             else if (manualTarget != null)
             {
                 currentTarget = manualTarget;
-                Debug.Log($"[IsometricCamera] Modo manual, siguiendo a: {manualTarget.name}");
+                Debug.Log($"[Camera] Modo manual, objetivo: {manualTarget.name}");
             }
             else
             {
-                Debug.LogWarning("[IsometricCamera] No hay objetivo para seguir!");
+                Debug.LogWarning("[Camera] ⚠ No hay objetivo para seguir.");
             }
-            
-            // Posicionar inmediatamente
+
             if (currentTarget != null)
+                SnapToTarget();
+        }
+
+        void OnDestroy()
+        {
+            EventBus.Desuscribir<EventoCombateIniciado>(OnCombateIniciado);
+            EventBus.Desuscribir<EventoCombateFinalizado>(OnCombateFinalizado);
+
+            if (PlayerPartyManager.Instance != null)
+                PlayerPartyManager.Instance.OnMainChanged -= OnMainCharacterChanged;
+
+            if (Instance == this)
+                Instance = null;
+        }
+
+        void LateUpdate()
+        {
+            if (currentTarget == null || settings == null) return;
+
+            HandleModeToggleInput();
+
+            if (isTransitioning)
             {
+                UpdateTransition();
+                return;
+            }
+
+            switch (currentMode)
+            {
+                case CameraMode.Isometric:
+                    HandleIsoInput();
+                    UpdateIsoZoom();
+                    UpdateIsoRotation();
+                    UpdateIsoPosition();
+                    break;
+
+                case CameraMode.ThirdPerson:
+                    HandleTpInput();
+                    UpdateTpZoom();
+                    UpdateTpRotation();
+                    UpdateTpPosition();
+                    break;
+            }
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        // Inicialización
+        // ══════════════════════════════════════════════════════════════════
+
+        private void InitValues()
+        {
+            if (settings == null)
+            {
+                isoZoom       = isoTargetZoom = 12f;
+                isoYaw        = isoTargetYaw  = 45f;
+                tpZoom        = tpTargetZoom  = 6f;
+                tpYaw         = tpTargetYaw   = 0f;
+                currentMode   = requestedMode = CameraMode.ThirdPerson;
+                return;
+            }
+
+            isoZoom       = isoTargetZoom = settings.defaultZoomDistance;
+            isoYaw        = isoTargetYaw  = settings.initialYawAngle;
+            tpZoom        = tpTargetZoom  = settings.tpDistance;
+            tpYaw         = tpTargetYaw   = 0f;
+            currentMode   = requestedMode = settings.defaultMode;
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        // Eventos de combate
+        // ══════════════════════════════════════════════════════════════════
+
+        private void OnCombateIniciado(EventoCombateIniciado evt)
+        {
+            inCombat = true;
+            Debug.Log("[Camera] ⚔ Combate iniciado → forzando modo Isométrico.");
+            SetMode(CameraMode.Isometric, smooth: true);
+        }
+
+        private void OnCombateFinalizado(EventoCombateFinalizado evt)
+        {
+            inCombat = false;
+            Debug.Log("[Camera] ✔ Combate finalizado → modo libre.");
+            SetMode(settings != null ? settings.defaultMode : CameraMode.ThirdPerson, smooth: true);
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        // Toggle de modo (fuera de combate)
+        // ══════════════════════════════════════════════════════════════════
+
+        private void HandleModeToggleInput()
+        {
+            if (inCombat) return;
+            if (settings == null) return;
+            if (isTransitioning) return;
+
+            if (Input.GetKeyDown(settings.toggleModeKey))
+            {
+                CameraMode next = currentMode == CameraMode.Isometric
+                    ? CameraMode.ThirdPerson
+                    : CameraMode.Isometric;
+                SetMode(next, smooth: true);
+            }
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        // Cambio de modo
+        // ══════════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Solicita un cambio de modo. Si smooth=true hace transición interpolada.
+        /// En combate solo se acepta Isometric.
+        /// </summary>
+        public void SetMode(CameraMode mode, bool smooth = false)
+        {
+            if (inCombat && mode != CameraMode.Isometric)
+            {
+                Debug.LogWarning("[Camera] No se puede cambiar a ThirdPerson durante el combate.");
+                return;
+            }
+
+            if (mode == currentMode && !isTransitioning) return;
+
+            requestedMode = mode;
+
+            if (mode == CameraMode.ThirdPerson && settings != null && settings.tpSnapBehindOnEnter && currentTarget != null)
+            {
+                Vector3 forward = currentTarget.forward;
+                forward.y = 0f;
+                if (forward.sqrMagnitude > 0.001f)
+                {
+                    tpYaw = tpTargetYaw = Mathf.Atan2(forward.x, forward.z) * Mathf.Rad2Deg + 180f;
+                }
+            }
+
+            if (smooth && settings != null && settings.modeTransitionDuration > 0f)
+            {
+                transitionStartPos = transform.position;
+                transitionStartRot = transform.rotation;
+                transitionTimer    = 0f;
+                isTransitioning    = true;
+                currentMode        = mode;
+            }
+            else
+            {
+                currentMode     = mode;
+                isTransitioning = false;
                 SnapToTarget();
             }
         }
-        
-        void OnDestroy()
+
+        // ══════════════════════════════════════════════════════════════════
+        // Transición
+        // ══════════════════════════════════════════════════════════════════
+
+        private void UpdateTransition()
         {
-            if (PlayerPartyManager.Instance != null)
+            float duration = settings != null ? settings.modeTransitionDuration : 0.4f;
+            transitionTimer += Time.deltaTime;
+            float t = Mathf.Clamp01(transitionTimer / duration);
+            t = t * t * (3f - 2f * t); // smoothstep
+
+            Vector3    targetPos;
+            Quaternion targetRot;
+            CalculateDesiredTransform(out targetPos, out targetRot);
+
+            transform.position = Vector3.Lerp(transitionStartPos, targetPos, t);
+            transform.rotation = Quaternion.Slerp(transitionStartRot, targetRot, t);
+
+            if (transitionTimer >= duration)
             {
-                PlayerPartyManager.Instance.OnMainChanged -= OnMainCharacterChanged;
-            }
-            
-            if (Instance == this)
-            {
-                Instance = null;
+                transform.position = targetPos;
+                transform.rotation = targetRot;
+                isTransitioning    = false;
+
+                if (currentMode == CameraMode.Isometric)
+                    isoCurrentPos = targetPos;
+                else
+                    tpCurrentPos = targetPos;
             }
         }
-        
-        void LateUpdate()
+
+        /// <summary>Calcula la posición y rotación ideal para el modo activo sin suavizado.</summary>
+        private void CalculateDesiredTransform(out Vector3 pos, out Quaternion rot)
         {
-            if (currentTarget == null) return;
-            if (settings == null) return;
-            
-            HandleInput();
-            UpdateZoom();
-            UpdateRotation();
-            UpdatePosition();
-        }
-        
-        /// <summary>
-        /// Procesa el input de rotación y zoom.
-        /// </summary>
-        private void HandleInput()
-        {
-            // Zoom con scroll
-            float scrollDelta = Input.GetAxis("Mouse ScrollWheel");
-            if (Mathf.Abs(scrollDelta) > 0.01f)
+            if (currentMode == CameraMode.Isometric)
             {
-                targetZoom -= scrollDelta * settings.zoomSpeed;
-                targetZoom = Mathf.Clamp(targetZoom, settings.minZoomDistance, settings.maxZoomDistance);
+                pos = CalcIsoPosition();
+                rot = CalcIsoRotation();
             }
-            
+            else
+            {
+                pos = CalcTpPosition();
+                rot = CalcTpRotation();
+            }
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        // ── MODO ISOMÉTRICO ───────────────────────────────────────────────
+        // ══════════════════════════════════════════════════════════════════
+
+        private void HandleIsoInput()
+        {
+            float scroll = Input.GetAxis("Mouse ScrollWheel");
+            if (Mathf.Abs(scroll) > 0.01f)
+            {
+                isoTargetZoom -= scroll * settings.zoomSpeed;
+                isoTargetZoom  = Mathf.Clamp(isoTargetZoom, settings.minZoomDistance, settings.maxZoomDistance);
+            }
+
             if (!settings.allowRotation) return;
-            
-            // Rotación con Q/E
-            if (Input.GetKey(KeyCode.Q))
-            {
-                targetYaw -= settings.rotationSpeed * Time.deltaTime;
-            }
-            if (Input.GetKey(KeyCode.E))
-            {
-                targetYaw += settings.rotationSpeed * Time.deltaTime;
-            }
-            
-            // Rotación con mouse (click derecho)
+
+            // Q/E rotación
+            if (Input.GetKey(KeyCode.Q)) isoTargetYaw -= settings.rotationSpeed * Time.deltaTime;
+            if (Input.GetKey(KeyCode.E)) isoTargetYaw += settings.rotationSpeed * Time.deltaTime;
+
+            // Mouse rotación isométrica: requiere mantener click derecho (comportamiento original)
             if (settings.mouseRotation)
             {
-                if (Input.GetMouseButtonDown(1))
+                if (Input.GetMouseButtonDown(1)) { isoIsRotating = true;  isoLastMouseX = Input.mousePosition.x; }
+                if (Input.GetMouseButtonUp(1))   { isoIsRotating = false; }
+
+                if (isoIsRotating)
                 {
-                    isRotating = true;
-                    lastMouseX = Input.mousePosition.x;
-                }
-                
-                if (Input.GetMouseButtonUp(1))
-                {
-                    isRotating = false;
-                }
-                
-                if (isRotating)
-                {
-                    float deltaX = Input.mousePosition.x - lastMouseX;
-                    targetYaw += deltaX * settings.mouseRotationSensitivity;
-                    lastMouseX = Input.mousePosition.x;
+                    float dx = Input.mousePosition.x - isoLastMouseX;
+                    isoTargetYaw += dx * settings.mouseRotationSensitivity;
+                    isoLastMouseX = Input.mousePosition.x;
                 }
             }
-            
-            // Normalizar yaw
-            if (targetYaw > 360f) targetYaw -= 360f;
-            if (targetYaw < 0f) targetYaw += 360f;
+
+            if (isoTargetYaw >  360f) isoTargetYaw -= 360f;
+            if (isoTargetYaw <    0f) isoTargetYaw += 360f;
         }
-        
-        /// <summary>
-        /// Suaviza el cambio de zoom.
-        /// </summary>
-        private void UpdateZoom()
+
+        private void UpdateIsoZoom()
         {
-            currentZoom = Mathf.Lerp(currentZoom, targetZoom, Time.deltaTime * settings.zoomSmoothing);
+            isoZoom = Mathf.Lerp(isoZoom, isoTargetZoom, Time.deltaTime * settings.zoomSmoothing);
         }
-        
-        /// <summary>
-        /// Suaviza la rotación.
-        /// </summary>
-        private void UpdateRotation()
+
+        private void UpdateIsoRotation()
         {
-            currentYaw = Mathf.LerpAngle(currentYaw, targetYaw, Time.deltaTime * settings.zoomSmoothing);
+            isoYaw = Mathf.LerpAngle(isoYaw, isoTargetYaw, Time.deltaTime * settings.zoomSmoothing);
         }
-        
-        /// <summary>
-        /// Actualiza la posición de la cámara.
-        /// </summary>
-        private void UpdatePosition()
+
+        private void UpdateIsoPosition()
         {
-            // Punto objetivo con offset de altura
-            Vector3 targetPoint = currentTarget.position + Vector3.up * settings.targetHeightOffset;
-            
-            // Aplicar límites si están activos
-            if (settings.useBounds)
-            {
-                targetPoint.x = Mathf.Clamp(targetPoint.x, settings.boundsMin.x, settings.boundsMax.x);
-                targetPoint.z = Mathf.Clamp(targetPoint.z, settings.boundsMin.y, settings.boundsMax.y);
-            }
-            
-            // Calcular posición de la cámara en coordenadas esféricas
+            Vector3 desired = CalcIsoPosition();
+            isoCurrentPos   = Vector3.Lerp(isoCurrentPos, desired, Time.deltaTime * settings.followSmoothing);
+            transform.position = isoCurrentPos;
+            transform.LookAt(IsoTargetPoint());
+        }
+
+        private Vector3 CalcIsoPosition()
+        {
             float pitchRad = settings.pitchAngle * Mathf.Deg2Rad;
-            float yawRad = currentYaw * Mathf.Deg2Rad;
-            
+            float yawRad   = isoYaw * Mathf.Deg2Rad;
+
             Vector3 offset = new Vector3(
                 Mathf.Sin(yawRad) * Mathf.Cos(pitchRad),
                 Mathf.Sin(pitchRad),
                 Mathf.Cos(yawRad) * Mathf.Cos(pitchRad)
-            ) * currentZoom;
-            
-            Vector3 desiredPosition = targetPoint + offset;
-            
-            // Suavizar movimiento
-            currentPosition = Vector3.Lerp(currentPosition, desiredPosition, Time.deltaTime * settings.followSmoothing);
-            
-            // Aplicar
-            transform.position = currentPosition;
-            transform.LookAt(targetPoint);
+            ) * isoZoom;
+
+            return IsoTargetPoint() + offset;
         }
-        
-        /// <summary>
-        /// Posiciona la cámara inmediatamente sin suavizado.
-        /// </summary>
+
+        private Quaternion CalcIsoRotation()
+        {
+            Vector3 pos = CalcIsoPosition();
+            if ((IsoTargetPoint() - pos).sqrMagnitude < 0.0001f) return transform.rotation;
+            return Quaternion.LookRotation(IsoTargetPoint() - pos);
+        }
+
+        private Vector3 IsoTargetPoint()
+        {
+            Vector3 p = currentTarget.position + Vector3.up * settings.targetHeightOffset;
+            if (settings.useBounds)
+            {
+                p.x = Mathf.Clamp(p.x, settings.boundsMin.x, settings.boundsMax.x);
+                p.z = Mathf.Clamp(p.z, settings.boundsMin.y, settings.boundsMax.y);
+            }
+            return p;
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        // ── MODO TERCERA PERSONA ──────────────────────────────────────────
+        // ══════════════════════════════════════════════════════════════════
+
+        private void HandleTpInput()
+        {
+            // Zoom scroll
+            float scroll = Input.GetAxis("Mouse ScrollWheel");
+            if (Mathf.Abs(scroll) > 0.01f)
+            {
+                tpTargetZoom -= scroll * settings.tpZoomSpeed;
+                tpTargetZoom  = Mathf.Clamp(tpTargetZoom, settings.tpMinDistance, settings.tpMaxDistance);
+            }
+
+            // Q/E rotación orbital
+            if (Input.GetKey(KeyCode.Q)) tpTargetYaw -= settings.tpRotationSpeed * Time.deltaTime;
+            if (Input.GetKey(KeyCode.E)) tpTargetYaw += settings.tpRotationSpeed * Time.deltaTime;
+
+            // FIX: En tercera persona la cámara rota libremente con el mouse,
+            // sin necesidad de mantener click derecho (comportamiento estándar TPS).
+            if (settings.tpMouseRotation)
+            {
+                float dx = Input.mousePosition.x - tpLastMouseX;
+
+                // Solo aplicar si hay movimiento real del mouse para evitar saltos bruscos
+                if (Mathf.Abs(dx) > 0.01f)
+                {
+                    tpTargetYaw += dx * settings.tpMouseRotationSensitivity;
+                }
+            }
+            // Siempre actualizamos la posición guardada del mouse
+            tpLastMouseX = Input.mousePosition.x;
+
+            if (tpTargetYaw >  360f) tpTargetYaw -= 360f;
+            if (tpTargetYaw <    0f) tpTargetYaw += 360f;
+        }
+
+        private void UpdateTpZoom()
+        {
+            tpZoom = Mathf.Lerp(tpZoom, tpTargetZoom, Time.deltaTime * settings.tpZoomSmoothing);
+        }
+
+        private void UpdateTpRotation()
+        {
+            // FIX: usa tpRotationSmoothing dedicado, separado del tpZoomSmoothing
+            tpYaw = Mathf.LerpAngle(tpYaw, tpTargetYaw, Time.deltaTime * settings.tpRotationSmoothing);
+        }
+
+        private void UpdateTpPosition()
+        {
+            Vector3 desired = CalcTpPosition();
+            tpCurrentPos    = Vector3.Lerp(tpCurrentPos, desired, Time.deltaTime * settings.tpFollowSmoothing);
+            transform.position = tpCurrentPos;
+            transform.rotation = CalcTpRotation();
+        }
+
+        private Vector3 CalcTpPosition()
+        {
+            float pitchRad = settings.tpPitchAngle * Mathf.Deg2Rad;
+            float yawRad   = tpYaw * Mathf.Deg2Rad;
+
+            Vector3 dir = new Vector3(
+                Mathf.Sin(yawRad) * Mathf.Cos(pitchRad),
+                Mathf.Sin(pitchRad),
+                Mathf.Cos(yawRad) * Mathf.Cos(pitchRad)
+            );
+
+            Vector3 focusPoint = currentTarget.position + Vector3.up * settings.tpTargetHeightOffset;
+            return focusPoint + dir * tpZoom;
+        }
+
+        private Quaternion CalcTpRotation()
+        {
+            Vector3 focusPoint = currentTarget.position + Vector3.up * settings.tpTargetHeightOffset;
+            Vector3 dir        = focusPoint - CalcTpPosition();
+            if (dir.sqrMagnitude < 0.0001f) return transform.rotation;
+            return Quaternion.LookRotation(dir);
+        }
+
+        // ══════════════════════════════════════════════════════════════════
+        // API Pública
+        // ══════════════════════════════════════════════════════════════════
+
+        /// <summary>Posiciona la cámara inmediatamente sin suavizado en el modo actual.</summary>
         public void SnapToTarget()
         {
             if (currentTarget == null || settings == null) return;
-            
-            Vector3 targetPoint = currentTarget.position + Vector3.up * settings.targetHeightOffset;
-            
-            float pitchRad = settings.pitchAngle * Mathf.Deg2Rad;
-            float yawRad = currentYaw * Mathf.Deg2Rad;
-            
-            Vector3 offset = new Vector3(
-                Mathf.Sin(yawRad) * Mathf.Cos(pitchRad),
-                Mathf.Sin(pitchRad),
-                Mathf.Cos(yawRad) * Mathf.Cos(pitchRad)
-            ) * currentZoom;
-            
-            currentPosition = targetPoint + offset;
-            transform.position = currentPosition;
-            transform.LookAt(targetPoint);
+
+            if (currentMode == CameraMode.Isometric)
+            {
+                isoCurrentPos      = CalcIsoPosition();
+                transform.position = isoCurrentPos;
+                transform.LookAt(IsoTargetPoint());
+            }
+            else
+            {
+                tpCurrentPos       = CalcTpPosition();
+                transform.position = tpCurrentPos;
+                transform.rotation = CalcTpRotation();
+            }
         }
-        
-        /// <summary>
-        /// Callback cuando cambia el Main en PlayerPartyManager.
-        /// </summary>
+
+        /// <summary>Cambia el objetivo seguido por la cámara.</summary>
+        public void SetTarget(Transform newTarget) => currentTarget = newTarget;
+
+        /// <summary>Ajusta el zoom del modo isométrico programáticamente.</summary>
+        public void SetIsoZoom(float zoom, bool instant = false)
+        {
+            isoTargetZoom = settings != null
+                ? Mathf.Clamp(zoom, settings.minZoomDistance, settings.maxZoomDistance)
+                : zoom;
+            if (instant) isoZoom = isoTargetZoom;
+        }
+
+        /// <summary>Ajusta el zoom del modo tercera persona programáticamente.</summary>
+        public void SetTpZoom(float zoom, bool instant = false)
+        {
+            tpTargetZoom = settings != null
+                ? Mathf.Clamp(zoom, settings.tpMinDistance, settings.tpMaxDistance)
+                : zoom;
+            if (instant) tpZoom = tpTargetZoom;
+        }
+
+        /// <summary>Ajusta la rotación del modo activo programáticamente.</summary>
+        public void SetRotation(float yaw, bool instant = false)
+        {
+            if (currentMode == CameraMode.Isometric)
+            {
+                isoTargetYaw = yaw;
+                if (instant) isoYaw = yaw;
+            }
+            else
+            {
+                tpTargetYaw = yaw;
+                if (instant) tpYaw = yaw;
+            }
+        }
+
+        /// <summary>Resetea la cámara a los valores por defecto del SO.</summary>
+        public void ResetCamera()
+        {
+            if (settings == null) return;
+            isoTargetZoom = settings.defaultZoomDistance;
+            isoTargetYaw  = settings.initialYawAngle;
+            tpTargetZoom  = settings.tpDistance;
+        }
+
+        /// <summary>Convierte posición del mundo a coordenadas de pantalla.</summary>
+        public Vector3 WorldToScreenPoint(Vector3 worldPosition)
+            => mainCamera != null ? mainCamera.WorldToScreenPoint(worldPosition) : Vector3.zero;
+
+        /// <summary>Ray desde la posición del mouse.</summary>
+        public Ray GetMouseRay()
+            => mainCamera != null ? mainCamera.ScreenPointToRay(Input.mousePosition) : default;
+
+        // ══════════════════════════════════════════════════════════════════
+        // Callbacks internos
+        // ══════════════════════════════════════════════════════════════════
+
         private void OnMainCharacterChanged(EntityController oldMain, EntityController newMain)
         {
             if (newMain != null)
             {
                 currentTarget = newMain.transform;
-                Debug.Log($"[IsometricCamera] Nuevo objetivo: {newMain.Nombre_Entidad}");
+                Debug.Log($"[Camera] Nuevo objetivo: {newMain.Nombre_Entidad}");
             }
         }
-        
-        /// <summary>
-        /// Cambia el objetivo manualmente.
-        /// </summary>
-        public void SetTarget(Transform newTarget)
-        {
-            currentTarget = newTarget;
-        }
-        
-        /// <summary>
-        /// Ajusta el zoom programáticamente.
-        /// </summary>
-        public void SetZoom(float zoom, bool instant = false)
-        {
-            targetZoom = Mathf.Clamp(zoom, settings.minZoomDistance, settings.maxZoomDistance);
-            if (instant)
-            {
-                currentZoom = targetZoom;
-            }
-        }
-        
-        /// <summary>
-        /// Ajusta la rotación programáticamente.
-        /// </summary>
-        public void SetRotation(float yaw, bool instant = false)
-        {
-            targetYaw = yaw;
-            if (instant)
-            {
-                currentYaw = targetYaw;
-            }
-        }
-        
-        /// <summary>
-        /// Resetea la cámara a valores por defecto.
-        /// </summary>
-        public void ResetCamera()
-        {
-            if (settings == null) return;
-            
-            targetZoom = settings.defaultZoomDistance;
-            targetYaw = settings.initialYawAngle;
-        }
-        
-        /// <summary>
-        /// Convierte una posición del mundo a posición de pantalla.
-        /// Útil para posicionar UI sobre entidades.
-        /// </summary>
-        public Vector3 WorldToScreenPoint(Vector3 worldPosition)
-        {
-            return mainCamera != null ? mainCamera.WorldToScreenPoint(worldPosition) : Vector3.zero;
-        }
-        
-        /// <summary>
-        /// Obtiene un rayo desde la posición del mouse hacia el mundo.
-        /// </summary>
-        public Ray GetMouseRay()
-        {
-            return mainCamera != null ? mainCamera.ScreenPointToRay(Input.mousePosition) : default;
-        }
-        
+
+        // ══════════════════════════════════════════════════════════════════
+        // Gizmos
+        // ══════════════════════════════════════════════════════════════════
+
         void OnDrawGizmosSelected()
         {
-            if (!showDebugGizmos || currentTarget == null) return;
-            
-            // Dibujar línea al objetivo
+            if (!showDebugGizmos || currentTarget == null || settings == null) return;
+
             Gizmos.color = Color.yellow;
             Gizmos.DrawLine(transform.position, currentTarget.position);
-            
-            // Dibujar punto objetivo
-            Gizmos.color = Color.green;
-            Gizmos.DrawWireSphere(currentTarget.position + Vector3.up * (settings?.targetHeightOffset ?? 1.5f), 0.3f);
-            
-            // Dibujar límites si están activos
-            if (settings != null && settings.useBounds)
+
+            Gizmos.color = currentMode == CameraMode.Isometric ? Color.cyan : Color.green;
+            float hOffset = currentMode == CameraMode.Isometric ? settings.targetHeightOffset : settings.tpTargetHeightOffset;
+            Gizmos.DrawWireSphere(currentTarget.position + Vector3.up * hOffset, 0.3f);
+
+#if UNITY_EDITOR
+            UnityEditor.Handles.Label(
+                transform.position + Vector3.up * 0.5f,
+                $"[Camera] {currentMode}{(inCombat ? " (COMBATE)" : "")}");
+#endif
+
+            if (currentMode == CameraMode.Isometric && settings.useBounds)
             {
                 Gizmos.color = Color.red;
                 Vector3 center = new Vector3(
-                    (settings.boundsMin.x + settings.boundsMax.x) / 2f,
-                    0,
-                    (settings.boundsMin.y + settings.boundsMax.y) / 2f
-                );
+                    (settings.boundsMin.x + settings.boundsMax.x) / 2f, 0f,
+                    (settings.boundsMin.y + settings.boundsMax.y) / 2f);
                 Vector3 size = new Vector3(
-                    settings.boundsMax.x - settings.boundsMin.x,
-                    1f,
-                    settings.boundsMax.y - settings.boundsMin.y
-                );
+                    settings.boundsMax.x - settings.boundsMin.x, 1f,
+                    settings.boundsMax.y - settings.boundsMin.y);
                 Gizmos.DrawWireCube(center, size);
             }
         }
