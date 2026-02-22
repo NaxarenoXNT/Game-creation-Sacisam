@@ -66,7 +66,8 @@ namespace Combate
         public bool debugDamageCalculation = false;
         
         /// <summary>
-        /// Calcula el daño usando la configuración global.
+        /// Calcula el daño usando la configuración global (backward-compatible).
+        /// Para código nuevo, preferir DamagePipeline directamente.
         /// </summary>
         public DamageResult CalculateDamage(AttackerData attacker, DefenderData defender)
         {
@@ -86,6 +87,28 @@ namespace Combate
             }
             
             return result;
+        }
+
+        /// <summary>
+        /// Ejecuta el pipeline completo entre dos entidades.
+        /// Este es el método preferido para código nuevo.
+        /// </summary>
+        public DamageContext ExecutePipeline(
+            Interfaces.IEntidadCombate attacker,
+            Interfaces.IEntidadCombate defender,
+            bool isCritical = false)
+        {
+            var context = DamagePipeline.CreateContext(attacker, defender, isCritical);
+            DamagePipeline.Default.Execute(context);
+
+            if (debugDamageCalculation)
+            {
+                Debug.Log($"[CombatConfig Pipeline] FinalDamage: {context.FinalDamage} " +
+                          $"(Phys: {context.PhysicalDamage:F0}, Elem: {context.ElementalDamage:F0})" +
+                          $"{(context.IsCritical ? " CRIT" : "")}");
+            }
+
+            return context;
         }
         
         /// <summary>

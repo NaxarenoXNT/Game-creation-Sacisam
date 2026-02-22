@@ -6,126 +6,106 @@ using UnityEngine;
 namespace Combate
 {
     /// <summary>
-    /// Calculadora central de daño del juego.
-    /// Implementa la fórmula:
-    /// 
-    /// BASE_OFFENSE = (ATK + ELEM_ATK) * RACE_ATK
-    /// OFFENSE = BASE_OFFENSE * (isCrit ? CRIT_MULT : 1)
-    /// DEF_MULT = 1 / (1 + ln(1 + DEF * RACE_DEF) / K)
-    /// PHYSICAL_DAMAGE = OFFENSE * DEF_MULT
-    /// ELEM_MULT = clamp(1 - RES_e, 0.1, 1.5)
-    /// ELEMENTAL_DAMAGE = ELEM_ATK * ELEM_MULT * (critAppliesToElemental && isCrit ? CRIT_MULT : 1)
-    /// FINAL_DAMAGE = PHYSICAL_DAMAGE + ELEMENTAL_DAMAGE
+    /// Fachada estática para el sistema de daño.
+    /// Delega al DamagePipeline para todos los cálculos.
+    ///
+    /// Los métodos CalculateDamage / CalculateFromEntities se mantienen
+    /// por backward-compatibility, pero internamente usan el pipeline.
+    ///
+    /// Para código nuevo, preferir usar DamagePipeline directamente:
+    ///   var ctx = DamagePipeline.CreateContext(attacker, defender, isCrit);
+    ///   DamagePipeline.Default.Execute(ctx);
+    ///   objetivo.AplicarDanoDesdeContexto(ctx);
     /// </summary>
     public static class DamageCalculator
     {
-        // Constante K para la fórmula de defensa (ajustada para stats en miles)
-        // K más bajo = defensa más efectiva
-        // K=22 da: DEF=1000 → ~24% mitigación, DEF=5000 → ~42%, DEF=10000 → ~47%
         private const float DEFAULT_K = 22f;
         
-        // Límites para el multiplicador elemental
-        private const float ELEM_MULT_MIN = 0.1f;   // Mínimo 10% del daño elemental
-        private const float ELEM_MULT_MAX = 1.5f;   // Máximo 150% del daño elemental
-        
-        // Daño mínimo garantizado
-        private const int MIN_DAMAGE = 1;
-        
         /// <summary>
-        /// Calcula el daño final usando la fórmula completa.
+        /// Calcula daño usando datos estructurados (backward-compatible).
+        /// NOTA: Este método mantiene su propia lógica para no romper callers existentes
+        /// que pasan AttackerData/DefenderData sin IEntidadCombate.
+        /// Para entidades reales, usar CalculateFromEntities o el pipeline directo.
         /// </summary>
-        /// <param name="attacker">Estadísticas del atacante</param>
-        /// <param name="defender">Estadísticas del defensor</param>
-        /// <param name="raceModifiers">Modificadores de raza (opcional)</param>
-        /// <param name="k">Constante K para la fórmula de defensa</param>
-        /// <returns>Resultado detallado del daño</returns>
         public static DamageResult CalculateDamage(
             AttackerData attacker,
             DefenderData defender,
             RaceModifiers raceModifiers = null,
             float k = DEFAULT_K)
         {
-            var result = new DamageResult();
-            
-            // === 1. Obtener multiplicadores de raza ===
-            float raceAtk = 1f;
-            float raceDef = 1f;
-            float raceVsRace = 1f;
-            
+            // Crear contexto con valores base pre-configurados
+            var context = new DamageContext
+            {
+                // Sin IEntidadCombate — populamos canales manualmente
+                HasBaseValues          = true,
+                PhysicalDamage         = attacker.attack,
+                ElementalDamage        = attacker.elementalAttack,
+                AttackElement          = attacker.attackElement,
+                CritMultiplier         = attacker.critMultiplier,
+                CritAppliesToElemental = attacker.critAppliesToElemental,
+                DefenseConstantK       = k,
+                RaceModifiers          = raceModifiers,
+            };
+
+            // Decidir crit (el pipeline NO lo decide)
+            context.IsCritical = UnityEngine.Random.value <= attacker.critChance;
+
+            // Como no tenemos IEntidadCombate, debemos simular las etapas manualmente:
+            // Race
             if (raceModifiers != null)
             {
-                raceAtk = raceModifiers.GetAttackMultiplier(attacker.entityType);
-                raceDef = raceModifiers.GetDefenseMultiplier(defender.entityType);
-                raceVsRace = raceModifiers.GetRaceVsRaceMultiplier(attacker.entityType, defender.entityType);
+                float raceAtk = raceModifiers.GetAttackMultiplier(attacker.entityType);
+                float raceVsRace = raceModifiers.GetRaceVsRaceMultiplier(attacker.entityType, defender.entityType);
+                float raceDef = raceModifiers.GetDefenseMultiplier(defender.entityType);
+
+                context.RaceAtkMultiplier = raceAtk * raceVsRace;
+                context.RaceDefMultiplier = raceDef;
+
+                context.PhysicalDamage  *= context.RaceAtkMultiplier;
+                context.ElementalDamage *= context.RaceAtkMultiplier;
             }
-            
-            result.raceAtkMultiplier = raceAtk * raceVsRace;
-            result.raceDefMultiplier = raceDef;
-            
-            // === 2. Calcular BASE_OFFENSE ===
-            float baseOffense = (attacker.attack + attacker.elementalAttack) * result.raceAtkMultiplier;
-            
-            // === 3. Determinar crítico ===
-            result.isCritical = UnityEngine.Random.value <= attacker.critChance;
-            float critMult = result.isCritical ? attacker.critMultiplier : 1f;
-            
-            // === 4. Calcular OFFENSE con crítico ===
-            float offense = baseOffense * critMult;
-            
-            // === 5. Calcular DEF_MULT (fórmula logarítmica) ===
-            float effectiveDefense = defender.defense * result.raceDefMultiplier;
+
+            // Crit
+            if (context.IsCritical)
+            {
+                float critMult = context.CritMultiplier > 1f ? context.CritMultiplier : 1.5f;
+                context.PhysicalDamage *= critMult;
+                if (attacker.critAppliesToElemental)
+                    context.ElementalDamage *= critMult;
+            }
+
+            // Defense
+            float effectiveDefense = defender.defense * context.RaceDefMultiplier;
             float defMult = CalculateDefenseMultiplier(effectiveDefense, k);
-            result.defenseMultiplier = defMult;
-            
-            // === 6. Calcular PHYSICAL_DAMAGE ===
-            float physicalDamage = offense * defMult;
-            result.physicalDamage = Mathf.RoundToInt(physicalDamage);
-            
-            // === 7. Calcular ELEMENTAL_DAMAGE ===
-            float elementalDamage = 0f;
-            
+            context.DefenseMultiplier = defMult;
+            context.PhysicalDamage *= defMult;
+
+            // Elemental resistance
             if (attacker.elementalAttack > 0 && attacker.attackElement != ElementAttribute.None)
             {
-                // Obtener resistencia del defensor al elemento del ataque
                 float resistance = defender.resistances?.GetResistance(attacker.attackElement) ?? 0f;
-                
-                // ELEM_MULT = clamp(1 - RES_e, 0.1, 1.5)
-                float elemMult = Mathf.Clamp(1f - resistance, ELEM_MULT_MIN, ELEM_MULT_MAX);
-                result.elementalMultiplier = elemMult;
-                
-                // Aplicar crítico al elemental si está habilitado
-                float elemCritMult = (attacker.critAppliesToElemental && result.isCritical) 
-                    ? attacker.critMultiplier 
-                    : 1f;
-                
-                elementalDamage = attacker.elementalAttack * elemMult * elemCritMult;
+                float elemMult = Mathf.Clamp(1f - resistance, 0.1f, 1.5f);
+                context.ElementalMultiplier = elemMult;
+                context.ElementalDamage *= elemMult;
             }
-            
-            result.elementalDamage = Mathf.RoundToInt(elementalDamage);
-            
-            // === 8. FINAL_DAMAGE ===
-            result.finalDamage = Mathf.Max(MIN_DAMAGE, result.physicalDamage + result.elementalDamage);
-            
-            return result;
+
+            // Clamp
+            if (context.PhysicalDamage < 0f)  context.PhysicalDamage  = 0f;
+            if (context.ElementalDamage < 0f) context.ElementalDamage = 0f;
+            context.FinalDamage = Mathf.Max(1, Mathf.RoundToInt(context.TotalRawDamage));
+
+            return context.ToResult();
         }
         
         /// <summary>
-        /// Calcula el multiplicador de defensa usando la fórmula logarítmica.
-        /// DEF_MULT = 1 / (1 + ln(1 + DEF) / K)
+        /// Fórmula de defensa hiperbólica: DEF_MULT = 1 / (1 + DEF / K).
+        /// Utility público para UI y queries.
         /// </summary>
-        /// <param name="defense">Defensa efectiva</param>
-        /// <param name="k">Constante K</param>
-        /// <returns>Multiplicador de daño (0 a 1)</returns>
         public static float CalculateDefenseMultiplier(float defense, float k = DEFAULT_K)
         {
             if (defense <= 0) return 1f;
             if (k <= 0) k = DEFAULT_K;
-            
-            // DEF_MULT = 1 / (1 + ln(1 + DEF) / K)
-            float lnValue = Mathf.Log(1f + defense);
-            float defMult = 1f / (1f + lnValue / k);
-            
-            return Mathf.Clamp01(defMult);
+            return Mathf.Clamp01(1f / (1f + defense / k));
         }
         
         /// <summary>
@@ -137,7 +117,7 @@ namespace Combate
         }
         
         /// <summary>
-        /// Versión simplificada para cálculos rápidos sin objetos.
+        /// Versión simplificada para cálculos rápidos sin pipeline (UI previews, tooltips).
         /// </summary>
         public static int CalculateSimpleDamage(
             int attack, 
@@ -150,44 +130,39 @@ namespace Combate
             float offense = attack * (isCrit ? critMult : 1f);
             float defMult = CalculateDefenseMultiplier(defense, k);
             
-            return Mathf.Max(MIN_DAMAGE, Mathf.RoundToInt(offense * defMult));
+            return Mathf.Max(1, Mathf.RoundToInt(offense * defMult));
         }
         
         /// <summary>
-        /// Calcula daño desde interfaces IEntidadCombate.
+        /// Calcula daño entre dos IEntidadCombate usando el DamagePipeline completo.
+        /// Este es el método preferido para código nuevo.
         /// </summary>
         public static DamageResult CalculateFromEntities(
             IEntidadCombate attacker,
-            CombatStats attackerStats,
             IEntidadCombate defender,
-            CombatStats defenderStats,
-            RaceModifiers raceModifiers = null,
-            float k = DEFAULT_K)
+            bool isCritical = false)
         {
-            var attackerData = new AttackerData
-            {
-                attack = attacker.PuntosDeAtaque_Entidad,
-                elementalAttack = attackerStats?.elementalAttack ?? 0,
-                attackElement = attackerStats?.elementoAtaque ?? ElementAttribute.None,
-                critChance = attackerStats?.critChance ?? 0f,
-                critMultiplier = attackerStats?.critMultiplier ?? 1.5f,
-                critAppliesToElemental = attackerStats?.critAppliesToElemental ?? false,
-                entityType = attacker.TipoEntidad
-            };
-            
-            var defenderData = new DefenderData
-            {
-                defense = defender.PuntosDeDefensa_Entidad,
-                resistances = defenderStats?.resistencias,
-                entityType = defender.TipoEntidad
-            };
-            
-            return CalculateDamage(attackerData, defenderData, raceModifiers, k);
+            var context = DamagePipeline.CreateContext(attacker, defender, isCritical);
+            DamagePipeline.Default.Execute(context);
+            return context.ToResult();
+        }
+
+        /// <summary>
+        /// Ejecuta el pipeline completo y retorna el DamageContext para acceso detallado.
+        /// </summary>
+        public static DamageContext ExecutePipeline(
+            IEntidadCombate attacker,
+            IEntidadCombate defender,
+            bool isCritical = false)
+        {
+            var context = DamagePipeline.CreateContext(attacker, defender, isCritical);
+            return DamagePipeline.Default.Execute(context);
         }
     }
     
     /// <summary>
-    /// Datos del atacante para el cálculo de daño.
+    /// Datos del atacante para el cálculo de daño (backward-compat).
+    /// Para código nuevo, usar DamagePipeline.CreateContext con IEntidadCombate.
     /// </summary>
     public struct AttackerData
     {
@@ -212,7 +187,8 @@ namespace Combate
     }
     
     /// <summary>
-    /// Datos del defensor para el cálculo de daño.
+    /// Datos del defensor para el cálculo de daño (backward-compat).
+    /// Para código nuevo, usar DamagePipeline.CreateContext con IEntidadCombate.
     /// </summary>
     public struct DefenderData
     {
