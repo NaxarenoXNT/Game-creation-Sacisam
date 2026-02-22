@@ -18,6 +18,14 @@ namespace World.ChunkSystem
         [Tooltip("Lista de enemigos a spawnear en este chunk")]
         public List<EnemySpawnConfig> enemySpawns = new List<EnemySpawnConfig>();
         
+        [Header("Props con Identidad")]
+        [Tooltip("Objetos con posición fija: edificios, cofres, NPCs, entradas a zonas.")]
+        public List<PropSpawnConfig> propSpawnConfigs = new List<PropSpawnConfig>();
+        
+        [Header("Exclusiones Procedurales")]
+        [Tooltip("Zonas donde no se genera vegetación procedural: caminos, plazas, footprints.")]
+        public List<ProceduralExclusion> proceduralExclusions = new List<ProceduralExclusion>();
+        
         [Header("Preview")]
         [Tooltip("Color para visualizar este chunk en la escena")]
         public Color gizmoColor = Color.cyan;
@@ -31,7 +39,9 @@ namespace World.ChunkSystem
             {
                 coordinates = coordinates,
                 chunkId = $"chunk_{coordinates.x}_{coordinates.y}",
-                enemySpawnConfigs = new List<EnemySpawnConfig>(enemySpawns)
+                enemySpawnConfigs = new List<EnemySpawnConfig>(enemySpawns),
+                propSpawnConfigs = new List<PropSpawnConfig>(propSpawnConfigs),
+                proceduralExclusions = new List<ProceduralExclusion>(proceduralExclusions)
             };
         }
         
@@ -64,6 +74,15 @@ namespace World.ChunkSystem
                 
                 // VALIDAR Y CORREGIR ROTACIÓN INVÁLIDA
                 enemySpawns[i].ValidateRotation();
+            }
+            
+            // Auto-generar IDs únicos para props sin ID
+            for (int i = 0; i < propSpawnConfigs.Count; i++)
+            {
+                if (string.IsNullOrEmpty(propSpawnConfigs[i].propId))
+                {
+                    propSpawnConfigs[i].propId = $"{name}_prop_{i}";
+                }
             }
         }
     }

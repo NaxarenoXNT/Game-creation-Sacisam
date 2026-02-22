@@ -5,7 +5,7 @@ namespace World.ChunkSystem
 {
     /// <summary>
     /// Datos de un chunk individual del mundo.
-    /// Contiene configuraciones de enemigos y referencias a instancias activas.
+    /// Contiene configuraciones de enemigos, props con identidad y exclusiones procedurales.
     /// </summary>
     [System.Serializable]
     public class ChunkData
@@ -18,11 +18,25 @@ namespace World.ChunkSystem
         [Tooltip("Configuraciones estáticas de enemigos en este chunk")]
         public List<EnemySpawnConfig> enemySpawnConfigs = new List<EnemySpawnConfig>();
         
+        [Header("Props con Identidad")]
+        [Tooltip("Objetos con posición fija: edificios, cofres, NPCs, entradas a zonas.")]
+        public List<PropSpawnConfig> propSpawnConfigs = new List<PropSpawnConfig>();
+        
+        [Header("Exclusiones Procedurales")]
+        [Tooltip("Zonas donde no se genera vegetación procedural: caminos, plazas, footprints de edificios.")]
+        public List<ProceduralExclusion> proceduralExclusions = new List<ProceduralExclusion>();
+        
         [Header("Estado Runtime (No Serializado)")]
         [System.NonSerialized] public bool isLoaded;
         [System.NonSerialized] public List<EnemyController> activeEnemies = new List<EnemyController>();
         [System.NonSerialized] public float lastLoadTime;
         [System.NonSerialized] public float lastUnloadTime;
+        
+        /// <summary>
+        /// GameObject padre de toda la decoración procedural y props de este chunk.
+        /// Se crea al cargar y se destruye al descargar.
+        /// </summary>
+        [System.NonSerialized] public Transform propsRoot;
         
         /// <summary>
         /// Estadísticas del chunk.
@@ -106,6 +120,56 @@ namespace World.ChunkSystem
         public void ClearActiveReferences()
         {
             activeEnemies?.Clear();
+        }
+        
+        // ─── Props con identidad ─────────────────────────────────────────────────
+        
+        /// <summary>
+        /// Devuelve los PropSpawnConfig que deben spawnearse.
+        /// Excluye los consumidos si su estado debe persistir.
+        /// </summary>
+        public List<PropSpawnConfig> GetSpawnableProps()
+        {
+            var result = new List<PropSpawnConfig>();
+            foreach (var config in propSpawnConfigs)
+            {
+                if (config.propData == null) continue;
+                if (config.isConsumed && config.propData.persistConsumedState) continue;
+                result.Add(config);
+            }
+            return result;
+        }
+        
+        /// <summary>
+        /// Marca un prop como consumido.
+        /// Llamado desde WorldChunkManager.NotificarPropConsumido().
+        /// </summary>
+        public void MarkPropConsumed(string propId)
+        {
+            foreach (var config in propSpawnConfigs)
+            {
+                if (config.propId == propId)
+                {
+                    config.isConsumed = true;
+                    return;
+                }
+            }
+            Debug.LogWarning($"[ChunkData] PropId '{propId}' no encontrado en chunk {coordinates}");
+        }
+        
+        // ─── Exclusiones procedurales ─────────────────────────────────────────────
+        
+        /// <summary>
+        /// Verifica si una posición está dentro de alguna zona de exclusión del chunk.
+        /// </summary>
+        public bool IsInExclusionZone(Vector3 worldPos)
+        {
+            foreach (var exclusion in proceduralExclusions)
+            {
+                if (exclusion.Contains(worldPos))
+                    return true;
+            }
+            return false;
         }
     }
     

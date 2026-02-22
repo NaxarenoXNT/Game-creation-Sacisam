@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using Managers;
+using World.BiomeSystem;
 
 namespace World.ChunkSystem
 {
@@ -26,8 +27,9 @@ namespace World.ChunkSystem
         /// </summary>
         public float ChunkSize => chunkSize;
         
-        [Tooltip("Radio de carga en chunks (1 = solo chunk actual, 2 = chunk + vecinos, etc.)")]
-        [SerializeField] private int loadRadius = 4;
+        [Tooltip("Radio de carga en chunks (1 = solo chunk actual, 2 = chunk + vecinos, etc.)\n" +
+                 "Con chunkSize=256: radio 2 = 5x5 chunks visibles (~1280u), radio 3 = 7x7 (~1792u)")]
+        [SerializeField] private int loadRadius = 2;
         
         [Tooltip("Tiempo entre checks de carga/descarga (segundos)")]
         [SerializeField] private float updateInterval = 1f;
@@ -38,6 +40,16 @@ namespace World.ChunkSystem
         
         [Tooltip("Máximo de enemigos a spawnear por frame")]
         [SerializeField] private int maxSpawnsPerFrame = 5;
+        
+        [Header("Props y Decoración")]
+        [Tooltip("Máximo de props con identidad a instanciar por frame")]
+        [SerializeField] private int maxPropsPerFrame = 10;
+        
+        [Tooltip("Máximo de objetos decorativos (árboles, rocas) por chunk")]
+        [SerializeField] private int maxDecorativePropsPerChunk = 150;
+        
+        [Tooltip("Cantidad de intentos para colocar un objeto procedural por chunk")]
+        [SerializeField] private int proceduralPlacementAttempts = 400;
         
         [Header("Debug")]
         [SerializeField] private bool showDebugGizmos = true;
@@ -153,22 +165,33 @@ namespace World.ChunkSystem
             int loaded = 0;
             int withEnemies = 0;
             
+            // Detectar coordenadas duplicadas antes de registrar
+            var seenCoords = new Dictionary<Vector2Int, string>();
+
             foreach (var asset in chunkAssets)
             {
-                if (asset != null)
+                if (asset == null) continue;
+
+                var runtimeData = asset.ToRuntimeData();
+
+                if (seenCoords.TryGetValue(runtimeData.coordinates, out string firstName))
                 {
-                    var runtimeData = asset.ToRuntimeData();
-                    
-                    if (!chunks.ContainsKey(runtimeData.coordinates))
-                    {
-                        chunks[runtimeData.coordinates] = runtimeData;
-                        loaded++;
-                        
-                        if (runtimeData.enemySpawnConfigs.Count > 0)
-                        {
-                            withEnemies++;
-                        }
-                    }
+                    Debug.LogError(
+                        $"❌ ChunkDataAsset duplicado en coordenadas {runtimeData.coordinates}: " +
+                        $"'{firstName}' y '{asset.name}'. Solo se usará el primero. " +
+                        $"Revisá Resources/World/Chunks/");
+                    continue;
+                }
+
+                seenCoords[runtimeData.coordinates] = asset.name;
+
+                if (!chunks.ContainsKey(runtimeData.coordinates))
+                {
+                    chunks[runtimeData.coordinates] = runtimeData;
+                    loaded++;
+
+                    if (runtimeData.enemySpawnConfigs.Count > 0)
+                        withEnemies++;
                 }
             }
             
@@ -299,10 +322,19 @@ namespace World.ChunkSystem
             
             if (showDebugLogs)
             {
-                Debug.Log($"📦 Cargando chunk {coords} ({chunkData.enemySpawnConfigs.Count} spawns)");
+                Debug.Log($"📦 Cargando chunk {coords} ({chunkData.enemySpawnConfigs.Count} spawns, {chunkData.propSpawnConfigs.Count} props)");
             }
             
-            // Spawnear enemigos
+            // Crear contenedor de props para este chunk
+            EnsurePropsRoot(chunkData);
+            
+            // Paso 1: Props con identidad (manuales)
+            SpawnNamedProps(chunkData);
+            
+            // Paso 2: Decoración procedural (vegetación, rocas)
+            StartCoroutine(SpawnProceduralDecorationCoroutine(chunkData));
+            
+            // Paso 3: Enemigos
             StartCoroutine(SpawnEnemiesCoroutine(chunkData));
             
             chunkData.isLoaded = true;
@@ -325,6 +357,9 @@ namespace World.ChunkSystem
             {
                 Debug.Log($"📤 Descargando chunk {coords} ({chunkData.activeEnemies.Count} enemigos activos)");
             }
+            
+            // Destruir props del chunk
+            UnloadProps(chunkData);
             
             // Devolver enemigos al pool (solo los que están vivos)
             var enemiesToReturn = new List<EnemyController>(chunkData.activeEnemies);
@@ -567,6 +602,316 @@ namespace World.ChunkSystem
             
             Debug.Log($"🧹 Todos los chunks descargados: {chunksToUnload.Count}");
         }
+        
+        // ─── Decoración Procedural ─────────────────────────────────────────────────
+        
+        /// <summary>
+        /// Genera decoración procedural determinística en el chunk.
+        /// Mismas coordenadas → misma semilla → mismos objetos siempre.
+        /// Requiere WorldBiomeMap en la escena. Si no existe, no genera nada.
+        /// </summary>
+        private System.Collections.IEnumerator SpawnProceduralDecorationCoroutine(ChunkData chunk)
+        {
+            if (WorldBiomeMap.Instance == null)
+            {
+                if (showDebugLogs)
+                    Debug.LogWarning("⚠️ WorldBiomeMap.Instance es null. No se genera decoración procedural.");
+                yield break;
+            }
+            
+            EnsurePropsRoot(chunk);
+            
+            // Semilla determinística basada en coordenadas del chunk
+            int seed = chunk.coordinates.x * 73856093 ^ chunk.coordinates.y * 19349663;
+            var rng = new System.Random(seed);
+            
+            // Origen = esquina SW del chunk
+            Vector3 chunkCenter = ChunkToWorldPos(chunk.coordinates);
+            Vector3 origin = chunkCenter - new Vector3(chunkSize * 0.5f, 0, chunkSize * 0.5f);
+            
+            int placedCount = 0;
+            int spawnedThisFrame = 0;
+
+            // Lista plana de posiciones XZ ya colocadas — O(1) acceso, sin overhead de Transform.
+            // Pre-alocar al máximo esperado para evitar re-allocations.
+            var placedPositions = new List<Vector2>(maxDecorativePropsPerChunk);
+            
+            for (int attempt = 0; attempt < proceduralPlacementAttempts; attempt++)
+            {
+                if (placedCount >= maxDecorativePropsPerChunk) break;
+                
+                // Posición candidata aleatoria dentro del chunk
+                float x = (float)rng.NextDouble() * chunkSize + origin.x;
+                float z = (float)rng.NextDouble() * chunkSize + origin.z;
+                float y = GetTerrainHeight(x, z);
+                Vector3 position = new Vector3(x, y, z);
+                
+                // Verificar exclusiones del chunk
+                if (chunk.IsInExclusionZone(position)) continue;
+                
+                // Samplear bioma en esta posición exacta
+                var sample = WorldBiomeMap.Instance.GetBiomeAt(position);
+                
+                // Si la zona es completamente manual (ciudad, dungeon), no generar
+                if (sample.IsFullyManual()) continue;
+                
+                // Intentar colocar árbol
+                float treeDensity = sample.BlendFloat(b => b.treeDensity);
+                if (rng.NextDouble() < treeDensity)
+                {
+                    var prefab = sample.PickTree(rng);
+                    if (prefab != null)
+                    {
+                        float minSpacing = sample.BlendFloat(b => b.minTreeSpacing);
+                        if (!IsTooClose(position, minSpacing, placedPositions))
+                        {
+                            PlaceDecorativeProp(prefab, position, sample, rng, chunk.propsRoot);
+                            placedPositions.Add(new Vector2(position.x, position.z));
+                            placedCount++;
+                            spawnedThisFrame++;
+                        }
+                    }
+                }
+                else
+                {
+                    // Intentar colocar roca
+                    float rockDensity = sample.BlendFloat(b => b.rockDensity);
+                    if (rng.NextDouble() < rockDensity)
+                    {
+                        var prefab = sample.PickRock(rng);
+                        if (prefab != null)
+                        {
+                            float minSpacing = sample.BlendFloat(b => b.minRockSpacing);
+                            if (!IsTooClose(position, minSpacing, placedPositions))
+                            {
+                                PlaceDecorativeProp(prefab, position, sample, rng, chunk.propsRoot);
+                                placedPositions.Add(new Vector2(position.x, position.z));
+                                placedCount++;
+                                spawnedThisFrame++;
+                            }
+                        }
+                    }
+                    // Intentar colocar sotobosque (arbustos, helechos, hongos)
+                    else
+                    {
+                        float understoryDensity = sample.BlendFloat(b => b.understoryDensity);
+                        if (rng.NextDouble() < understoryDensity)
+                        {
+                            var prefab = sample.PickUnderstory(rng);
+                            if (prefab != null)
+                            {
+                                float minSpacing = sample.BlendFloat(b => b.minUnderstorySpacing);
+                                if (!IsTooClose(position, minSpacing, placedPositions))
+                                {
+                                    PlaceDecorativeProp(prefab, position, sample, rng, chunk.propsRoot);
+                                    placedPositions.Add(new Vector2(position.x, position.z));
+                                    placedCount++;
+                                    spawnedThisFrame++;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Cobertura de suelo (pasto, musgo, hojas) — NO necesita spacing, puede solaparse
+                if (placedCount < maxDecorativePropsPerChunk)
+                {
+                    float groundCoverDensity = sample.BlendFloat(b => b.groundCoverDensity);
+                    if (rng.NextDouble() < groundCoverDensity)
+                    {
+                        float gcX = (float)rng.NextDouble() * chunkSize + origin.x;
+                        float gcZ = (float)rng.NextDouble() * chunkSize + origin.z;
+                        Vector3 gcPos = new Vector3(gcX, GetTerrainHeight(gcX, gcZ), gcZ);
+
+                        if (!chunk.IsInExclusionZone(gcPos) && !sample.IsFullyManual())
+                        {
+                            var prefab = sample.PickGroundCover(rng);
+                            if (prefab != null)
+                            {
+                                PlaceDecorativeProp(prefab, gcPos, sample, rng, chunk.propsRoot);
+                                // Cobertura de suelo no se agrega a placedPositions: no bloquea otros objetos
+                                placedCount++;
+                                spawnedThisFrame++;
+                            }
+                        }
+                    }
+                }
+                
+                // Distribuir la carga entre frames
+                if (spawnedThisFrame >= maxPropsPerFrame)
+                {
+                    spawnedThisFrame = 0;
+                    yield return null;
+                    
+                    // Verificar que el chunk siga cargado
+                    if (!chunk.isLoaded) yield break;
+                }
+            }
+            
+            if (showDebugLogs && placedCount > 0)
+                Debug.Log($"🌲 Chunk {chunk.coordinates}: {placedCount} props procedurales generados.");
+        }
+        
+        /// <summary>
+        /// Instancia un prop decorativo con variación de escala y rotación aleatoria.
+        /// </summary>
+        private void PlaceDecorativeProp(GameObject prefab, Vector3 position,
+            BiomeSample sample, System.Random rng, Transform parent)
+        {
+            float scaleVar = sample.BlendFloat(b => b.treeScaleVariation);
+            float scale = 1f + ((float)rng.NextDouble() * 2f - 1f) * scaleVar;
+            float rotY = (float)rng.NextDouble() * 360f;
+            
+            Instantiate(prefab, position, Quaternion.Euler(0, rotY, 0), parent)
+                .transform.localScale = Vector3.one * scale;
+        }
+        
+        /// <summary>
+        /// Devuelve true si alguna posición ya colocada está dentro de minDistance.
+        /// Opera sobre una List<Vector2> de coordenadas XZ — sin overhead de Transform.
+        /// Usar como: if (!IsTooClose(pos, spacing, placedPositions)) → colocar objeto.
+        /// </summary>
+        private static bool IsTooClose(Vector3 position, float minDistance, List<Vector2> placedPositions)
+        {
+            if (minDistance <= 0f) return false;
+
+            float minDistSq = minDistance * minDistance;
+            float px = position.x;
+            float pz = position.z;
+
+            for (int i = 0; i < placedPositions.Count; i++)
+            {
+                float dx = placedPositions[i].x - px;
+                float dz = placedPositions[i].y - pz;
+                if ((dx * dx + dz * dz) < minDistSq)
+                    return true;
+            }
+
+            return false;
+        }
+        
+        /// <summary>
+        /// Devuelve la altura del terreno en una posición XZ.
+        /// Soporta múltiples Terrain tiles: busca el tile que contiene el punto.
+        /// </summary>
+        private float GetTerrainHeight(float x, float z)
+        {
+            Vector3 worldPos = new Vector3(x, 0f, z);
+
+            foreach (var terrain in Terrain.activeTerrains)
+            {
+                var td = terrain.terrainData;
+                Vector3 tp = terrain.transform.position;
+
+                if (x >= tp.x && x <= tp.x + td.size.x &&
+                    z >= tp.z && z <= tp.z + td.size.z)
+                {
+                    return terrain.SampleHeight(worldPos);
+                }
+            }
+
+            return 0f;
+        }
+        
+        // ─── Props con Identidad ──────────────────────────────────────────────────
+        
+        /// <summary>
+        /// Crea el GameObject contenedor de props para un chunk si no existe.
+        /// </summary>
+        private void EnsurePropsRoot(ChunkData chunk)
+        {
+            if (chunk.propsRoot != null) return;
+            
+            var root = new GameObject($"Props_{chunk.coordinates.x}_{chunk.coordinates.y}");
+            chunk.propsRoot = root.transform;
+        }
+        
+        /// <summary>
+        /// Instancia los props con identidad del chunk (edificios, cofres, NPCs, etc.).
+        /// </summary>
+        private void SpawnNamedProps(ChunkData chunk)
+        {
+            var spawnableProps = chunk.GetSpawnableProps();
+            if (spawnableProps.Count == 0) return;
+            
+            foreach (var config in spawnableProps)
+            {
+                if (config.propData == null)
+                {
+                    Debug.LogWarning($"⚠️ PropSpawnConfig '{config.propId}' no tiene PropData asignado.");
+                    continue;
+                }
+                
+                if (config.propData.prefab == null)
+                {
+                    Debug.LogWarning($"⚠️ PropData '{config.propData.propName}' no tiene prefab asignado.");
+                    continue;
+                }
+                
+                var go = Object.Instantiate(
+                    config.propData.prefab,
+                    config.position,
+                    config.rotation,
+                    chunk.propsRoot
+                );
+                go.transform.localScale = config.scale;
+                
+                // Si es interactivo, inicializar el PropController
+                if (config.propData.isInteractive)
+                {
+                    var controller = go.GetComponent<PropController>();
+                    if (controller != null)
+                    {
+                        controller.Initialize(config, chunk.coordinates);
+                        config.activeController = controller;
+                    }
+                    else
+                    {
+                        Debug.LogWarning($"⚠️ Prop '{config.propId}' marcado como interactivo pero " +
+                                         $"el prefab no tiene PropController.");
+                    }
+                }
+            }
+            
+            if (showDebugLogs)
+                Debug.Log($"🏠 Chunk {chunk.coordinates}: {spawnableProps.Count} props instanciados.");
+        }
+        
+        /// <summary>
+        /// Destruye todos los props del chunk de una sola vez.
+        /// </summary>
+        private void UnloadProps(ChunkData chunk)
+        {
+            if (chunk.propsRoot != null)
+            {
+                Destroy(chunk.propsRoot.gameObject);
+                chunk.propsRoot = null;
+            }
+            
+            // Limpiar referencias de controladores en los configs
+            foreach (var config in chunk.propSpawnConfigs)
+                config.activeController = null;
+        }
+        
+        /// <summary>
+        /// Notifica que un prop fue consumido (el jugador interactuó y desapareció).
+        /// Llamado desde PropController.ConsumeObject().
+        /// </summary>
+        public void NotificarPropConsumido(string propId, Vector2Int chunkCoords)
+        {
+            if (!chunks.TryGetValue(chunkCoords, out var chunk))
+            {
+                Debug.LogWarning($"⚠️ Chunk {chunkCoords} no encontrado al notificar consumo de '{propId}'");
+                return;
+            }
+            
+            chunk.MarkPropConsumed(propId);
+            
+            if (showDebugLogs)
+                Debug.Log($"📦 Prop consumido: {propId} en chunk {chunkCoords}");
+        }
+        
+        // ─── Notificaciones de Enemigos ───────────────────────────────────────────
         
         /// <summary>
         /// Notifica que un enemigo fue derrotado.
