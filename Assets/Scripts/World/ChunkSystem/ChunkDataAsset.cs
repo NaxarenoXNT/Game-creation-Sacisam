@@ -26,6 +26,10 @@ namespace World.ChunkSystem
         [Tooltip("Zonas donde no se genera vegetación procedural: caminos, plazas, footprints.")]
         public List<ProceduralExclusion> proceduralExclusions = new List<ProceduralExclusion>();
         
+        [Header("Bioma")]
+        [Tooltip("Bioma principal de este chunk")]
+        public World.BiomeSystem.BiomeSettings primaryBiome;
+
         [Header("Preview")]
         [Tooltip("Color para visualizar este chunk en la escena")]
         public Color gizmoColor = Color.cyan;

@@ -736,6 +736,67 @@ namespace World.ChunkSystem
                         }
                     }
                 }
+
+                // Props tintados por bioma (biomeTintedTrees / Understory / GroundCover)
+                // Se instancian con MaterialPropertyBlock (_TopColor) = foliageColor del bioma.
+                if (placedCount < maxDecorativePropsPerChunk)
+                {
+                    float tintedTreeDensity = sample.BlendFloat(b => b.tintedTreeDensity);
+                    if (rng.NextDouble() < tintedTreeDensity)
+                    {
+                        var prefab = sample.PickTintedTree(rng);
+                        if (prefab != null)
+                        {
+                            float minSpacing = sample.BlendFloat(b => b.minTreeSpacing);
+                            if (!IsTooClose(position, minSpacing, placedPositions))
+                            {
+                                PlaceTintedProp(prefab, position, sample, rng, chunk.propsRoot);
+                                placedPositions.Add(new Vector2(position.x, position.z));
+                                placedCount++;
+                                spawnedThisFrame++;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        float tintedUnderstoryDensity = sample.BlendFloat(b => b.tintedUnderstoryDensity);
+                        if (rng.NextDouble() < tintedUnderstoryDensity)
+                        {
+                            var prefab = sample.PickTintedUnderstory(rng);
+                            if (prefab != null)
+                            {
+                                float minSpacing = sample.BlendFloat(b => b.minUnderstorySpacing);
+                                if (!IsTooClose(position, minSpacing, placedPositions))
+                                {
+                                    PlaceTintedProp(prefab, position, sample, rng, chunk.propsRoot);
+                                    placedPositions.Add(new Vector2(position.x, position.z));
+                                    placedCount++;
+                                    spawnedThisFrame++;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            float tintedGroundCoverDensity = sample.BlendFloat(b => b.tintedGroundCoverDensity);
+                            if (rng.NextDouble() < tintedGroundCoverDensity)
+                            {
+                                float gcX = (float)rng.NextDouble() * chunkSize + origin.x;
+                                float gcZ = (float)rng.NextDouble() * chunkSize + origin.z;
+                                Vector3 gcPos = new Vector3(gcX, GetTerrainHeight(gcX, gcZ), gcZ);
+                                if (!chunk.IsInExclusionZone(gcPos) && !sample.IsFullyManual())
+                                {
+                                    var prefab = sample.PickTintedGroundCover(rng);
+                                    if (prefab != null)
+                                    {
+                                        PlaceTintedProp(prefab, gcPos, sample, rng, chunk.propsRoot);
+                                        placedCount++;
+                                        spawnedThisFrame++;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
                 
                 // Distribuir la carga entre frames
                 if (spawnedThisFrame >= maxPropsPerFrame)
@@ -754,6 +815,7 @@ namespace World.ChunkSystem
         
         /// <summary>
         /// Instancia un prop decorativo con variación de escala y rotación aleatoria.
+        /// Mantiene los materiales originales del prefab sin modificarlos.
         /// </summary>
         private void PlaceDecorativeProp(GameObject prefab, Vector3 position,
             BiomeSample sample, System.Random rng, Transform parent)
@@ -764,6 +826,33 @@ namespace World.ChunkSystem
             
             Instantiate(prefab, position, Quaternion.Euler(0, rotY, 0), parent)
                 .transform.localScale = Vector3.one * scale;
+        }
+
+        /// <summary>
+        /// Instancia un prop tintado por bioma usando MaterialPropertyBlock.
+        /// Escribe _TopColor = foliageColor blended sin crear instancias de material,
+        /// preservando GPU Instancing. Activa _CUSTOMCOLORSTINTING = 1 automáticamente.
+        /// </summary>
+        private void PlaceTintedProp(GameObject prefab, Vector3 position,
+            BiomeSample sample, System.Random rng, Transform parent)
+        {
+            float scaleVar = sample.BlendFloat(b => b.treeScaleVariation);
+            float scale = 1f + ((float)rng.NextDouble() * 2f - 1f) * scaleVar;
+            float rotY = (float)rng.NextDouble() * 360f;
+
+            var go = Instantiate(prefab, position, Quaternion.Euler(0, rotY, 0), parent);
+            go.transform.localScale = Vector3.one * scale;
+
+            // Aplicar color del bioma vía MPB a todos los Renderers del prefab
+            Color foliageColor = sample.BlendColor(b => b.foliageColor);
+            var mpb = new MaterialPropertyBlock();
+            foreach (var rend in go.GetComponentsInChildren<Renderer>())
+            {
+                rend.GetPropertyBlock(mpb);
+                mpb.SetColor("_TopColor", foliageColor);
+                mpb.SetFloat("_CUSTOMCOLORSTINTING", 1f);
+                rend.SetPropertyBlock(mpb);
+            }
         }
         
         /// <summary>

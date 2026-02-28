@@ -58,6 +58,33 @@ namespace World.BiomeSystem
         public GameObject PickGroundCover(System.Random rng) => PickFromBlend(rng, (b, r) => b.PickGroundCover(r));
 
         /// <summary>
+        /// Elige un prefab de árbol TINTEABLE considerando el blend de biomas.
+        /// </summary>
+        public GameObject PickTintedTree(System.Random rng) => PickFromBlend(rng, (b, r) => b.PickTintedTree(r));
+
+        /// <summary>
+        /// Elige un prefab de sotobosque TINTEABLE considerando el blend de biomas.
+        /// </summary>
+        public GameObject PickTintedUnderstory(System.Random rng) => PickFromBlend(rng, (b, r) => b.PickTintedUnderstory(r));
+
+        /// <summary>
+        /// Elige un prefab de cobertura de suelo TINTEABLE considerando el blend de biomas.
+        /// </summary>
+        public GameObject PickTintedGroundCover(System.Random rng) => PickFromBlend(rng, (b, r) => b.PickTintedGroundCover(r));
+
+        /// <summary>
+        /// Interpola un color entre todos los biomas usando sus pesos.
+        /// Ejemplo: BlendColor(b => b.foliageColor) → color de follaje mezclado.
+        /// </summary>
+        public Color BlendColor(System.Func<BiomeSettings, Color> selector)
+        {
+            Color result = Color.black;
+            foreach (var (biome, weight) in Influences)
+                result += selector(biome) * weight;
+            return result;
+        }
+
+        /// <summary>
         /// Devuelve true si TODOS los biomas con influencia significativa son manuales.
         /// Se usa para no generar vegetación procedural en zonas urbanas.
         /// </summary>
