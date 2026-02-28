@@ -255,6 +255,13 @@ namespace Movement
                 return;
             }
             
+            // Click-to-move solo en modo isométrico; en tercera persona el movimiento es WASD
+            if (Camera.IsometricCameraController.Instance != null &&
+                Camera.IsometricCameraController.Instance.CurrentMode != Camera.CameraMode.Isometric)
+            {
+                return;
+            }
+            
             MoveToPosition(clickData.Position);
         }
         

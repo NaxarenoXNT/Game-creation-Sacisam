@@ -1,9 +1,11 @@
 using System;
+using System.Collections.Generic;
 using Interfaces;
 using Flags;
 using UnityEngine;
 using Habilidades;
 using Combate;
+using Managers;
 
 
 
@@ -12,6 +14,10 @@ namespace Padres
 {
     public abstract class Entidad : IEntidadCombate
     {
+        // Campo temporal para propagar contexto de atacante a Morir()
+        // Se setea en AplicarDanoDesdeContexto antes de evaluar muerte.
+        private IEntidadCombate _ultimoAtacante;
+
         public int Vida_Entidad { get; protected set; }
         public int VidaActual_Entidad { get; protected set; }
         public int PuntosDeAtaque_Entidad { get; protected set; }
@@ -25,6 +31,13 @@ namespace Padres
         
         // Estadísticas de combate (crítico, elemental, resistencias)
         public CombatStats CombatStats { get; protected set; } = new CombatStats();
+
+        // Modificadores de daño por entidad (pasivas, traits)
+        public List<Combate.IDamageModifier> EntityDamageModifiers { get; protected set; } = new List<Combate.IDamageModifier>();
+
+        // Handler de efectos activos (lazy init para poder pasar 'this')
+        private Efectos.EffectHandler _effectHandler;
+        public Efectos.EffectHandler EffectHandler => _effectHandler ??= new Efectos.EffectHandler(this);
 
         public float PuntosDeDefensa_Entidad { get; protected set; }
         public float Experiencia_Progreso { get; protected set; }
@@ -152,7 +165,7 @@ namespace Padres
 
             if (!EstaVivo())
             {
-                Morir();
+                Morir(_ultimoAtacante);
             }
         }
 
@@ -177,7 +190,7 @@ namespace Padres
 
             if (!EstaVivo())
             {
-                Morir();
+                Morir(_ultimoAtacante);
             }
         }
 
@@ -257,11 +270,57 @@ namespace Padres
             return vidaCurada;
         }
 
-        protected virtual void Morir()
+        protected virtual void Morir(IEntidadCombate asesino = null)
         {
+            if (EstaMuerto) return;
             EstaMuerto = true;
             EsDerrotado = true;
             OnMuerte?.Invoke();
+            
+            // Publicar evento de muerte al EventBus con contexto de asesino
+            EventBus.Publicar(new EventoMuerte
+            {
+                Entidad = this,
+                Asesino = asesino
+            });
+        }
+
+        /// <summary>
+        /// Aplica daño desde un DamageContext procesado por el DamagePipeline.
+        /// Este es el método preferido para aplicar daño en código nuevo.
+        /// Propaga el atacante al flujo de muerte si la entidad muere.
+        /// </summary>
+        public virtual void AplicarDanoDesdeContexto(DamageContext context)
+        {
+            if (!EstaVivo()) return;
+            
+            int dano = context.FinalDamage;
+            _ultimoAtacante = context.Attacker;
+            
+            VidaActual_Entidad -= dano;
+            if (VidaActual_Entidad < 0) VidaActual_Entidad = 0;
+            
+            OnDañoRecibido?.Invoke(dano);
+            OnVidaCambiada?.Invoke(VidaActual_Entidad, Vida_Entidad);
+            
+            // Notificar efectos de crit al EffectHandler del atacante
+            if (context.IsCritical && context.Attacker is Entidad atacanteEnt)
+            {
+                atacanteEnt.EffectHandler.NotifyCriticalHit(context);
+            }
+            
+            if (!EstaVivo())
+            {
+                Morir(context.Attacker);
+                
+                // Notificar al atacante que eliminó a esta entidad
+                if (context.Attacker is Jugador jugadorAtacante)
+                {
+                    jugadorAtacante.AlEliminar(this);
+                }
+            }
+            
+            _ultimoAtacante = null;
         }
 
 
