@@ -28,6 +28,9 @@ namespace Managers
         [Range(0, 20)]
         public int maxEnemiesPerEncounter = 5;
         
+        [Tooltip("Los enemigos excedentes entran en una cola de espera")]
+        public bool useReinforcementQueue = true;
+        
         [Tooltip("Mínimo de aliados necesarios para iniciar combate")]
         [Range(1, 10)]
         public int minAlliesRequired = 1;

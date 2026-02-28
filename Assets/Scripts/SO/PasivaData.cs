@@ -41,17 +41,12 @@ public class PasivaData : ScriptableObject
     [SerializeReference]
     public List<IPasivaEffect> efectos = new List<IPasivaEffect>();
 
-    // Estado interno (no serializado)
-    [System.NonSerialized]
-    private bool _estaActiva = false;
-
     /// <summary>
     /// Aplica todos los efectos de la pasiva al portador.
-    /// Llamar cuando la entidad obtiene la pasiva.
+    /// El estado de activación es manejado por GestorPasivas, no por el SO.
     /// </summary>
     public void Activar(Entidad portador)
     {
-        if (_estaActiva) return;
         if (!PuedeActivarse(portador)) return;
 
         foreach (var efecto in efectos)
@@ -59,42 +54,32 @@ public class PasivaData : ScriptableObject
             efecto?.Aplicar(portador);
         }
         
-        _estaActiva = true;
-        Debug.Log($"✨ Pasiva '{nombrePasiva}' activada en {portador.Nombre_Entidad}");
+        Debug.Log($"Pasiva '{nombrePasiva}' activada en {portador.Nombre_Entidad}");
     }
 
     /// <summary>
     /// Remueve todos los efectos de la pasiva del portador.
-    /// Llamar cuando la entidad pierde la pasiva.
+    /// El estado de activación es manejado por GestorPasivas, no por el SO.
     /// </summary>
     public void Desactivar(Entidad portador)
     {
-        if (!_estaActiva) return;
-
         foreach (var efecto in efectos)
         {
             efecto?.Remover(portador);
         }
         
-        _estaActiva = false;
-        Debug.Log($"💤 Pasiva '{nombrePasiva}' desactivada en {portador.Nombre_Entidad}");
+        Debug.Log($"Pasiva '{nombrePasiva}' desactivada en {portador.Nombre_Entidad}");
     }
 
     /// <summary>
     /// Procesa efectos por turno (regeneración, etc.).
     /// Llamar al inicio de cada turno del portador.
     /// </summary>
-    public void ProcesarTurno(Entidad portador)
+    /// <param name="estaActiva">Estado de activación gestionado por GestorPasivas.</param>
+    public void ProcesarTurno(Entidad portador, bool estaActiva)
     {
-        if (!_estaActiva) return;
+        if (!estaActiva) return;
         
-        // Re-verificar condiciones cada turno
-        if (!siempreActiva && !CumpleCondicion(portador))
-        {
-            Desactivar(portador);
-            return;
-        }
-
         foreach (var efecto in efectos)
         {
             efecto?.ProcesarTurno(portador);
@@ -102,23 +87,13 @@ public class PasivaData : ScriptableObject
     }
 
     /// <summary>
-    /// Verifica condiciones y activa/desactiva según corresponda.
-    /// Llamar cuando cambia el estado del portador (HP, etc.).
+    /// Evalúa si la pasiva debería estar activa según sus condiciones.
+    /// El GestorPasivas usa esto para decidir activar/desactivar.
     /// </summary>
-    public void ActualizarEstado(Entidad portador)
+    public bool DeberiaEstarActiva(Entidad portador)
     {
-        if (siempreActiva) return;
-
-        bool deberiaEstarActiva = CumpleCondicion(portador);
-        
-        if (deberiaEstarActiva && !_estaActiva)
-        {
-            Activar(portador);
-        }
-        else if (!deberiaEstarActiva && _estaActiva)
-        {
-            Desactivar(portador);
-        }
+        if (siempreActiva) return true;
+        return CumpleCondicion(portador);
     }
 
     /// <summary>
@@ -159,8 +134,6 @@ public class PasivaData : ScriptableObject
             _ => true
         };
     }
-
-    public bool EstaActiva => _estaActiva;
 
     /// <summary>
     /// Genera descripción completa de la pasiva.

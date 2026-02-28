@@ -25,7 +25,12 @@ public class EnemigoData : ScriptableObject
     public TipoEntidades tipoEntidad;
     public CombatStyle estiloCombate;
 
+    [Header("Detección y Persecución")]
+    public float radioDeteccion = 8f;
+    public float radioPersecucion = 14f;
+
     [Header("Visual")]
+    public GameObject modeloPrefab;
     public AnimatorOverrideController animatorOverride;
     
     [Header("Habilidades")]

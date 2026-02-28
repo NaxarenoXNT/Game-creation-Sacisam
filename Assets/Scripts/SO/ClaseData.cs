@@ -21,6 +21,10 @@ using System.Collections.Generic;
       public int manaBase = 50;
       public int velocidadBase = 50;
       
+      [Header("Escalado por Nivel")]
+      [Tooltip("Crecimiento de stats por nivel. Si no se configura, usa valores por defecto.")]
+      public EscaladoJugador escalado = new EscaladoJugador();
+      
       [Header("Atributos")]
       public ElementAttribute atributos;
       public TipoEntidades tipoEntidad;
