@@ -1,5 +1,6 @@
 using Flags;
 using Habilidades;
+using Combate;
 using System.Collections.Generic;
 
 namespace Interfaces
@@ -55,6 +56,9 @@ namespace Interfaces
     /// </summary>
     public interface IEntidadCombate : IDamageable, IHealable, IStatusReceiver, IIdentificable
     {
+        // === Stats de combate ===
+        CombatStats CombatStats { get; }
+
         // === Propiedades de vida ===
         int Vida_Entidad { get; }
         int VidaActual_Entidad { get; }

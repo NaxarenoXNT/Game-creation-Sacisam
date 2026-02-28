@@ -16,6 +16,9 @@ namespace Habilidades
         // Lista de pasivas que posee la entidad
         private List<PasivaData> pasivas = new List<PasivaData>();
         
+        // Tracking de activación por instancia (resuelve estado mutable en SO)
+        private HashSet<PasivaData> pasivasActivas = new HashSet<PasivaData>();
+        
         // Referencia al portador
         private Entidad portador;
 
@@ -54,6 +57,7 @@ namespace Habilidades
 
             pasivas.Add(pasiva);
             pasiva.Activar(portador);
+            pasivasActivas.Add(pasiva);
             OnPasivaAgregada?.Invoke(pasiva);
             
             // Publicar al EventBus para sistema de evolución
@@ -75,6 +79,7 @@ namespace Habilidades
             if (!pasivas.Contains(pasiva)) return false;
 
             pasiva.Desactivar(portador);
+            pasivasActivas.Remove(pasiva);
             pasivas.Remove(pasiva);
             OnPasivaRemovida?.Invoke(pasiva);
             
@@ -95,7 +100,27 @@ namespace Habilidades
         {
             foreach (var pasiva in pasivas)
             {
-                pasiva.ProcesarTurno(portador);
+                bool activa = pasivasActivas.Contains(pasiva);
+                
+                // Re-verificar condiciones cada turno para pasivas condicionales
+                if (!pasiva.siempreActiva)
+                {
+                    bool deberiaEstarActiva = pasiva.DeberiaEstarActiva(portador);
+                    if (deberiaEstarActiva && !activa)
+                    {
+                        pasiva.Activar(portador);
+                        pasivasActivas.Add(pasiva);
+                        activa = true;
+                    }
+                    else if (!deberiaEstarActiva && activa)
+                    {
+                        pasiva.Desactivar(portador);
+                        pasivasActivas.Remove(pasiva);
+                        activa = false;
+                    }
+                }
+                
+                pasiva.ProcesarTurno(portador, activa);
             }
         }
 
@@ -107,7 +132,21 @@ namespace Habilidades
         {
             foreach (var pasiva in pasivas)
             {
-                pasiva.ActualizarEstado(portador);
+                if (pasiva.siempreActiva) continue;
+                
+                bool activa = pasivasActivas.Contains(pasiva);
+                bool deberiaEstarActiva = pasiva.DeberiaEstarActiva(portador);
+                
+                if (deberiaEstarActiva && !activa)
+                {
+                    pasiva.Activar(portador);
+                    pasivasActivas.Add(pasiva);
+                }
+                else if (!deberiaEstarActiva && activa)
+                {
+                    pasiva.Desactivar(portador);
+                    pasivasActivas.Remove(pasiva);
+                }
             }
         }
 
@@ -118,8 +157,11 @@ namespace Habilidades
         {
             foreach (var pasiva in pasivas)
             {
-                if (!pasiva.EstaActiva)
+                if (!pasivasActivas.Contains(pasiva))
+                {
                     pasiva.Activar(portador);
+                    pasivasActivas.Add(pasiva);
+                }
             }
         }
 
@@ -130,9 +172,20 @@ namespace Habilidades
         {
             foreach (var pasiva in pasivas)
             {
-                if (pasiva.EstaActiva)
+                if (pasivasActivas.Contains(pasiva))
+                {
                     pasiva.Desactivar(portador);
+                }
             }
+            pasivasActivas.Clear();
+        }
+        
+        /// <summary>
+        /// Verifica si una pasiva está actualmente activa en este portador.
+        /// </summary>
+        public bool EstaPasivaActiva(PasivaData pasiva)
+        {
+            return pasivasActivas.Contains(pasiva);
         }
 
         /// <summary>
@@ -156,7 +209,7 @@ namespace Habilidades
         /// </summary>
         public List<PasivaData> ObtenerPasivasActivas()
         {
-            return pasivas.FindAll(p => p.EstaActiva);
+            return pasivas.FindAll(p => pasivasActivas.Contains(p));
         }
 
         /// <summary>
