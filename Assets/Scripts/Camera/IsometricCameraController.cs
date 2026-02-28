@@ -537,6 +537,27 @@ namespace Camera
         public Ray GetMouseRay()
             => mainCamera != null ? mainCamera.ScreenPointToRay(Input.mousePosition) : default;
 
+        /// <summary>
+        /// Vector XZ "adelante" relativo al yaw activo, para orientar el input WASD.
+        /// ISO: relativo a posición XZ de la cámara. TP: dirección en que mira la cámara.
+        /// Fórmula: (-sin(yaw), 0, -cos(yaw)) — con yaw=0° W mueve en -Z (hacia dentro de pantalla).
+        /// </summary>
+        public Vector3 GetMovementForward()
+        {
+            float yawRad = CurrentYaw * Mathf.Deg2Rad;
+            return new Vector3(-Mathf.Sin(yawRad), 0f, -Mathf.Cos(yawRad));
+        }
+
+        /// <summary>
+        /// Vector XZ "derecha" relativo al yaw activo, para orientar el input WASD.
+        /// Fórmula: cross(forward, up) = (cos(yaw), 0, -sin(yaw)).
+        /// </summary>
+        public Vector3 GetMovementRight()
+        {
+            float yawRad = CurrentYaw * Mathf.Deg2Rad;
+            return new Vector3(Mathf.Cos(yawRad), 0f, -Mathf.Sin(yawRad));
+        }
+
         // ══════════════════════════════════════════════════════════════════
         // Callbacks internos
         // ══════════════════════════════════════════════════════════════════
