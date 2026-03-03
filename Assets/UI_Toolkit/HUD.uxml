@@ -1,0 +1,92 @@
+﻿<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="HUD.uss" />
+    <ui:VisualElement name="hud-root" class="hud-root">
+
+        <!-- ============================================================
+             FILA SUPERIOR: TurnOrder+Refuerzos (izq) + Botones (der)
+             ============================================================ -->
+        <ui:VisualElement name="top-row" class="top-row">
+
+            <!-- Columna izquierda: TurnOrder + boton Refuerzos debajo -->
+            <ui:VisualElement name="top-left-column" class="top-left-column">
+                <ui:VisualElement name="TurnOrder" class="turn-order-panel">
+                    <!-- Los slots se agregan desde C# -->
+                </ui:VisualElement>
+                <ui:Button name="ReinforsmentButton" class="btn-reinforcement" text="Pedir Refuerzos" />
+            </ui:VisualElement>
+
+            <!-- Empuja los botones a la derecha -->
+            <ui:VisualElement class="top-row-spacer" />
+
+            <!-- MainMenuButton: primer boton, preparado para abrir menu principal -->
+            <!-- Button1_1 - Button1_3: reservados para funciones futuras            -->
+            <ui:VisualElement name="ButtonsHolders" class="buttons-holders">
+                <ui:Button name="MainMenuButton" class="btn-misc btn-main-menu" text="M" />
+                <ui:Button name="Button1_1" class="btn-misc" text="" />
+                <ui:Button name="Button1_2" class="btn-misc" text="" />
+                <ui:Button name="Button1_3" class="btn-misc" text="" />
+                <ui:Button name="IsoButton" class="btn-iso" text="&#9776;" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- ============================================================
+             ZONA CENTRAL: Info personaje (izq) + Lista habilidades (der)
+             ============================================================ -->
+        <ui:VisualElement name="mid-row" class="mid-row">
+
+            <!-- Bloque izquierdo: todo lo del personaje -->
+            <ui:VisualElement name="PanelPersonaje" class="character-panel">
+
+                <!-- Fila superior del personaje: imagen + datos + botones accion -->
+                <ui:VisualElement class="character-top-row">
+
+                    <!-- Imagen del personaje (cuadrado placeholder) -->
+                    <ui:VisualElement name="CaracterImage" class="character-image" />
+
+                    <!-- Datos textuales: Nivel, Nombre, 2 placeholders -->
+                    <ui:VisualElement class="character-data">
+                        <ui:VisualElement class="info-field">
+                            <ui:Label name="Level" class="info-label" text="Nivel:" />
+                            <ui:Label name="LevelValue" class="info-value" text="1" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="info-field">
+                            <ui:Label name="Caractername" class="info-label" text="Nombre:" />
+                            <ui:Label name="NameValue" class="info-value" text="Personaje" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="placeholder-row">
+                            <ui:VisualElement class="placeholder-rect" />
+                            <ui:VisualElement class="placeholder-rect" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+
+                    <!-- Botones de accion verticales -->
+                    <ui:VisualElement name="GestorAbilities" class="action-buttons">
+                        <ui:Button name="AbilitiesButton" class="btn-action" text="Abilidades" />
+                        <ui:Button name="ItemUseButton" class="btn-action" text="Usar Item" />
+                        <ui:Button name="DefButton" class="btn-action" text="Defencerce" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+
+                <!-- Barras de vida y mana (dinamicas: se ocultan desde C# segun el personaje) -->
+                <ui:VisualElement name="BarsContainer" class="bars-container">
+                    <ui:VisualElement name="barraDeVida" class="bar-wrapper">
+                        <ui:VisualElement class="bar-bg bar-bg-vida">
+                            <ui:VisualElement name="RellenoVida" class="bar-fill bar-fill-vida" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                    <ui:VisualElement name="BarraMana" class="bar-wrapper">
+                        <ui:VisualElement class="bar-bg bar-bg-mana">
+                            <ui:VisualElement name="RellenoMana" class="bar-fill bar-fill-mana" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                </ui:VisualElement>
+            </ui:VisualElement>
+
+            <!-- Bloque derecho: lista dinamica de habilidades del personaje activo -->
+            <!-- Cada boton se genera desde C# leyendo los HabilidadData (SOs) del personaje -->
+            <ui:VisualElement name="AbilitiesDinamicHolder" class="abilities-dynamic-panel">
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+    </ui:VisualElement>
+</ui:UXML>

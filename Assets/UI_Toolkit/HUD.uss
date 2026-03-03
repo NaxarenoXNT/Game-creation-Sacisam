@@ -1,0 +1,345 @@
+/* ============================================================
+   HUD.uss — Estilos del panel HUD
+   Layout: posicionamiento absoluto para paneles principales
+   ============================================================ */
+
+/* ========================================================
+   ROOT — contenedor absoluto sin flex
+   ======================================================== */
+.hud-root {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    left: 0;
+    top: 0;
+}
+
+/* ========================================================
+   FILA SUPERIOR — posicionada arriba
+   ======================================================== */
+.top-row {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    right: 12px;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.top-row-spacer {
+    flex: 1;
+}
+
+/* ─── Columna izquierda: TurnOrder + Refuerzos ─── */
+.top-left-column {
+    flex-direction: column;
+    align-items: stretch;
+    row-gap: 6px;
+}
+
+/* ─── TurnOrder panel (izquierda arriba) ─── */
+.turn-order-panel {
+    width: 80px;
+    background-color: rgba(55, 55, 68, 0.85);
+    border-color: rgba(100, 100, 120, 0.6);
+    border-width: 2px;
+    border-radius: 12px;
+    padding: 10px 6px;
+    flex-direction: column;
+    justify-content: flex-start;
+    row-gap: 8px;
+}
+
+.turn-order-slot {
+    height: 22px;
+    background-color: rgba(75, 75, 90, 0.7);
+    border-radius: 4px;
+    margin-bottom: 4px;
+}
+
+/* ─── Botones misc (derecha arriba) ─── */
+.buttons-holders {
+    flex-direction: row;
+    align-items: center;
+    column-gap: 6px;
+}
+
+.btn-misc {
+    width: 55px;
+    height: 26px;
+    background-color: rgba(70, 70, 85, 0.85);
+    border-color: rgba(110, 110, 130, 0.5);
+    border-width: 1.5px;
+    border-radius: 4px;
+    color: rgba(220, 220, 230, 0.95);
+    font-size: 11px;
+}
+
+.btn-misc:hover {
+    background-color: rgba(90, 90, 110, 0.95);
+}
+
+/* MainMenuButton: color levemente diferenciado para indicar su rol */
+.btn-main-menu {
+    border-color: rgba(140, 120, 180, 0.7);
+    color: rgba(230, 215, 255, 1);
+}
+
+.btn-main-menu:hover {
+    background-color: rgba(100, 85, 130, 0.95);
+    border-color: rgba(170, 150, 210, 0.85);
+}
+
+.btn-iso {
+    width: 32px;
+    height: 32px;
+    background-color: rgba(70, 70, 85, 0.85);
+    border-color: rgba(110, 110, 130, 0.5);
+    border-width: 1.5px;
+    border-radius: 4px;
+    color: rgba(220, 220, 230, 0.95);
+    font-size: 16px;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+.btn-iso:hover {
+    background-color: rgba(90, 90, 110, 0.95);
+}
+
+/* ========================================================
+   ZONA CENTRAL — personaje + habilidades
+   ======================================================== */
+.mid-row {
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 0;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: flex-end;
+    column-gap: 16px;
+}
+
+/* ─── Panel del personaje (izquierda abajo) ─── */
+.character-panel {
+    width: 520px;
+    flex-shrink: 0;
+    background-color: rgba(50, 50, 62, 0.88);
+    border-color: rgba(90, 90, 108, 0.6);
+    border-width: 2px;
+    border-radius: 8px;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    padding: 12px;
+    flex-direction: column;
+    row-gap: 8px;
+}
+
+.character-top-row {
+    flex-direction: row;
+    align-items: flex-start;
+    column-gap: 12px;
+}
+
+/* Imagen del personaje */
+.character-image {
+    width: 80px;
+    height: 80px;
+    background-color: rgba(220, 220, 230, 0.95);
+    border-color: rgba(110, 110, 130, 0.5);
+    border-width: 2px;
+    border-radius: 6px;
+    flex-shrink: 0;
+}
+
+/* Datos del personaje */
+.character-data {
+    flex-direction: column;
+    row-gap: 4px;
+    flex: 1;
+}
+
+.info-field {
+    flex-direction: row;
+    align-items: center;
+    height: 24px;
+    column-gap: 8px;
+}
+
+.info-label {
+    color: rgba(190, 190, 205, 0.95);
+    font-size: 13px;
+    min-width: 60px;
+}
+
+.info-value {
+    color: rgba(240, 240, 250, 1);
+    font-size: 13px;
+    -unity-font-style: bold;
+}
+
+/* Placeholders (stats futuras) */
+.placeholder-row {
+    flex-direction: row;
+    column-gap: 8px;
+    margin-top: 4px;
+}
+
+.placeholder-rect {
+    width: 85px;
+    height: 24px;
+    background-color: rgba(95, 95, 115, 0.6);
+    border-radius: 4px;
+}
+
+/* Botones de accion (columna vertical) */
+.action-buttons {
+    flex-direction: column;
+    row-gap: 6px;
+    flex-shrink: 0;
+}
+
+.btn-action {
+    width: 110px;
+    height: 32px;
+    background-color: rgba(75, 75, 92, 0.88);
+    border-color: rgba(115, 115, 140, 0.6);
+    border-width: 1.5px;
+    border-radius: 5px;
+    color: rgba(230, 230, 240, 0.98);
+    font-size: 12px;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-action:hover {
+    background-color: rgba(100, 100, 125, 0.95);
+    border-color: rgba(145, 145, 175, 0.75);
+}
+
+.btn-action:active {
+    background-color: rgba(65, 65, 82, 1);
+}
+
+/* ─── Barras de vida y mana ─── */
+.bars-container {
+    flex-direction: column;
+    row-gap: 6px;
+    width: 100%;
+}
+
+.bar-wrapper {
+    width: 100%;
+    height: 18px;
+}
+
+.bar-bg {
+    width: 100%;
+    height: 100%;
+    border-radius: 4px;
+    padding: 2px;
+    overflow: hidden;
+}
+
+.bar-bg-vida {
+    background-color: rgba(45, 18, 18, 0.9);
+    border-color: rgba(80, 30, 30, 0.7);
+    border-width: 1px;
+}
+
+.bar-bg-mana {
+    background-color: rgba(15, 25, 50, 0.9);
+    border-color: rgba(30, 50, 85, 0.7);
+    border-width: 1px;
+}
+
+.bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition-property: width;
+    transition-duration: 0.35s;
+    transition-timing-function: ease-out;
+}
+
+.bar-fill-vida {
+    background-color: rgb(70, 200, 70);
+    width: 100%;
+}
+
+.bar-fill-mana {
+    background-color: rgb(60, 140, 230);
+    width: 100%;
+}
+
+/* ========================================================
+   LISTA DE HABILIDADES (derecha, centro vertical)
+   ======================================================== */
+.abilities-dynamic-panel {
+    width: 260px;
+    flex-shrink: 0;
+    flex-direction: column;
+    row-gap: 6px;
+    justify-content: flex-end;
+    align-self: stretch;
+}
+
+.ability-btn {
+    width: 100%;
+    height: 40px;
+    background-color: rgba(110, 110, 130, 0.8);
+    border-color: rgba(135, 135, 160, 0.6);
+    border-width: 1.5px;
+    border-radius: 5px;
+    color: rgba(240, 240, 250, 0.98);
+    font-size: 13px;
+    align-items: center;
+    justify-content: center;
+}
+
+.ability-btn:hover {
+    background-color: rgba(130, 130, 155, 0.92);
+    border-color: rgba(160, 160, 190, 0.75);
+}
+
+.ability-btn:active {
+    background-color: rgba(95, 95, 115, 1);
+}
+
+.ability-btn.disabled {
+    background-color: rgba(65, 65, 78, 0.55);
+    color: rgba(140, 140, 150, 0.65);
+    border-color: rgba(75, 75, 88, 0.45);
+}
+
+/* ========================================================
+   BOTON REFUERZOS — debajo del TurnOrder en columna izq
+   ======================================================== */
+.btn-reinforcement {
+    width: 80px;
+    height: 28px;
+    background-color: rgba(75, 75, 92, 0.88);
+    border-color: rgba(115, 115, 140, 0.6);
+    border-width: 1.5px;
+    border-radius: 5px;
+    color: rgba(230, 230, 240, 0.98);
+    font-size: 9px;
+    padding: 0 4px;
+    align-items: center;
+    justify-content: center;
+    white-space: normal;
+    -unity-text-align: middle-center;
+}
+
+.btn-reinforcement:hover {
+    background-color: rgba(100, 100, 125, 0.95);
+}
+
+/* ========================================================
+   UTILIDAD
+   ======================================================== */
+.hidden {
+    display: none;
+}
