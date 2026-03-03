@@ -118,9 +118,19 @@ namespace GameInput
             if (IsometricCameraController.Instance != null &&
                 IsometricCameraController.Instance.CurrentMode == CameraMode.Isometric)
                 return;
-            
-            float horizontal = Input.GetAxisRaw("Horizontal");
-            float vertical = Input.GetAxisRaw("Vertical");
+
+            // Preferir WASD directo (evita ejes duplicados/joystick y corrige A/D invertidos)
+            float horizontal = 0f;
+            if (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow))  horizontal -= 1f;
+            if (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow)) horizontal += 1f;
+
+            float vertical = 0f;
+            if (Input.GetKey(KeyCode.S) || Input.GetKey(KeyCode.DownArrow)) vertical -= 1f;
+            if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow))   vertical += 1f;
+
+            // Fallback a ejes si no hay teclas (p.ej. gamepad)
+            if (Mathf.Abs(horizontal) < 0.01f) horizontal = Input.GetAxisRaw("Horizontal");
+            if (Mathf.Abs(vertical) < 0.01f)   vertical   = Input.GetAxisRaw("Vertical");
             
             Vector2 rawInput = new Vector2(horizontal, vertical);
             bool hasInput = rawInput.sqrMagnitude > 0.01f;
