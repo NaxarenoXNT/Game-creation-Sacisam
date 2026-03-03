@@ -7,6 +7,7 @@
 |---|-----------|-------------|
 | 00 | [GUIA_UNITY](00_GUIA_UNITY.md) | Guía de configuración de Unity |
 | -- | [TODO](TODO.md) | Estado y tareas pendientes |
+| **31** | [**Recuperacion_Escena**](31_Recuperacion_Escena.md) | **Setup desde cero tras pérdida de datos: managers, prefab del player, cámara** ⭐ |
 
 ---
 
