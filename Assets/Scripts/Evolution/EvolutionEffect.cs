@@ -1,6 +1,7 @@
 using System;
 using Flags;
 using UnityEngine;
+using Subclases.Modulos;
 
 namespace Evolution
 {
@@ -21,7 +22,8 @@ namespace Evolution
         WorldRuleToggle,
         AITargetBias,
         LootTableBias,
-        TagAdd
+        TagAdd,
+        AgregarModulo       // Inyecta un módulo de comportamiento de clase
     }
 
     [Serializable]
@@ -91,5 +93,9 @@ namespace Evolution
 
         [Header("Tags")]
         public string tagAgregar;
+
+        [Header("Módulo de Comportamiento")]
+        [Tooltip("SO del módulo a inyectar al jugador (para AgregarModulo)")]
+        public ModuloClaseSO moduloSO;
     }
 }

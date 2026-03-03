@@ -1,5 +1,6 @@
 using Flags;
 using Padres;
+using Subclases.Modulos;
 using UnityEngine;
 
 namespace Evolution
@@ -57,6 +58,10 @@ namespace Evolution
                     break;
                 case EvolutionEffectType.ModifyCooldowns:
                     // TODO: Ajustar cooldowns activos/base
+                    break;
+                case EvolutionEffectType.AgregarModulo:
+                    if (efecto.moduloSO != null)
+                        jugador.AgregarModulo(efecto.moduloSO.Instanciar());
                     break;
             }
         }
