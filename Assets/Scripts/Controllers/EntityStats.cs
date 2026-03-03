@@ -61,6 +61,12 @@ public class EntityStats : MonoBehaviour
     public void VincularEntidad(Entidad entidad)
     {
         entidadVinculada = entidad;
+        
+        // Limpiar elementos serializados de sesiones anteriores
+        // (ElementStatus es [Serializable] → Unity persiste la lista entre Play)
+        activeStatuses.Clear();
+        activeAttributes = ElementAttribute.None;
+        
         SincronizarStatsBase();
         ApplyElementalModifiers();
         
@@ -164,18 +170,30 @@ public class EntityStats : MonoBehaviour
         }
     }
      
+    /// <summary>
+    /// Sincroniza las stats base desde la Entidad y luego recalcula los modificadores.
+    /// Usar SOLO cuando las stats base de la Entidad cambian (ej: subida de nivel).
+    /// </summary>
+    public void ActualizarBaseYRecalcular()
+    {
+        SincronizarStatsBase();
+        ApplyElementalModifiers();
+    }
+    
     public void ApplyElementalModifiers()
     {
-        // 1. Sincronizar stats base desde la entidad (por si subió de nivel)
-        SincronizarStatsBase();
+        // NO llamar SincronizarStatsBase() aquí:
+        // AplicarStatsAEntidad() escribe valores boosteados a la Entidad,
+        // y SincronizarStatsBase() los leería como "base", causando compounding.
+        // Las stats base se sincronizan en VincularEntidad y en ActualizarBaseYRecalcular.
         
-        // 2. Reset a valores base
+        // 1. Reset a valores base (ya sincronizados)
         currentDamage = baseDamage;
         currentMaxHealth = baseHealth;
         currentDefense = baseDefense;
         currentSpeed = baseSpeed;
         
-        // 3. Aplicar multiplicadores y bonus de cada elemento activo
+        // 2. Aplicar multiplicadores y bonus de cada elemento activo
         float damageMultiplier = 1.0f;
         
         foreach (ElementStatus status in activeStatuses)
@@ -194,7 +212,7 @@ public class EntityStats : MonoBehaviour
         // Aplicar multiplicador final de daño
         currentDamage = Mathf.RoundToInt(currentDamage * damageMultiplier);
         
-        // 4. Aplicar las stats calculadas a la Entidad
+        // 3. Aplicar las stats calculadas a la Entidad
         AplicarStatsAEntidad();
         
         // Debug info
