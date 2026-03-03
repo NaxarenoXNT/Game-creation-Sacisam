@@ -3,18 +3,12 @@ using Interfaces;
 
 namespace Subclases
 {
-    
+    /// <summary>
+    /// Mago: Clase ofensiva mágica con alto mana y ataque.
+    /// El escalado por nivel se configura en el ClaseData SO.
+    /// </summary>
     public class Mago : Jugador
     {
-        // Escalado específico del Mago (mana y ataque altos, vida baja)
-        private static readonly EscaladoJugador EscaladoMago = new EscaladoJugador(
-            vida: 80,
-            ataque: 15,
-            defensa: 3f,
-            mana: 25,
-            velocidad: 2
-        );
-        
         public Mago(ClaseData datos)
             : base(
                 datos.nombreClase,
@@ -27,18 +21,17 @@ namespace Subclases
                 datos.atributos,
                 datos.tipoEntidad,
                 datos.estiloCombate,
-                EscaladoMago  // Pasar escalado específico
+                datos.escalado  // Escalado desde el SO
             )
         {
             // Inicializar habilidades y pasivas desde ClaseData
             InicializarDesdeClaseData(datos);
         }
 
-        public override int CalcularDanoContra(IEntidadCombate objetivo)
-        {
-            // Magos hacen daño basado en ataque con bonus por mana restante
-            float bonusMana = ManaActual_jugador > 0 ? 1.2f : 1f;
-            return (int)(PuntosDeAtaque_Entidad * bonusMana);
-        }
+        // ── Mecánica única: distribución de XP 60% personaje / 40% elementos ──
+        // El Mago sube de nivel más lento porque invierte más XP en sus elementos.
+
+        protected override float PropXPJugador   => 0.6f;
+        protected override float PropXPElementos => 0.4f;
     }
 }
