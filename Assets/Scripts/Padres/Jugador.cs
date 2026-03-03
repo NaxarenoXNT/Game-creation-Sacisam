@@ -1,9 +1,11 @@
 using System;
+using System.Collections.Generic;
 using Flags;
 using Interfaces;
 using UnityEngine;
 using Habilidades;
 using Combate;
+using Subclases.Modulos;
 
 
 namespace Padres
@@ -42,6 +44,11 @@ namespace Padres
         
         // Datos de escalado configurables
         protected EscaladoJugador escalado;
+
+        // Lista de módulos de comportamiento agregados por evoluciones de clase.
+        // Orden importa: los aditivos se itera de 0 a Count, los sustitutivos de Count-1 a 0.
+        private readonly List<IComportamientoDeClase> _modulos = new List<IComportamientoDeClase>();
+        public IReadOnlyList<IComportamientoDeClase> Modulos => _modulos;
         
         // Sistema de habilidades activas
         public GestorHabilidades GestorHabilidades { get; protected set; }
@@ -145,11 +152,17 @@ namespace Padres
         
 
         // Metodos de progresion
+
+        // Proporciones de XP distribuidas al subir de nivel.
+        // Subclases pueden sobrescribir (ej: Mago reparte más XP a los elementos).
+        protected virtual float PropXPJugador   => 0.8f;
+        protected virtual float PropXPElementos => 0.2f;
+
         public void RecibirXP(float xp)
         {
             // Dividir experiencia
-            float xpJugador = xp * 0.8f;
-            float xpElementos = xp * 0.2f;
+            float xpJugador = xp * PropXPJugador;
+            float xpElementos = xp * PropXPElementos;
 
             // XP para el jugador
             Experiencia_Actual += xpJugador;
@@ -179,6 +192,8 @@ namespace Padres
                         {
                             Debug.Log($"{Nombre_Entidad}: Elemento {status.definition.elementName} subió a nivel {status.level}!");
                             // Recalcular estadísticas cuando un elemento sube de nivel
+                            // NO usar ActualizarBaseYRecalcular aquí: las base no cambiaron,
+                            // solo cambió el nivel del elemento.
                             entityStats.ApplyElementalModifiers();
                         }
                     }
@@ -215,6 +230,9 @@ namespace Padres
             
             // Aplicar escalado de stats de forma segura
             AplicarEscaladoNivel();
+            
+            // Resincronizar EntityStats con las nuevas stats base
+            entityStats?.ActualizarBaseYRecalcular();
             
             OnNivelSubido?.Invoke(Nivel_Entidad);
             
@@ -263,7 +281,19 @@ namespace Padres
         /// Recurso principal de esta clase. Subclases overridean para cambiar
         /// (ej: Paladín => Fe, Hematómante => Sangre).
         /// </summary>
-        protected virtual TipoRecurso RecursoPrincipal => TipoRecurso.Mana;
+        protected virtual TipoRecurso RecursoPrincipal
+        {
+            get
+            {
+                // Sustitutivo: el módulo más reciente que responda gana (ej: Paladín → Fe)
+                for (int i = _modulos.Count - 1; i >= 0; i--)
+                {
+                    var r = _modulos[i].OverridearRecursoPrincipal();
+                    if (r.HasValue) return r.Value;
+                }
+                return TipoRecurso.Mana;
+            }
+        }
 
         /// <summary>
         /// Consume el recurso principal. Subclases overridean para comportamiento especial
@@ -343,7 +373,11 @@ namespace Padres
         /// </summary>
         public virtual int ModificarCuracionOtorgada(int cantidadBase, IEntidadCombate objetivo)
         {
-            return cantidadBase;
+            // Aditivo: todos los módulos contribuyen en cadena
+            int resultado = cantidadBase;
+            for (int i = 0; i < _modulos.Count; i++)
+                resultado = _modulos[i].ModificarCuracionOtorgada(resultado, objetivo);
+            return resultado;
         }
 
         #endregion
@@ -440,6 +474,78 @@ namespace Padres
         /// Subclases overridean para desbloquear habilidades por nivel, etc.
         /// </summary>
         protected virtual void OnNivelSubidoClase(int nuevoNivel) { }
+
+        #endregion
+
+        #region B8: Hooks de Mecánicas de Clase en Combate
+
+        /// <summary>
+        /// Si retorna true, el próximo ataque de este jugador será crítico garantizado.
+        /// Subclases overridean para mecánicas como el sigilo del Arquero.
+        /// </summary>
+        public virtual bool ForzarCritico() => false;
+
+        /// <summary>
+        /// Hook ejecutado después de que este jugador aplica daño con el pipeline.
+        /// objetivoMurio indica si la entidad objetivo fue eliminada con ese golpe.
+        /// Subclases overridean para efectos post-ataque (ej: salir de sigilo si no mató).
+        /// </summary>
+        protected internal virtual void PostAtaqueConContexto(DamageContext ctx, bool objetivoMurio) { }
+
+        #endregion
+
+        #region B9: Sistema de Módulos de Evolución
+
+        /// <summary>
+        /// Agrega un módulo de comportamiento de clase al jugador.
+        /// Evita duplicados por ModuloId. Llama AlAgregar en el módulo al adjuntarlo.
+        /// </summary>
+        public void AgregarModulo(IComportamientoDeClase modulo)
+        {
+            if (modulo == null) return;
+            if (_modulos.Exists(m => m.ModuloId == modulo.ModuloId)) return;
+            _modulos.Add(modulo);
+            modulo.AlAgregar(this);
+        }
+
+        /// <summary>
+        /// Remueve un módulo por su ID. Llama AlRemover antes de quitarlo.
+        /// </summary>
+        public void RemoverModulo(string moduloId)
+        {
+            int idx = _modulos.FindIndex(m => m.ModuloId == moduloId);
+            if (idx < 0) return;
+            var modulo = _modulos[idx];
+            modulo.AlRemover(this);
+            _modulos.RemoveAt(idx);
+        }
+
+        /// <summary>
+        /// Consulta sustitutiva del elemento de ataque.
+        /// Itera módulos en reversa: el más reciente que responda gana.
+        /// Ej: HeraldoCaído (Dark) pisa al Paladín (Light).
+        /// </summary>
+        public ElementAttribute ModificarElementoAtaqueDeModulos(ElementAttribute elementoBase)
+        {
+            for (int i = _modulos.Count - 1; i >= 0; i--)
+            {
+                var resultado = _modulos[i].ModificarElementoAtaque(elementoBase);
+                if (resultado.HasValue) return resultado.Value;
+            }
+            return elementoBase;
+        }
+
+        /// <summary>
+        /// Consulta aditiva de curación recibida. Todos los módulos contribuyen.
+        /// Llamado desde Entidad.Curar() vía el hook virtual.
+        /// </summary>
+        protected override int ModificarCuracionRecibida(int cantidad)
+        {
+            int resultado = cantidad;
+            for (int i = 0; i < _modulos.Count; i++)
+                resultado = _modulos[i].ModificarCuracionRecibida(resultado);
+            return resultado;
+        }
 
         #endregion
 

@@ -100,8 +100,9 @@ namespace Padres
 
         /// <summary>
         /// Modifica la defensa. Usado por pasivas y buffs.
+        /// Virtual para que subclases apliquen modificadores (ej: Guerrero +15%).
         /// </summary>
-        public void ModificarDefensa(float cantidad)
+        public virtual void ModificarDefensa(float cantidad)
         {
             PuntosDeDefensa_Entidad += cantidad;
             if (PuntosDeDefensa_Entidad < 0) PuntosDeDefensa_Entidad = 0;
@@ -115,6 +116,12 @@ namespace Padres
             Velocidad += cantidad;
             if (Velocidad < 1) Velocidad = 1;
         }
+
+        /// <summary>
+        /// Hook para modificar la curación recibida antes de aplicarla.
+        /// Jugador lo override para iterar los módulos de evolución (+% curación).
+        /// </summary>
+        protected virtual int ModificarCuracionRecibida(int cantidad) => cantidad;
 
         #endregion
     
@@ -232,7 +239,15 @@ namespace Padres
                 critAppliesToElemental = CombatStats?.critAppliesToElemental ?? false,
                 entityType = TipoEntidad
             };
-            
+
+            // Hook de mecánica de clase: crítico garantizado (ej: Arquero en sigilo)
+            if (this is Jugador jugCrit && jugCrit.ForzarCritico())
+                attackerData.critChance = 1f;
+
+            // Hook de módulos: override sustitutivo de elemento de ataque (ej: Paladín → Light)
+            if (this is Jugador jugElem)
+                attackerData.attackElement = jugElem.ModificarElementoAtaqueDeModulos(attackerData.attackElement);
+
             // Preparar datos del defensor
             CombatStats defenderStats = null;
             if (objetivo is Entidad entidadObjetivo)
@@ -256,6 +271,9 @@ namespace Padres
         public virtual int Curar(int cantidad)
         {
             if (cantidad <= 0 || !EstaVivo()) return 0;
+
+            // Hook de módulos/clase: permite +% curación recibida (ej: Paladín)
+            cantidad = ModificarCuracionRecibida(cantidad);
 
             int vidaAntes = VidaActual_Entidad;
             VidaActual_Entidad += cantidad;
@@ -309,7 +327,8 @@ namespace Padres
                 atacanteEnt.EffectHandler.NotifyCriticalHit(context);
             }
             
-            if (!EstaVivo())
+            bool objetivoMurio = !EstaVivo();
+            if (objetivoMurio)
             {
                 Morir(context.Attacker);
                 
@@ -319,6 +338,10 @@ namespace Padres
                     jugadorAtacante.AlEliminar(this);
                 }
             }
+
+            // Hook post-ataque para mecánicas de clase del atacante (ej: salir de sigilo)
+            if (context.Attacker is Jugador atacanteJugador)
+                atacanteJugador.PostAtaqueConContexto(context, objetivoMurio);
             
             _ultimoAtacante = null;
         }

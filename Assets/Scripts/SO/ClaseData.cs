@@ -1,6 +1,7 @@
 using UnityEngine;
 using Padres;
 using Subclases;
+using Subclases.Modulos;
 using Flags;
 using System.Collections.Generic;
 
@@ -47,15 +48,26 @@ using System.Collections.Generic;
       
       [Tooltip("Máximo de habilidades pasivas equipadas (0 = sin límite)")]
       public int limitePasivas = 4;
+
+      [Header("Módulos de Evolución Iniciales")]
+      [Tooltip("Módulos de comportamiento activos desde el inicio. Útil para NPCs que arrancan ya evolucionados.")]
+      public List<ModuloClaseSO> modulosIniciales = new List<ModuloClaseSO>();
       
       public Jugador CrearInstancia()
       {
-          return nombreClase switch
+          Jugador instancia = nombreClase switch
           {
               "Guerrero" => new Guerrero(this),
-              "Mago" => new Mago(this),
-              "Arquero" => new Arquero(this),
-              _ => throw new System.Exception($"Clase {nombreClase} no implementada")
+              "Mago"     => new Mago(this),
+              "Arquero"  => new Arquero(this),
+              _          => throw new System.Exception($"Clase {nombreClase} no implementada")
           };
+
+          // Aplicar módulos iniciales (para NPCs o personajes que arrancan ya evolucionados)
+          if (modulosIniciales != null)
+              foreach (var so in modulosIniciales)
+                  if (so != null) instancia.AgregarModulo(so.Instanciar());
+
+          return instancia;
       }
   }
