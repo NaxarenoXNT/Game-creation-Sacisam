@@ -24,13 +24,25 @@ public class EnemigoData : ScriptableObject
     public ElementAttribute atributos;
     public TipoEntidades tipoEntidad;
     public CombatStyle estiloCombate;
-
-    [Header("Detección y Persecución")]
-    public float radioDeteccion = 8f;
-    public float radioPersecucion = 14f;
+    
+    [Header("IA y Roaming")]
+    [Tooltip("Radio de detección del jugador (0 = usar default 15m)")]
+    [Range(0f, 50f)]
+    public float radioDeteccion = 0f;
+    
+    [Tooltip("Radio de persecución antes de desistir (0 = usar radioDeteccion * 1.5)")]
+    [Range(0f, 100f)]
+    public float radioPersecucion = 0f;
+    
+    [Tooltip("Radio para buscar aliados al entrar en combate (0 = usar default 20m)")]
+    [Range(0f, 100f)]
+    public float rangoAliados = 0f;
 
     [Header("Visual")]
+    [Tooltip("Prefab del modelo visual (instanciado como hijo del controller)")]
     public GameObject modeloPrefab;
+    
+    [Tooltip("Controlador de animación específico para este enemigo")]
     public AnimatorOverrideController animatorOverride;
     
     [Header("Habilidades")]
