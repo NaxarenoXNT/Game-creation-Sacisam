@@ -312,6 +312,14 @@ public class EntityController : MonoBehaviour
 
 ## Ejemplo Completo: HUD del Jugador
 
+> **Nota:** El HUD de combate real del proyecto usa **UI Toolkit** (`HUDController` +
+> `HUD.uxml` + `HUD.uss`) en lugar de Canvas/uGUI. La visibilidad se controla
+> exclusivamente por `GameFlowController → CombatFlowState → CombatUIController → HUDController`.
+> Ver [20_UI](20_UI.md) para la arquitectura actual.
+>
+> El ejemplo de abajo ilustra el patrón reactivo genérico con uGUI,
+> útil para paneles fuera de combate.
+
 ### Estructura en Unity
 
 ```
