@@ -12,6 +12,9 @@
     position: absolute;
     left: 0;
     top: 0;
+    /* Oculto por defecto; C# lo muestra con inline display:flex
+       cuando GameFlowController entra en CombatFlowState. */
+    display: none;
 }
 
 /* ========================================================
@@ -286,33 +289,8 @@
     align-self: stretch;
 }
 
-.ability-btn {
-    width: 100%;
-    height: 40px;
-    background-color: rgba(110, 110, 130, 0.8);
-    border-color: rgba(135, 135, 160, 0.6);
-    border-width: 1.5px;
-    border-radius: 5px;
-    color: rgba(240, 240, 250, 0.98);
-    font-size: 13px;
-    align-items: center;
-    justify-content: center;
-}
-
-.ability-btn:hover {
-    background-color: rgba(130, 130, 155, 0.92);
-    border-color: rgba(160, 160, 190, 0.75);
-}
-
-.ability-btn:active {
-    background-color: rgba(95, 95, 115, 1);
-}
-
-.ability-btn.disabled {
-    background-color: rgba(65, 65, 78, 0.55);
-    color: rgba(140, 140, 150, 0.65);
-    border-color: rgba(75, 75, 88, 0.45);
-}
+/* Los slots de habilidad se generan via AbilitySlotFactory.
+   Estilos: .ability-slot, .ability-slot__header, etc. (abajo). */
 
 /* ========================================================
    BOTON REFUERZOS — debajo del TurnOrder en columna izq
@@ -335,6 +313,120 @@
 
 .btn-reinforcement:hover {
     background-color: rgba(100, 100, 125, 0.95);
+}
+
+/* ========================================================
+   SLOTS DE HABILIDAD (generados por AbilitySlotFactory)
+   ======================================================== */
+.ability-slot {
+    width: 100%;
+    min-height: 48px;
+    background-color: rgba(110, 110, 130, 0.8);
+    border-color: rgba(135, 135, 160, 0.6);
+    border-width: 1.5px;
+    border-radius: 5px;
+    padding: 6px 10px;
+    flex-direction: column;
+    row-gap: 2px;
+}
+
+.ability-slot:hover {
+    background-color: rgba(130, 130, 155, 0.92);
+    border-color: rgba(160, 160, 190, 0.75);
+}
+
+.ability-slot:active {
+    background-color: rgba(95, 95, 115, 1);
+}
+
+.ability-slot--disabled {
+    background-color: rgba(65, 65, 78, 0.55);
+    border-color: rgba(75, 75, 88, 0.45);
+}
+
+.ability-slot--disabled .ability-slot__name {
+    color: rgba(140, 140, 150, 0.65);
+}
+
+.ability-slot__header {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.ability-slot__name {
+    color: rgba(240, 240, 250, 0.98);
+    font-size: 13px;
+    -unity-font-style: bold;
+    flex: 1;
+}
+
+.ability-slot__category {
+    font-size: 10px;
+    -unity-font-style: bold;
+    padding: 1px 6px;
+    border-radius: 3px;
+    color: rgba(255, 255, 255, 0.9);
+    background-color: rgba(80, 80, 100, 0.7);
+}
+
+/* Colores de categoría */
+.cat--atk   { background-color: rgba(180, 60, 60, 0.8); }
+.cat--heal  { background-color: rgba(50, 160, 70, 0.8); }
+.cat--buff  { background-color: rgba(50, 120, 190, 0.8); }
+.cat--debuff { background-color: rgba(140, 60, 160, 0.8); }
+.cat--cc    { background-color: rgba(190, 150, 40, 0.8); }
+.cat--util  { background-color: rgba(100, 100, 120, 0.8); }
+
+.ability-slot__details {
+    flex-direction: row;
+    column-gap: 8px;
+    align-items: center;
+}
+
+.ability-slot__target,
+.ability-slot__cost,
+.ability-slot__effect {
+    font-size: 10px;
+    color: rgba(190, 190, 210, 0.85);
+}
+
+.ability-slot__cost {
+    color: rgba(120, 180, 240, 0.9);
+}
+
+.ability-slot__icon {
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+    margin-right: 5px;
+    border-radius: 3px;
+}
+
+.ability-slot__cooldown {
+    font-size: 11px;
+    color: rgba(240, 160, 40, 0.95);
+    -unity-font-style: bold;
+    margin-left: auto;
+}
+
+/* ========================================================
+   INSTRUCCIÓN DE SELECCIÓN DE OBJETIVO (label dinámico)
+   ======================================================== */
+.target-instruction {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    translate: -50% -50%;
+    padding: 10px 24px;
+    background-color: rgba(30, 30, 45, 0.92);
+    border-color: rgba(100, 100, 140, 0.7);
+    border-width: 2px;
+    border-radius: 8px;
+    color: rgba(255, 255, 255, 0.95);
+    font-size: 16px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
 }
 
 /* ========================================================
