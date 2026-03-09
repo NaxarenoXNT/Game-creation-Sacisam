@@ -107,6 +107,24 @@ namespace Camera
         [Range(5f, 50f)]
         public float tpPitchAngle = 18f;
 
+        [Header("Tercera Persona – Pitch")]
+        [Tooltip("Permitir variar el pitch (mirar arriba/abajo) con el mouse")]
+        public bool tpMousePitch = true;
+
+        [Tooltip("Sensibilidad del pitch con mouse")]
+        public float tpMousePitchSensitivity = 2.2f;
+
+        [Tooltip("Pitch mínimo (grados). Menor = cámara más baja / mirada más horizontal")]
+        [Range(-20f, 45f)]
+        public float tpMinPitchAngle = -5f;
+
+        [Tooltip("Pitch máximo (grados). Mayor = cámara más alta / mirada más hacia abajo")]
+        [Range(10f, 89f)]
+        public float tpMaxPitchAngle = 75f;
+
+        [Tooltip("Suavizado del pitch en tercera persona")]
+        public float tpPitchSmoothing = 15f;
+
         [Tooltip("Offset vertical del punto de enfoque del personaje")]
         public float tpTargetHeightOffset = 1.5f;
 

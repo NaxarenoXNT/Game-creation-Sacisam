@@ -35,6 +35,7 @@ namespace Camera
         private float isoYaw;
         private float isoTargetYaw;
         private Vector3 isoCurrentPos;
+        private Vector3 isoCurrentLookAt;   // punto suavizado al que mira la cámara
         private bool isoIsRotating;
         private float isoLastMouseX;
 
@@ -43,8 +44,11 @@ namespace Camera
         private float tpTargetZoom;
         private float tpYaw;
         private float tpTargetYaw;
+        private float tpPitch;
+        private float tpTargetPitch;
         private Vector3 tpCurrentPos;
         private float tpLastMouseX;         
+        private float tpLastMouseY;
 
         // ── Cache ────────────────────────────────────────────────────────
         private UnityEngine.Camera mainCamera;
@@ -155,6 +159,7 @@ namespace Camera
                 isoYaw        = isoTargetYaw  = 45f;
                 tpZoom        = tpTargetZoom  = 6f;
                 tpYaw         = tpTargetYaw   = 0f;
+                tpPitch       = tpTargetPitch = 18f;
                 currentMode   = requestedMode = CameraMode.ThirdPerson;
                 return;
             }
@@ -163,6 +168,7 @@ namespace Camera
             isoYaw        = isoTargetYaw  = settings.initialYawAngle;
             tpZoom        = tpTargetZoom  = settings.tpDistance;
             tpYaw         = tpTargetYaw   = 0f;
+            tpPitch       = tpTargetPitch = settings.tpPitchAngle;
             currentMode   = requestedMode = settings.defaultMode;
         }
 
@@ -230,6 +236,18 @@ namespace Camera
                 if (forward.sqrMagnitude > 0.001f)
                 {
                     tpYaw = tpTargetYaw = Mathf.Atan2(forward.x, forward.z) * Mathf.Rad2Deg + 180f;
+                }
+            }
+
+            // Evitar saltos de input por delta grande al entrar al modo.
+            if (mode == CameraMode.ThirdPerson)
+            {
+                tpLastMouseX = Input.mousePosition.x;
+                tpLastMouseY = Input.mousePosition.y;
+
+                if (settings != null)
+                {
+                    tpPitch = tpTargetPitch = Mathf.Clamp(tpPitch, settings.tpMinPitchAngle, settings.tpMaxPitchAngle);
                 }
             }
 
@@ -345,9 +363,16 @@ namespace Camera
         private void UpdateIsoPosition()
         {
             Vector3 desired = CalcIsoPosition();
-            isoCurrentPos   = Vector3.Lerp(isoCurrentPos, desired, Time.deltaTime * settings.followSmoothing);
+            Vector3 desiredLookAt = IsoTargetPoint();
+
+            isoCurrentPos    = Vector3.Lerp(isoCurrentPos, desired, Time.deltaTime * settings.followSmoothing);
+            isoCurrentLookAt = Vector3.Lerp(isoCurrentLookAt, desiredLookAt, Time.deltaTime * settings.followSmoothing);
+
             transform.position = isoCurrentPos;
-            transform.LookAt(IsoTargetPoint());
+
+            Vector3 lookDir = isoCurrentLookAt - isoCurrentPos;
+            if (lookDir.sqrMagnitude > 0.001f)
+                transform.rotation = Quaternion.LookRotation(lookDir);
         }
 
         private Vector3 CalcIsoPosition()
@@ -400,20 +425,27 @@ namespace Camera
             if (Input.GetKey(KeyCode.Q)) tpTargetYaw -= settings.tpRotationSpeed * Time.deltaTime;
             if (Input.GetKey(KeyCode.E)) tpTargetYaw += settings.tpRotationSpeed * Time.deltaTime;
 
-            // FIX: En tercera persona la cámara rota libremente con el mouse,
-            // sin necesidad de mantener click derecho (comportamiento estándar TPS).
-            if (settings.tpMouseRotation)
+            // Mouse look (yaw/pitch) sin necesidad de mantener click.
+            bool allowYaw   = settings.tpMouseRotation;
+            bool allowPitch = settings.tpMousePitch;
+            if (allowYaw || allowPitch)
             {
                 float dx = Input.mousePosition.x - tpLastMouseX;
+                float dy = Input.mousePosition.y - tpLastMouseY;
 
-                // Solo aplicar si hay movimiento real del mouse para evitar saltos bruscos
-                if (Mathf.Abs(dx) > 0.01f)
-                {
+                if (allowYaw && Mathf.Abs(dx) > 0.01f)
                     tpTargetYaw += dx * settings.tpMouseRotationSensitivity;
+
+                if (allowPitch && Mathf.Abs(dy) > 0.01f)
+                {
+                    // Mouse arriba = dy>0 → reducir depresión (mirar más "arriba")
+                    tpTargetPitch -= dy * settings.tpMousePitchSensitivity;
+                    tpTargetPitch = Mathf.Clamp(tpTargetPitch, settings.tpMinPitchAngle, settings.tpMaxPitchAngle);
                 }
             }
             // Siempre actualizamos la posición guardada del mouse
             tpLastMouseX = Input.mousePosition.x;
+            tpLastMouseY = Input.mousePosition.y;
 
             if (tpTargetYaw >  360f) tpTargetYaw -= 360f;
             if (tpTargetYaw <    0f) tpTargetYaw += 360f;
@@ -428,19 +460,39 @@ namespace Camera
         {
             // FIX: usa tpRotationSmoothing dedicado, separado del tpZoomSmoothing
             tpYaw = Mathf.LerpAngle(tpYaw, tpTargetYaw, Time.deltaTime * settings.tpRotationSmoothing);
+
+            // Suavizado del pitch
+            tpPitch = Mathf.Lerp(tpPitch, tpTargetPitch, Time.deltaTime * settings.tpPitchSmoothing);
         }
 
         private void UpdateTpPosition()
         {
             Vector3 desired = CalcTpPosition();
             tpCurrentPos    = Vector3.Lerp(tpCurrentPos, desired, Time.deltaTime * settings.tpFollowSmoothing);
+
+            // ── Anti-clip: raycast desde el foco hacia la posición deseada ──
+            Vector3 focusPoint = currentTarget.position + Vector3.up * settings.tpTargetHeightOffset;
+            Vector3 dir = tpCurrentPos - focusPoint;
+            float dist = dir.magnitude;
+
+            if (dist > 0.01f)
+            {
+                // Usar una esfera pequeña para evitar raspar paredes
+                if (Physics.SphereCast(focusPoint, 0.25f, dir.normalized, out RaycastHit hit, dist,
+                        Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+                {
+                    // Acercar la cámara justo antes del obstáculo
+                    tpCurrentPos = focusPoint + dir.normalized * (hit.distance - 0.1f);
+                }
+            }
+
             transform.position = tpCurrentPos;
             transform.rotation = CalcTpRotation();
         }
 
         private Vector3 CalcTpPosition()
         {
-            float pitchRad = settings.tpPitchAngle * Mathf.Deg2Rad;
+            float pitchRad = tpPitch * Mathf.Deg2Rad;
             float yawRad   = tpYaw * Mathf.Deg2Rad;
 
             Vector3 dir = new Vector3(
@@ -473,8 +525,9 @@ namespace Camera
             if (currentMode == CameraMode.Isometric)
             {
                 isoCurrentPos      = CalcIsoPosition();
+                isoCurrentLookAt   = IsoTargetPoint();
                 transform.position = isoCurrentPos;
-                transform.LookAt(IsoTargetPoint());
+                transform.LookAt(isoCurrentLookAt);
             }
             else
             {
@@ -550,12 +603,13 @@ namespace Camera
 
         /// <summary>
         /// Vector XZ "derecha" relativo al yaw activo, para orientar el input WASD.
-        /// Fórmula: cross(forward, up) = (cos(yaw), 0, -sin(yaw)).
+        /// La cámara offset = (sin(yaw), …, cos(yaw)), mira hacia el target → su
+        /// derecha real es (-cos(yaw), 0, sin(yaw)).
         /// </summary>
         public Vector3 GetMovementRight()
         {
             float yawRad = CurrentYaw * Mathf.Deg2Rad;
-            return new Vector3(Mathf.Cos(yawRad), 0f, -Mathf.Sin(yawRad));
+            return new Vector3(-Mathf.Cos(yawRad), 0f, Mathf.Sin(yawRad));
         }
 
         // ══════════════════════════════════════════════════════════════════
