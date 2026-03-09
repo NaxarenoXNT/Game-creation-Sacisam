@@ -439,20 +439,58 @@ namespace Managers
                 }
             }
 
-            // Publicar evento de inicio
+            // ── Validaciones previas al evento ──
+            // Si no hay CombateManager, no podemos iniciar turnos. Abortar limpiamente.
+            if (combateManager == null)
+            {
+                Debug.LogError("[EncounterManager] ❌ CombateManager no encontrado en escena. " +
+                               "Abortando encuentro. Asegúrate de tener un GameObject con CombateManager.");
+                AbortEncounter();
+                return;
+            }
+
+            if (validParty.Count == 0)
+            {
+                Debug.LogError("[EncounterManager] ❌ No se encontró ningún aliado vivo para el combate. " +
+                               "Verifica PlayerPartyManager o asigna miembros manuales.");
+                AbortEncounter();
+                return;
+            }
+
+            if (enemyControllers.Count == 0)
+            {
+                Debug.LogError("[EncounterManager] ❌ No se encontraron EnemyControllers válidos.");
+                AbortEncounter();
+                return;
+            }
+
+            // ── Todo validado: publicar evento e iniciar combate ──
             EventBus.Publicar(new EventoEncounterIniciado
             {
                 Party = validParty,
                 Enemigos = enemyControllers
             });
             
-            // Iniciar combate en el CombateManager
-            if (combateManager != null)
-            {
-                combateManager.IniciarCombateConEntidades(validParty, enemyControllers);
-            }
+            combateManager.IniciarCombateConEntidades(validParty, enemyControllers);
             
             Debug.Log($"[EncounterManager] ⚔️ Encuentro iniciado: {validParty.Count} aliados vs {enemyControllers.Count} enemigos");
+        }
+
+        /// <summary>
+        /// Aborta un encuentro que falló la validación. Limpia estado interno
+        /// y revierte a los enemigos a su comportamiento normal.
+        /// </summary>
+        private void AbortEncounter()
+        {
+            // Revertir enemigos
+            foreach (var enemy in enemiesInCombat)
+            {
+                enemy.OnRemovedFromCombat();
+            }
+            enemiesInCombat.Clear();
+            combatInProgress = false;
+
+            Debug.LogWarning("[EncounterManager] Encuentro abortado, estado limpiado.");
         }
         
         /// <summary>
@@ -541,6 +579,13 @@ namespace Managers
             if (initiator == null || !initiator.EstaVivo())
             {
                 Debug.LogWarning("[EncounterManager] Solicitud de combate de enemigo inválido");
+                return;
+            }
+
+            // Si ya hay un combate en progreso, no iniciar otro
+            if (combatInProgress)
+            {
+                Debug.Log($"[EncounterManager] Combate ya en progreso, ignorando solicitud de {initiator.Nombre_Entidad}");
                 return;
             }
             

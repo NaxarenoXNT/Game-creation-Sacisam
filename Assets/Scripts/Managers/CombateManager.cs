@@ -124,7 +124,13 @@ namespace Managers
             // ========== VERIFICAR QUE HAYA ENTIDADES ==========
             if (todasLasEntidades.Count <= 1)
             {
-                Debug.LogError("❌ ERROR: No hay suficientes entidades para el combate.");
+                Debug.LogError("❌ ERROR: No hay suficientes entidades para el combate (legacy).");
+                EventBus.Publicar(new EventoCombateFinalizado
+                {
+                    Victoria = false,
+                    XPGanada = 0,
+                    OroGanado = 0
+                });
                 return;
             }
             
@@ -139,7 +145,14 @@ namespace Managers
         {
             if (combateActivo)
             {
-                Debug.LogWarning("[CombateManager] Ya hay un combate activo!");
+                Debug.LogWarning("[CombateManager] Ya hay un combate activo! Publicando fin para recuperar estado.");
+                // Publicar fin para que el EncounterManager y GameFlow se recuperen
+                EventBus.Publicar(new EventoCombateFinalizado
+                {
+                    Victoria = false,
+                    XPGanada = 0,
+                    OroGanado = 0
+                });
                 return;
             }
             
@@ -176,7 +189,22 @@ namespace Managers
             // ========== VERIFICAR QUE HAYA ENTIDADES ==========
             if (todasLasEntidades.Count <= 1)
             {
-                Debug.LogError("❌ ERROR: No hay suficientes entidades para el combate.");
+                Debug.LogError("❌ ERROR: No hay suficientes entidades para el combate. " +
+                               $"(entidades={todasLasEntidades.Count}, party={party.Count}, enemigos={enemigos.Count})");
+
+                // Publicar EventoCombateFinalizado para que GameFlowController
+                // haga Pop() y regrese a ExplorationFlowState. Sin esto el juego
+                // queda atrapado en CombatFlowState sin turnos ni forma de salir.
+                EventBus.Publicar(new EventoCombateFinalizado
+                {
+                    Victoria = false,
+                    XPGanada = 0,
+                    OroGanado = 0
+                });
+
+                todasLasEntidades.Clear();
+                partyControllers.Clear();
+                enemigosControllers.Clear();
                 return;
             }
             
