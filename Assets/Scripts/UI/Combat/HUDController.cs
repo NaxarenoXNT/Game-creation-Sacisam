@@ -12,7 +12,7 @@ namespace UI.Combat
 {
     /// <summary>
     /// Controlador del HUD de combate usando UI Toolkit.
-    /// Reemplaza CombatCharacterPanel y AbilityButtonUI (uGUI legacy).
+    /// Usa AbilitySlotFactory para generar slots ricos de habilidades.
     ///
     /// Requiere un UIDocument en el mismo GameObject con HUD.uxml asignado.
     /// El USS referenciado desde el UXML provee todos los estilos y transiciones.
@@ -45,6 +45,10 @@ namespace UI.Combat
         private Button _defBtn;
         private Button _reinforcementBtn;
 
+        // Botón menú principal (top-right, primer botón)
+        // TODO: conectar al sistema de menú de inventario/stats cuando esté listo
+        private Button _mainMenuBtn;
+
         // ── Estado interno ────────────────────────────────────────────
         private EntityController _personajeActual;
         private EntityController _personajeConTurno;
@@ -73,8 +77,11 @@ namespace UI.Combat
             BindElements();
             BindButtons();
 
-            // Comienza oculto; se revela con OnCombateIniciado
-            _root.AddToClassList("hidden");
+            // Comienza oculto; se revela cuando CombatFlowState.Enter() llama
+            // a CombatUIController.MostrarHUD() → HUDController.MostrarHUD().
+            // El USS ya define display:none en .hud-root como defensa adicional;
+            // aquí reforzamos con inline style (máxima prioridad en UI Toolkit).
+            _root.style.display = DisplayStyle.None;
         }
 
         private void Start()
@@ -108,11 +115,13 @@ namespace UI.Combat
             _itemUseBtn       = _root.Q<Button>("ItemUseButton");
             _defBtn           = _root.Q<Button>("DefButton");
             _reinforcementBtn = _root.Q<Button>("ReinforsmentButton");
+            _mainMenuBtn      = _root.Q<Button>("MainMenuButton");
 
             _abilitiesBtn?.RegisterCallback<ClickEvent>(_ => OnClickHabilidades());
             _itemUseBtn?.RegisterCallback<ClickEvent>(_ => OnClickUsarItem());
             _defBtn?.RegisterCallback<ClickEvent>(_ => OnClickDefender());
             _reinforcementBtn?.RegisterCallback<ClickEvent>(_ => OnClickRefuerzos());
+            _mainMenuBtn?.RegisterCallback<ClickEvent>(_ => OnClickMainMenu());
         }
 
         #endregion
@@ -126,6 +135,8 @@ namespace UI.Combat
             EventBus.Suscribir<EventoCombateFinalizado>(OnCombateFinalizado);
             EventBus.Suscribir<EventoEsperandoAccionJugador>(OnEsperandoAccion);
             EventBus.Suscribir<EventoTurnoFinalizado>(OnTurnoFinalizado);
+            EventBus.Suscribir<EventoHabilidadDesbloqueada>(OnHabilidadDesbloqueada);
+            EventBus.Suscribir<EventoHabilidadRemovida>(OnHabilidadRemovida);
 
             if (GameInputManager.Instance != null)
                 GameInputManager.Instance.OnEntityClick += OnEntidadClickeada;
@@ -137,6 +148,8 @@ namespace UI.Combat
             EventBus.Desuscribir<EventoCombateFinalizado>(OnCombateFinalizado);
             EventBus.Desuscribir<EventoEsperandoAccionJugador>(OnEsperandoAccion);
             EventBus.Desuscribir<EventoTurnoFinalizado>(OnTurnoFinalizado);
+            EventBus.Desuscribir<EventoHabilidadDesbloqueada>(OnHabilidadDesbloqueada);
+            EventBus.Desuscribir<EventoHabilidadRemovida>(OnHabilidadRemovida);
 
             if (GameInputManager.Instance != null)
                 GameInputManager.Instance.OnEntityClick -= OnEntidadClickeada;
@@ -147,11 +160,53 @@ namespace UI.Combat
         // ─────────────────────────────────────────────────────────────
         #region Visibilidad publica
 
-        /// <summary>Muestra el HUD quitando la clase CSS "hidden".</summary>
-        public void MostrarHUD() => _root?.RemoveFromClassList("hidden");
+        /// <summary>Muestra el HUD de combate.</summary>
+        public void MostrarHUD()
+        {
+            if (_root == null) return;
+            _root.style.display = DisplayStyle.Flex;
+            Debug.Log("[HUDController] HUD mostrado.");
+        }
 
-        /// <summary>Oculta el HUD agregando la clase CSS "hidden".</summary>
-        public void OcultarHUD() => _root?.AddToClassList("hidden");
+        /// <summary>Oculta el HUD de combate.</summary>
+        public void OcultarHUD()
+        {
+            if (_root == null) return;
+            _root.style.display = DisplayStyle.None;
+            MostrarInstruccionObjetivo(null);
+            Debug.Log("[HUDController] HUD ocultado.");
+        }
+
+        /// <summary>
+        /// Muestra u oculta una instrucción de selección de objetivo en el HUD.
+        /// Pasa null para ocultar. Llamado por CombatUIController al entrar/salir
+        /// del modo SelectingTarget. Reemplaza el instructionPanel uGUI del viejo TargetSelector.
+        /// </summary>
+        public void MostrarInstruccionObjetivo(string instruccion)
+        {
+            // Buscar o crear el label de instrucción en el root
+            var lbl = _root?.Q<Label>("TargetInstruction");
+
+            if (string.IsNullOrEmpty(instruccion))
+            {
+                if (lbl != null)
+                    lbl.style.display = DisplayStyle.None;
+                return;
+            }
+
+            if (lbl == null && _root != null)
+            {
+                lbl = new Label { name = "TargetInstruction" };
+                lbl.AddToClassList("target-instruction");
+                _root.Add(lbl);
+            }
+
+            if (lbl != null)
+            {
+                lbl.text = instruccion;
+                lbl.style.display = DisplayStyle.Flex;
+            }
+        }
 
         #endregion
 
@@ -160,13 +215,15 @@ namespace UI.Combat
 
         private void OnCombateIniciado(EventoCombateIniciado evento)
         {
-            MostrarHUD();
+            // Solo poblar datos. La visibilidad la controla exclusivamente
+            // GameFlowController → CombatFlowState → CombatUIController → MostrarHUD().
             PopularTurnOrder(evento.Jugadores, evento.Enemigos);
         }
 
         private void OnCombateFinalizado(EventoCombateFinalizado evento)
         {
-            OcultarHUD();
+            // Solo limpiar estado interno. La visibilidad la controla
+            // GameFlowController → Pop() → CombatFlowState.Exit() → CombatUIController.OcultarHUD().
             _personajeActual   = null;
             _personajeConTurno = null;
             LimpiarAbilities();
@@ -188,6 +245,20 @@ namespace UI.Combat
         private void OnEntidadClickeada(EntityController entidad)
         {
             MostrarPersonaje(entidad);
+        }
+
+        // Si una evolución agrega/quita una habilidad a la entidad que el HUD está
+        // mostrando en este momento, regeneramos los slots automáticamente.
+        private void OnHabilidadDesbloqueada(EventoHabilidadDesbloqueada evt)
+        {
+            if (_personajeActual?.EntidadLogica == evt.Entidad)
+                GenerarBotonesHabilidades();
+        }
+
+        private void OnHabilidadRemovida(EventoHabilidadRemovida evt)
+        {
+            if (_personajeActual?.EntidadLogica == evt.Entidad)
+                GenerarBotonesHabilidades();
         }
 
         #endregion
@@ -285,20 +356,11 @@ namespace UI.Combat
                 if (hab == null) continue;
 
                 bool disponible = VerificarDisponibilidadHabilidad(hab);
+                int cdRestante = _personajeActual.Cooldowns?.ObtenerCooldown(hab) ?? 0;
 
-                var btn = new Button { text = hab.nombreHabilidad };
-                btn.AddToClassList("ability-btn");
-
-                if (!disponible)
-                    btn.AddToClassList("disabled");
-
-                btn.SetEnabled(disponible);
-
-                // Captura local para el cierre del lambda
-                HabilidadData captura = hab;
-                btn.RegisterCallback<ClickEvent>(_ => OnHabilidadClickeada(captura));
-
-                _abilitiesHolder.Add(btn);
+                // Usar la factory para generar un slot rico con toda la info.
+                var slot = AbilitySlotFactory.Crear(hab, disponible, OnHabilidadClickeada, cdRestante);
+                _abilitiesHolder.Add(slot);
             }
         }
 
@@ -323,6 +385,13 @@ namespace UI.Combat
 
         // ─────────────────────────────────────────────────────────────
         #region Botones de accion
+
+        private void OnClickMainMenu()
+        {
+            // TODO: abrir panel de menú principal (inventario, stats, mapa, etc.)
+            // El sistema de menú se implementará en la siguiente fase.
+            Debug.Log("[HUDController] MainMenu — pendiente de implementación.");
+        }
 
         private void OnClickHabilidades()
         {

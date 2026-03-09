@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.UIElements;
 using System.Collections.Generic;
 using Managers;
 using Interfaces;
@@ -41,6 +42,41 @@ namespace UI.Combat
         public bool IsInCombat => isInCombat;
         public CombatUIState CurrentState => currentState;
         public EntityController CurrentTurnEntity => currentTurnEntity;
+
+        // =================== AUTO-SETUP ===================
+
+        /// <summary>
+        /// Garantiza que existe una instancia activa de CombatUIController.
+        /// Si no la hay, busca el UIDocument con el HUD ("hud-root") y le
+        /// agrega HUDController + CombatUIController automáticamente.
+        /// </summary>
+        public static CombatUIController EnsureInstance()
+        {
+            if (Instance != null) return Instance;
+
+            // Buscar un UIDocument que contenga el elemento hud-root
+            foreach (var doc in FindObjectsOfType<UIDocument>())
+            {
+                if (doc.rootVisualElement == null) continue;
+                if (doc.rootVisualElement.Q("hud-root") == null) continue;
+
+                Debug.Log($"[CombatUIController] Auto-setup: encontrado UIDocument con hud-root en '{doc.gameObject.name}'. Agregando componentes.");
+
+                // HUDController primero (CombatUIController.Awake lo busca)
+                if (doc.GetComponent<HUDController>() == null)
+                    doc.gameObject.AddComponent<HUDController>();
+
+                // Ahora CombatUIController
+                if (doc.GetComponent<CombatUIController>() == null)
+                    doc.gameObject.AddComponent<CombatUIController>();
+
+                return Instance; // Awake() ya asignó Instance
+            }
+
+            Debug.LogError("[CombatUIController] No se encontró ningún UIDocument con 'hud-root'. " +
+                           "Asegúrate de tener un UIDocument con HUD.uxml en la escena.");
+            return null;
+        }
         
         void Awake()
         {
@@ -51,9 +87,15 @@ namespace UI.Combat
             }
             Instance = this;
 
-            // Auto-wiring: si el campo no fue asignado manualmente busca en el mismo GO
+            // Auto-wiring: busca primero en el mismo GO, luego en toda la escena
             if (hudController == null)
                 hudController = GetComponent<HUDController>();
+            if (hudController == null)
+                hudController = FindObjectOfType<HUDController>();
+
+            if (hudController == null)
+                Debug.LogWarning("[CombatUIController] No se encontró HUDController. " +
+                                 "Asigne la referencia en el Inspector o colóquelo en escena.");
         }
         
         void Start()
@@ -99,19 +141,35 @@ namespace UI.Combat
         private void OnCombatStarted(EventoCombateIniciado evento)
         {
             isInCombat = true;
-            // HUDController reacciona al mismo evento y se muestra solo.
-            // NOTA: El cambio de InputContext ahora lo gestiona GameFlowController
-            // a través de CombatFlowState.Enter()
-            
-            Debug.Log("[CombatUI] Combate iniciado");
+
+            // Seguro de activación: EventoCombateIniciado se publica cuando el
+            // combate está confirmado (IniciarSistemaDeTurnos lo emite).
+            // La ruta primaria es CombatFlowState.Enter() → MostrarHUD(),
+            // pero si algo falló en esa cadena (Instance null, timing) lo forzamos.
+            // Es idempotente: display:Flex sobre Flex no tiene efecto.
+            if (hudController != null)
+            {
+                hudController.MostrarHUD();
+            }
+            else
+            {
+                Debug.LogWarning("[CombatUI] ⚠️ hudController es null al recibir EventoCombateIniciado. " +
+                                 "El HUD no se mostrará. Verifica que HUDController esté en escena.");
+            }
+
+            Debug.Log("[CombatUI] Combate iniciado (flag isInCombat=true)");
         }
         
         private void OnCombatEnded(EventoCombateFinalizado evento)
         {
             isInCombat = false;
-            HideAllUI();
-            // NOTA: El cambio de InputContext ahora lo gestiona GameFlowController
-            // a través de ExplorationFlowState.Enter() al hacer Pop()
+            // Limpiar estado interno. La ocultación del HUD la maneja
+            // GameFlowController → Pop() → CombatFlowState.Exit() → OcultarHUD().
+            HideHighlight();
+            HideTargetSelector();
+            currentTurnEntity = null;
+            cachedAliados = null;
+            cachedEnemigos = null;
             
             Debug.Log($"[CombatUI] Combate terminado - Victoria: {evento.Victoria}");
         }
@@ -140,7 +198,9 @@ namespace UI.Combat
             currentTurnEntity = null;
             cachedAliados = null;
             cachedEnemigos = null;
-            SetState(CombatUIState.Hidden);
+            // El HUD sigue visible entre turnos; solo volvemos a
+            // ShowingCharacterPanel para que el próximo turno arranque limpio.
+            SetState(CombatUIState.ShowingCharacterPanel);
         }
         
         private void OnActionSelected(EventoAccionSeleccionada evento)
@@ -170,12 +230,37 @@ namespace UI.Combat
             }
         }
         
-        // =================== MÉTODOS PÚBLICOS ===================
+        // =================== VISIBILIDAD PUBLICA (llamada desde CombatFlowState) ===================
+
+        /// <summary>
+        /// Muestra el HUD de combate. Lo llama CombatFlowState.Enter().
+        /// El HUDController poblará los datos al recibir EventoCombateIniciado.
+        /// </summary>
+        public void MostrarHUD()
+        {
+            hudController?.MostrarHUD();
+            // No forzamos ShowingCharacterPanel aquí porque aún no hay personaje.
+            // El estado pasa a ShowingCharacterPanel cuando llega EventoEsperandoAccionJugador.
+            if (currentState == CombatUIState.Hidden)
+                SetState(CombatUIState.ShowingCharacterPanel);
+
+            Debug.Log("[CombatUI] HUD mostrado via GameFlow");
+        }
+
+        /// <summary>
+        /// Oculta toda la UI de combate. Lo llama CombatFlowState.Exit().
+        /// </summary>
+        public void OcultarHUD()
+        {
+            HideAllUI();
+        }
+
+        // =================== METODOS PUBLICOS ===================
         
         /// <summary>
         /// Muestra el selector de objetivos para una habilidad.
-        /// El TargetSelector legacy (uGUI) está bypaseado: la confirmación
-        /// ocurre al clickear directamente el enemigo/aliado en escena.
+        /// Activa los indicadores 3D del TargetSelector sobre los objetivos válidos
+        /// y espera que el jugador clickee sobre un enemigo/aliado en la escena.
         /// </summary>
         public void ShowTargetSelector(HabilidadData skill)
         {
@@ -184,6 +269,20 @@ namespace UI.Combat
             _habilidadSeleccionada = skill;
             SetState(CombatUIState.SelectingTarget);
 
+            // Mostrar indicadores 3D sobre los objetivos válidos
+            targetSelector?.Show(skill, cachedAliados, cachedEnemigos);
+
+            // Mostrar instrucción en el HUD (reemplaza el panel TMP legacy)
+            string instruccion = skill?.tipoObjetivo switch
+            {
+                TargetType.EnemigoUnico => "Selecciona un enemigo",
+                TargetType.EnemigoTodos => "Selecciona un enemigo (afecta a todos)",
+                TargetType.AliadoUnico  => "Selecciona un aliado",
+                TargetType.AliadoTodos  => "Selecciona un aliado (afecta a todos)",
+                _ => "Selecciona un objetivo"
+            };
+            hudController?.MostrarInstruccionObjetivo(instruccion);
+
             Debug.Log($"[CombatUI] Seleccionando objetivo para: {skill?.nombreHabilidad}. Click sobre el objetivo en escena.");
         }
         
@@ -191,6 +290,9 @@ namespace UI.Combat
         {
             _habilidadSeleccionada = null;
             targetSelector?.Hide();
+
+            // Notificar al HUD que salimos de selección de objetivo
+            hudController?.MostrarInstruccionObjetivo(null);
         }
         
         // =================== HIGHLIGHT ===================
@@ -220,7 +322,8 @@ namespace UI.Combat
             HideTargetSelector();
             HideHighlight();
 
-            // Fuerza ocultamiento del HUD como fallback (normalmente lo maneja el evento).
+            // Oculta el HUD. Llamado por OcultarHUD() (desde CombatFlowState.Exit())
+            // y al inicializar en Start().
             hudController?.OcultarHUD();
 
             SetState(CombatUIState.Hidden);
