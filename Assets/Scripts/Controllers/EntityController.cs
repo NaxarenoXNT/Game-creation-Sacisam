@@ -5,6 +5,7 @@ using Interfaces;
 using Habilidades;
 using Combate;
 using System.Collections.Generic;
+using System.Linq;
 
 /// <summary>
 /// Controlador de entidad que conecta la logica con Unity
@@ -51,7 +52,14 @@ public class EntityController : MonoBehaviour, IEntidadCombate, IJugadorProgresi
     
     // IGestorHabilidades
     public GestorCooldowns Cooldowns => gestorCooldowns;
-    public List<HabilidadData> HabilidadesDisponibles => habilidadesDisponibles;
+
+    /// <summary>
+    /// Fuente de verdad en runtime: delega al GestorHabilidades de la entidad lógica.
+    /// El fallback a la lista del inspector cubre el frame antes de Inicializar().
+    /// </summary>
+    public List<HabilidadData> HabilidadesDisponibles =>
+        (entidadLogica as Jugador)?.GestorHabilidades.ObtenerTodas().ToList()
+        ?? habilidadesDisponibles;
     
     /// <summary>Sprite/icono del personaje (desde ClaseData).</summary>
     public Sprite SpritePersonaje => datosClase?.iconoClase;
@@ -165,7 +173,17 @@ public class EntityController : MonoBehaviour, IEntidadCombate, IJugadorProgresi
         entidadLogica.OnMuerte += ManejarMuerte;
         
         AplicarElementosIniciales();
-        
+
+        // 5. El GestorHabilidades ya fue poblado por InicializarDesdeClaseData() dentro del
+        //    constructor de la subclase (Guerrero, Mago, etc.). Aquí solo agregamos las
+        //    habilidades extra asignadas manualmente en el inspector (builds de boss, debug, etc.)
+        //    que no formen parte del ClaseData.
+        if (entidadLogica is Jugador jugadorSeed)
+        {
+            foreach (var hab in habilidadesDisponibles)
+                if (hab != null) jugadorSeed.GestorHabilidades.AgregarHabilidad(hab, notificar: false);
+        }
+
         Debug.Log($"Entidad inicializada: {entidadLogica.Nombre_Entidad} (Nivel {entidadLogica.Nivel_Entidad})");
     }
 
