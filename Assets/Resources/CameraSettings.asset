@@ -1,0 +1,47 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 532ee395639c7ef4ca696f4f4272b01d, type: 3}
+  m_Name: CameraSettings
+  m_EditorClassIdentifier: 
+  defaultMode: 1
+  toggleModeKey: 9
+  modeTransitionDuration: 0.4
+  pitchAngle: 45
+  initialYawAngle: 45
+  minZoomDistance: 5
+  maxZoomDistance: 20
+  defaultZoomDistance: 12
+  zoomSpeed: 5
+  zoomSmoothing: 10
+  allowRotation: 1
+  rotationSpeed: 90
+  mouseRotation: 1
+  mouseRotationSensitivity: 2
+  followSmoothing: 8
+  targetHeightOffset: 1.5
+  useBounds: 0
+  boundsMin: {x: -50, y: -50}
+  boundsMax: {x: 50, y: 50}
+  tpDistance: 6
+  tpMinDistance: 2
+  tpMaxDistance: 14
+  tpHeight: 2.5
+  tpPitchAngle: 18
+  tpTargetHeightOffset: 1.5
+  tpRotationSpeed: 90
+  tpMouseRotation: 1
+  tpMouseRotationSensitivity: 2.5
+  tpRotationSmoothing: 15
+  tpSnapBehindOnEnter: 1
+  tpFollowSmoothing: 10
+  tpZoomSpeed: 4
+  tpZoomSmoothing: 10

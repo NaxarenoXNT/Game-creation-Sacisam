@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c803be7056fb2744ca4ba57c7f34b56f, type: 3}
+  m_Name: Arquero_DataClass
+  m_EditorClassIdentifier: 
+  nombreClase: Arquero
+  iconoClase: {fileID: 0}
+  vidaBase: 800
+  ataqueBase: 90
+  defensaBase: 20
+  manaBase: 50
+  velocidadBase: 80
+  atributos: 16
+  tipoEntidad: 1
+  estiloCombate: 2
+  animatorOverride: {fileID: 0}
+  prefabProyectil: {fileID: 0}

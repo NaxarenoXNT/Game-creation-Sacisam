@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Managers;
@@ -45,6 +46,11 @@ namespace World.ChunkSystem
         [Tooltip("Máximo de props con identidad a instanciar por frame")]
         [SerializeField] private int maxPropsPerFrame = 10;
         
+        [Header("Terreno Dinámico")]
+        [Tooltip("Si está activo, los TerrainData se instancian en runtime según distancia del player.\n" +
+                 "Requiere que los TerrainData estén en Resources/World/TerrainData/.")]
+        [SerializeField] private bool loadTerrainDynamically = true;
+        
         [Tooltip("Máximo de objetos decorativos (árboles, rocas) por chunk")]
         [SerializeField] private int maxDecorativePropsPerChunk = 150;
         
@@ -58,6 +64,7 @@ namespace World.ChunkSystem
         // Estado interno
         private Dictionary<Vector2Int, ChunkData> chunks = new Dictionary<Vector2Int, ChunkData>();
         private HashSet<Vector2Int> loadedChunks = new HashSet<Vector2Int>();
+        private HashSet<Vector2Int> noTerrainChunks = new HashSet<Vector2Int>(); // chunks sin TerrainData, para no repetir warning
         private Vector2Int currentPlayerChunk;
         private Vector2Int lastPlayerChunk;
         private float lastUpdateTime;
@@ -91,8 +98,11 @@ namespace World.ChunkSystem
             DontDestroyOnLoad(gameObject);
         }
         
-        void Start()
+        IEnumerator Start()
         {
+            // Esperar un frame para que todos los Awake/Start se hayan ejecutado (PlayerPartyManager, etc.)
+            yield return null;
+
             // Auto-detectar referencias si no están asignadas
             if (playerTransform == null)
             {
@@ -116,7 +126,7 @@ namespace World.ChunkSystem
                 enemyPoolManager = DynamicEnemyPoolManager.Instance;
             }
             
-            // ✅ Auto-cargar ChunkDataAssets desde Resources/World/Chunks/
+            // Auto-cargar ChunkDataAssets desde Resources/World/Chunks/
             AutoLoadChunkAssets();
             
             if (showDebugLogs)
@@ -124,12 +134,12 @@ namespace World.ChunkSystem
                 Debug.Log($"✨ WorldChunkManager inicializado | ChunkSize: {chunkSize} | LoadRadius: {loadRadius}");
             }
             
-            // ✅ ARREGLO: Cargar chunks iniciales inmediatamente
+            // Cargar chunks iniciales desde la posición actual del jugador
             if (playerTransform != null)
             {
                 currentPlayerChunk = WorldToChunkCoords(playerTransform.position);
-                lastPlayerChunk = currentPlayerChunk; // sincronizado para que Update no recargue de inmediato
-                UpdateLoadedChunks(); // Cargar chunks iniciales
+                lastPlayerChunk = currentPlayerChunk;
+                UpdateLoadedChunks();
                 
                 if (showDebugLogs)
                 {
@@ -138,9 +148,9 @@ namespace World.ChunkSystem
             }
             else
             {
-                Debug.LogWarning("[WorldChunkManager] playerTransform es null en Start(). " +
+                Debug.LogWarning("[WorldChunkManager] playerTransform es null tras el primer frame. " +
                                  "Se intentará resolver en Update(). " +
-                                 "Verifica que el campo playerTransform en el Inspector esté vacío " +
+                                 "Verifica que el campo playerTransform en el Inspector esté asignado " +
                                  "o que el player tenga el tag 'Player'.");
             }
         }
@@ -325,6 +335,10 @@ namespace World.ChunkSystem
                 Debug.Log($"📦 Cargando chunk {coords} ({chunkData.enemySpawnConfigs.Count} spawns, {chunkData.propSpawnConfigs.Count} props)");
             }
             
+            // Paso 0: Terreno dinámico
+            if (loadTerrainDynamically)
+                LoadTerrainForChunk(chunkData);
+            
             // Crear contenedor de props para este chunk
             EnsurePropsRoot(chunkData);
             
@@ -357,6 +371,10 @@ namespace World.ChunkSystem
             {
                 Debug.Log($"📤 Descargando chunk {coords} ({chunkData.activeEnemies.Count} enemigos activos)");
             }
+            
+            // Destruir terreno del chunk
+            if (loadTerrainDynamically)
+                UnloadTerrainForChunk(chunkData);
             
             // Destruir props del chunk
             UnloadProps(chunkData);
@@ -903,6 +921,54 @@ namespace World.ChunkSystem
         }
         
         // ─── Props con Identidad ──────────────────────────────────────────────────
+        
+        // ─── Terreno Dinámico ──────────────────────────────────────────────────
+        
+        /// <summary>
+        /// Carga el TerrainData del chunk desde Resources e instancia el Terrain en el mundo.
+        /// Ruta esperada: Resources/World/TerrainData/Chunk_X_Y_Terrain.asset
+        /// </summary>
+        private void LoadTerrainForChunk(ChunkData chunk)
+        {
+            if (chunk.terrainInstance != null) return;
+            
+            string resourcePath = $"World/TerrainData/Chunk_{chunk.coordinates.x}_{chunk.coordinates.y}_Terrain";
+            var tData = Resources.Load<TerrainData>(resourcePath);
+            
+            if (tData == null)
+            {
+                // No hay terreno para este chunk — es válido (chunk fuera del área generada)
+                // Solo loguear una vez por coordenada para evitar spam en consola
+                if (showDebugLogs && noTerrainChunks.Add(chunk.coordinates))
+                    Debug.Log($"ℹ️ Sin TerrainData para chunk {chunk.coordinates} — buscado en Resources/{resourcePath}");
+                return;
+            }
+            
+            var terrainGO = Terrain.CreateTerrainGameObject(tData);
+            terrainGO.transform.position = new Vector3(
+                chunk.coordinates.x * chunkSize, 0f, chunk.coordinates.y * chunkSize);
+            terrainGO.name = $"Terrain_{chunk.coordinates.x}_{chunk.coordinates.y}";
+            chunk.terrainInstance = terrainGO;
+            
+            if (showDebugLogs)
+                Debug.Log($"🏔️ Terreno cargado: {terrainGO.name}");
+        }
+        
+        /// <summary>
+        /// Destruye el Terrain GameObject del chunk.
+        /// </summary>
+        private void UnloadTerrainForChunk(ChunkData chunk)
+        {
+            if (chunk.terrainInstance == null) return;
+            
+            if (showDebugLogs)
+                Debug.Log($"🏔️ Terreno descargado: {chunk.terrainInstance.name}");
+            
+            Destroy(chunk.terrainInstance);
+            chunk.terrainInstance = null;
+        }
+        
+        // ─── Props ────────────────────────────────────────────────────────────────
         
         /// <summary>
         /// Crea el GameObject contenedor de props para un chunk si no existe.

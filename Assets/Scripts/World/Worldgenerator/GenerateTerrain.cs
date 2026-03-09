@@ -40,7 +40,9 @@ public class WorldGeneratorPro : EditorWindow
     public ChunkSpawnTemplate spawnTemplate; // Plantilla de spawns a aplicar
 
     // --- Rutas de Archivos ---
-    private string terrainDataPath = "Assets/World/TerrainData";
+    // ⚠️ TerrainData DEBE estar dentro de Resources para poder cargarse en runtime
+    // con Resources.Load<TerrainData>("World/TerrainData/Chunk_X_Y_Terrain")
+    private string terrainDataPath = "Assets/Resources/World/TerrainData";
     private string chunkDataPath = "Assets/Resources/World/Chunks";
     
     // --- Sistema de Visualización ---

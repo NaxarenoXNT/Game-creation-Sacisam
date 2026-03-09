@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using GameInput;
+using UI.Combat;
 using UnityEngine;
 
 namespace GameFlow
@@ -33,18 +34,27 @@ namespace GameFlow
                 GameInputManager.Instance.SetContext(InputContext.Combat);
             }
 
-            // Aquí se podrían activar sistemas de combate:
-            // - La UI de combate ya reacciona a EventoCombateIniciado (via HUDController)
-            // - Deshabilitar sistemas del mundo que no aplican en combate
+            // El GameFlow es el único responsable de mostrar/ocultar el HUD.
+            // HUDController actualiza datos internamente via EventoCombateIniciado.
+            // EnsureInstance() crea los componentes si no existen en la escena.
+            var uiCtrl = CombatUIController.EnsureInstance();
+            if (uiCtrl != null)
+            {
+                uiCtrl.MostrarHUD();
+            }
+            else
+            {
+                Debug.LogError("[CombatFlow] No se pudo crear CombatUIController. " +
+                               "Verifica que exista un UIDocument con HUD.uxml en la escena.");
+            }
         }
 
         public void Exit()
         {
             Debug.Log("[CombatFlow] ← Exit: Desactivando modo combate");
 
-            // Aquí se podrían limpiar sistemas de combate:
-            // - La UI de combate ya reacciona a EventoCombateFinalizado
-            // - El input se restaurará por el estado que reciba Enter()
+            // Ocultar toda la UI de combate. El input lo restaura el siguiente estado.
+            CombatUIController.Instance?.OcultarHUD();
         }
     }
 }

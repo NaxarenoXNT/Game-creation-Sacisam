@@ -1,0 +1,84 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0f211df38a12402408e3b09342519b12, type: 3}
+  m_Name: Bosque
+  m_EditorClassIdentifier: 
+  biomeName: Bosque
+  category: 0
+  description: 
+  foliageColor: {r: 0.015477419, g: 0.066037714, b: 0.009033463, a: 1}
+  terrainLayer: {fileID: 8574412962073106934, guid: 76f918425d9d67e42abeb7c5e2a5184c,
+    type: 2}
+  tintedTreeDensity: 0.586
+  biomeTintedTrees:
+  - prefab: {fileID: 827111804192909182, guid: 558b79c01c25d53428c6c3656b89375f, type: 3}
+    weight: 0
+  - prefab: {fileID: 269750320397101300, guid: 776d6e523eb60be41abbfa8427ee472a, type: 3}
+    weight: 0
+  tintedUnderstoryDensity: 0.3
+  biomeTintedUnderstory:
+  - prefab: {fileID: 7390566949429054898, guid: 18665362feb1b494fbeda66c24a91d57,
+      type: 3}
+    weight: 0
+  - prefab: {fileID: 3052515965135097726, guid: 8022ebd68cb5b6948be983bf7aa7b94e,
+      type: 3}
+    weight: 0
+  - prefab: {fileID: 7952631473301054624, guid: fc1beed488abe5449971353f60553ff3,
+      type: 3}
+    weight: 0
+  - prefab: {fileID: 5905672442031324911, guid: 63f88b8ea8bdf544dadd60344ab2fe1e,
+      type: 3}
+    weight: 0
+  tintedGroundCoverDensity: 0.5
+  biomeTintedGroundCover: []
+  treeDensity: 0.422
+  treeTypes:
+  - prefab: {fileID: 827111804192909182, guid: 558b79c01c25d53428c6c3656b89375f, type: 3}
+    weight: 0
+  - prefab: {fileID: 919132149155446097, guid: fb0559a36ae9650449b6e3c26d5076a5, type: 3}
+    weight: 0
+  - prefab: {fileID: 4598635758027460578, guid: f0b04dd70814f7e41bcf0c316951b288,
+      type: 3}
+    weight: 0
+  minTreeSpacing: 4
+  treeScaleVariation: 0.15
+  rockDensity: 0.1
+  rockTypes:
+  - prefab: {fileID: 919132149155446097, guid: df6d7035f53ca6142b8a2896ce56d919, type: 3}
+    weight: 0
+  - prefab: {fileID: 4502823302244845586, guid: 78f4fda6b7fccb646bf8ac8de2537205,
+      type: 3}
+    weight: 0
+  minRockSpacing: 3
+  understoryDensity: 0.3
+  understoryTypes:
+  - prefab: {fileID: 6853804256271815428, guid: a22de254fda32184784881cbf3b484e1,
+      type: 3}
+    weight: 0
+  - prefab: {fileID: 3131909291465887847, guid: de0f9463ada7f44488e1849fdf5e1ef8,
+      type: 3}
+    weight: 0
+  - prefab: {fileID: 7204330015767125457, guid: 2d342004967c931468f15476d3c2d447,
+      type: 3}
+    weight: 0
+  minUnderstorySpacing: 1.5
+  groundCoverDensity: 0.5
+  groundCoverTypes:
+  - prefab: {fileID: 7204330015767125457, guid: 2bba4dfe9cc9b9b4c8024c00a37499dc,
+      type: 3}
+    weight: 0
+  - prefab: {fileID: 919132149155446097, guid: 2bb97ffe58353b24a875c93e26776d37, type: 3}
+    weight: 0
+  minTintedTreeSpacing: 4
+  minTintedUnderstorySpacing: 1.5
+  ambientParticlesPrefab: {fileID: 0}
+  usesManualLayoutOnly: 0

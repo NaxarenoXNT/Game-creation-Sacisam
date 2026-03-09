@@ -24,8 +24,9 @@ namespace World.BiomeSystem
         [Header("Blending")]
         [Tooltip("Radio de influencia de cada punto de control en unidades de mundo. " +
                  "Valores más altos = transiciones más suaves y amplias. " +
-                 "Recomendado: 200-400 para chunks de 256u.")]
-        [SerializeField] private float blendRadius = 300f;
+                 "Para chunks de 256u recomendado: 400-600. " +
+                 "Fórmula: al menos ChunkSize × 2 para cubrir 1 chunk de gap.")]
+        [SerializeField] private float blendRadius = 512f;
 
         [Tooltip("Peso mínimo para que un bioma aparezca en el blend. " +
                  "Filtra biomas con influencia despreciable.")]

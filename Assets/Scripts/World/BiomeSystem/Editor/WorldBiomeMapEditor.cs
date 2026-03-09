@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
 using World.BiomeSystem;
+using World.ChunkSystem;
 
 namespace World.BiomeSystem.Editor
 {
@@ -111,7 +112,44 @@ namespace World.BiomeSystem.Editor
                 EditorUtility.SetDirty(biomeMap);
             }
 
-            // Botones de debug
+            // ─── Sincronización con ChunkDataAssets ─────────────────────────────────
+            EditorGUILayout.Space(10);
+            EditorGUILayout.LabelField("─── Sincronización desde Chunks ─────────────────────", EditorStyles.boldLabel);
+            EditorGUILayout.HelpBox(
+                "Lee todos los ChunkDataAssets en Resources/World/Chunks/ " +
+                "y genera un BiomeControlPoint en el centro de cada chunk que tenga 'Primary Biome' asignado.\n" +
+                "Chunks sin 'Primary Biome' quedan como zonas de transición automática.",
+                MessageType.None);
+
+            // Preview: contar cuántos assets tienen primaryBiome
+            var allAssets = Resources.LoadAll<ChunkDataAsset>("World/Chunks");
+            int totalAssets = allAssets.Length;
+            int assetsWithBiome = 0;
+            foreach (var a in allAssets)
+                if (a != null && a.primaryBiome != null) assetsWithBiome++;
+
+            EditorGUILayout.LabelField(
+                $"Assets encontrados: {totalAssets} | Con bioma asignado: {assetsWithBiome}",
+                EditorStyles.miniLabel);
+
+            EditorGUI.BeginDisabledGroup(assetsWithBiome == 0);
+            if (GUILayout.Button($"↻ Sincronizar {assetsWithBiome} chunks → WorldBiomeMap", GUILayout.Height(32)))
+            {
+                SyncFromChunkAssets(biomeMap, allAssets);
+            }
+            EditorGUI.EndDisabledGroup();
+
+            if (assetsWithBiome == 0 && totalAssets > 0)
+                EditorGUILayout.HelpBox(
+                    "Ningún ChunkDataAsset tiene 'Primary Biome' asignado. " +
+                    "Abrí un asset y asignále el bioma en el campo 'Primary Biome'.",
+                    MessageType.Warning);
+            else if (totalAssets == 0)
+                EditorGUILayout.HelpBox(
+                    "No se encontraron ChunkDataAssets en Resources/World/Chunks/.",
+                    MessageType.Warning);
+
+            // ─── Debug ────────────────────────────────────────────
             EditorGUILayout.Space(10);
             EditorGUILayout.LabelField("─── Debug ──────────────────────────────────", EditorStyles.boldLabel);
 
@@ -219,7 +257,76 @@ namespace World.BiomeSystem.Editor
                 Handles.DrawWireDisc(point.worldPosition, Vector3.up, blendRadius);
             }
         }
+        // ─── Sincronización ───────────────────────────────────────────────────
 
+        private void SyncFromChunkAssets(WorldBiomeMap map, ChunkDataAsset[] assets)
+        {
+            // Resolver tamaño del chunk: intentar desde el manager en escena, fallback 256
+            float chunkSize = 256f;
+            var manager = Object.FindObjectOfType<World.ChunkSystem.WorldChunkManager>();
+            if (manager != null) chunkSize = manager.ChunkSize;
+
+            // Separar puntos generados automáticamente de los manuales.
+            // Convenio: los puntos con pointId que empieza por "chunk_" son auto-generados.
+            // Los demás son manuales y se conservan.
+            int removedCount = 0;
+            for (int i = map.ControlPoints.Count - 1; i >= 0; i--)
+            {
+                if (map.ControlPoints[i].pointId.StartsWith("chunk_"))
+                {
+                    Undo.RecordObject(map, "Sync Biomes");
+                    map.RemoveControlPoint(i);
+                    removedCount++;
+                }
+            }
+
+            int addedCount = 0;
+            var duplicateCoords = new HashSet<Vector2Int>();
+
+            foreach (var asset in assets)
+            {
+                if (asset == null || asset.primaryBiome == null) continue;
+                if (!duplicateCoords.Add(asset.coordinates))
+                {
+                    Debug.LogWarning(
+                        $"[BiomeSync] Coordenadas duplicadas {asset.coordinates} en '{asset.name}'. Se ignora.");
+                    continue;
+                }
+
+                // Centro del chunk en world space
+                Vector3 center = new Vector3(
+                    (asset.coordinates.x + 0.5f) * chunkSize,
+                    0f,
+                    (asset.coordinates.y + 0.5f) * chunkSize
+                );
+
+                Undo.RecordObject(map, "Sync Biomes");
+                map.AddControlPoint(center, asset.primaryBiome);
+
+                // Renombrar el punto recién agregado con el ID de convenio
+                var so = new SerializedObject(map);
+                var pointsProp = so.FindProperty("controlPoints");
+                int lastIdx = map.ControlPoints.Count - 1;
+                if (pointsProp != null && lastIdx < pointsProp.arraySize)
+                {
+                    pointsProp.GetArrayElementAtIndex(lastIdx)
+                              .FindPropertyRelative("pointId")
+                              .stringValue = $"chunk_{asset.coordinates.x}_{asset.coordinates.y}";
+                    so.ApplyModifiedPropertiesWithoutUndo();
+                }
+
+                addedCount++;
+            }
+
+            EditorUtility.SetDirty(map);
+            SceneView.RepaintAll();
+            Repaint();
+
+            Debug.Log(
+                $"[BiomeSync] Sincronización completada: " +
+                $"{removedCount} puntos auto-generados eliminados, {addedCount} nuevos generados. " +
+                $"Los puntos manuales (sin prefijo 'chunk_') se conservaron.");
+        }
         // ─── Helpers ─────────────────────────────────────────────────────────────
 
         private static Color GetBiomeColor(BiomeCategory category)

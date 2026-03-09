@@ -15,6 +15,7 @@ namespace IA.Roaming
         
         private float chaseTimer = 0f;
         private Vector3 lastKnownPosition;
+        private bool combatRequested = false; // Evita llamar RequestCombat en cada frame
         
         private CombatEncounterManager encounterManager;
         
@@ -33,6 +34,7 @@ namespace IA.Roaming
         public override void OnEnter()
         {
             chaseTimer = 0f;
+            combatRequested = false;
             
             // Usar velocidad personalizada si está configurada
             chaseSpeed = fsm.SpawnConfig.patrolSpeed > 0 ? fsm.SpawnConfig.patrolSpeed * 1.5f : 5f;
@@ -85,12 +87,17 @@ namespace IA.Roaming
         
         private void TryInitiateCombat()
         {
+            // Solo solicitar una vez; el FSM se pausará al entrar en combate
+            if (combatRequested) return;
+
             if (encounterManager == null)
             {
                 Debug.LogWarning($"[Chasing] {controller.name} no puede iniciar combate: CombatEncounterManager no encontrado");
                 return;
             }
             
+            combatRequested = true;
+
             // Notificar al encounter manager que este enemigo quiere iniciar combate
             encounterManager.RequestCombatFromEnemy(controller);
             

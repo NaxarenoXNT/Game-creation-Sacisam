@@ -1,0 +1,48 @@
+[33m6d02555[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m HEAD@{0}: reset: moving to HEAD
+[33m6d02555[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m HEAD@{1}: commit: creacion del sistema de roaming de las entidades
+[33mb796302[m HEAD@{2}: commit: creacion de EventGameFlow que trabaja con el control de estados del juego
+[33me604a7f[m HEAD@{3}: commit: metodo para autoregistrar las habilidades de cada entidad
+[33m09085f6[m HEAD@{4}: commit: pulido del sistema de camara
+[33mf75b541[m HEAD@{5}: commit: refactorizacion del damagecalculator
+[33m370fadc[m HEAD@{6}: commit: creacion de el sistema de efetos de estado
+[33mb21f920[m HEAD@{7}: commit: creacion del controlador de flujo general del juego
+[33m2c4f599[m HEAD@{8}: commit: creacion del sistema de biomas para la generaciond emundo
+[33m4d18f7d[m HEAD@{9}: commit: creacion de EventosEnemigo para la gestion de mundo
+[33m4ed838d[m HEAD@{10}: commit: correcion en desincronizacion de elementos en precarga de escena
+[33m25724e4[m HEAD@{11}: commit: creacion de archivos de precarga de componentes en escena
+[33m40d045c[m HEAD@{12}: commit: cambios dentro de Encounter y creacion de reinforcement
+[33m626b058[m HEAD@{13}: commit: finalizado el sistema de carga procedural de chunks
+[33m2c27513[m HEAD@{14}: commit: nueva documentacion
+[33mbd42552[m HEAD@{15}: commit: creacion del DynamicEnemyPoolmanager
+[33m3f19b3e[m HEAD@{16}: commit: refactorizacion y dinamismo del ObjectPool
+[33m0841960[m HEAD@{17}: commit: creacion de la documentacion 16 a 21
+[33mc229e64[m HEAD@{18}: commit: modificaciones de hardcoding
+[33m7447888[m HEAD@{19}: commit: creacion de las pasivas
+[33mc7e1f04[m HEAD@{20}: commit: modificaciones simples para evitar el hardcoding de datos minimos
+[33mc7ea631[m HEAD@{21}: commit: creacion del sistema de movimiento del personaje
+[33m44f2459[m HEAD@{22}: commit: refactorizacion del eventbus y combatemanager + creacion de sistema de combate + partymanager
+[33m0f1efbb[m HEAD@{23}: commit: Re-Creacion de el funcionamiento de la camara: Isometrica y 3d tradicional
+[33m7389539[m HEAD@{24}: commit: creacion de los nodos para la IA
+[33m6854943[m HEAD@{25}: commit: creacion de la toma de deciciones de la IA
+[33m659b183[m HEAD@{26}: commit: creacion de los SOs y logica de las habilidades
+[33m44d41a9[m HEAD@{27}: commit: agrege el tipo: BloodSpilet y cree TipoRecurso para diferenciar el consumo de las habilidaes
+[33mdbad5e7[m HEAD@{28}: commit: creacion de las condiciones de uso de habilidad
+[33m87a7bf4[m HEAD@{29}: commit: refactorizacion del busEvent y creacion de eventos del combate
+[33mb1c5518[m HEAD@{30}: commit: modificacion de los controladores del jugador y enemigos con la camara isometrica y tradicional
+[33m80828f4[m HEAD@{31}: commit: creacion de el calculador de daño
+[33m4722ebf[m HEAD@{32}: commit: creacion de todo el sistema de evoluciones, creacion de traits, chains y gestores de progresion para el jugador y mundo
+[33me8754c0[m HEAD@{33}: commit: agregue nuevos virtual para poder modificar STATS de nivel y mana
+[33ma726367[m HEAD@{34}: commit: refactorizacion de SO
+[33mbf6de15[m HEAD@{35}: commit: creacion y correccion de Subclases
+[33ma4eef44[m HEAD@{36}: pull origin main --allow-unrelated-histories: Merge made by the 'ort' strategy.
+[33maece83e[m HEAD@{37}: commit: creacion del gestor de cooldowns
+[33m0f7d176[m HEAD@{38}: commit: correccion de la gestion de Estados
+[33mfaa3dc1[m HEAD@{39}: commit: correccion de errores con el antiguo controller e nueva implemtacion con los cambios actuales
+[33m8a68652[m HEAD@{40}: commit: creacion de manejo de IA y correccion de typo en flags
+[33maf3ca29[m HEAD@{41}: commit: creacion de nuevas interfaces y correccion de IEntidadCombate
+[33m959d27b[m HEAD@{42}: commit: modificacion de los estados y habilidades related
+[33m9113d9e[m HEAD@{43}: commit: creacion del gestor de la UI
+[33mdbb46d3[m HEAD@{44}: commit: modificacion de los Padres, SO y Subclases
+[33mf532ef3[m HEAD@{45}: commit: modificacion de gitignore y creacion de la documentacion del proyecto
+[33m9a9b701[m HEAD@{46}: commit: correccion de managers y creacion de EventBus, ObjectPool, SaveSistem y SceneReference
+[33md435c01[m HEAD@{47}: commit (initial): Initial commit de proyecto Unity

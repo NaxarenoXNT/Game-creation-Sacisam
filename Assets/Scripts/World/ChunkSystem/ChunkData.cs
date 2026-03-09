@@ -39,6 +39,12 @@ namespace World.ChunkSystem
         [System.NonSerialized] public Transform propsRoot;
         
         /// <summary>
+        /// Instancia del Terrain GameObject creado en runtime desde TerrainData.
+        /// Se crea al cargar el chunk y se destruye al descargar.
+        /// </summary>
+        [System.NonSerialized] public GameObject terrainInstance;
+        
+        /// <summary>
         /// Estadísticas del chunk.
         /// </summary>
         public ChunkStats GetStats()
