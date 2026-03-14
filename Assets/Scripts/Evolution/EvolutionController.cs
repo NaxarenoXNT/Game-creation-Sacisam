@@ -269,6 +269,13 @@ namespace Evolution
             foreach (var eff in evo.efectos)
                 applier.Aplicar(eff, jugador);
 
+            // Notificar al resto de sistemas vía EventBus
+            EventBus.Publicar(new EventoEvolucionAplicada
+            {
+                EvolucionId = evo.id,
+                CharacterId = state.characterId
+            });
+
             if (debugMode)
                 Debug.Log($"[Evolution] Evolución aplicada: {evo.nombreMostrar ?? evo.id}");
         }
@@ -280,6 +287,15 @@ namespace Evolution
             // Aplicar efectos
             foreach (var eff in trait.efectos)
                 applier.Aplicar(eff, jugador);
+
+            // Notificar al resto de sistemas vía EventBus
+            EventBus.Publicar(new EventoTraitObtenido
+            {
+                TraitId = trait.id,
+                CharacterId = state.characterId,
+                StacksActuales = state.traitStacks.TryGetValue(trait.id, out int stacks) ? stacks : 1,
+                EsGlobalmenteUnico = trait.esGlobalmenteUnico
+            });
 
             if (debugMode)
                 Debug.Log($"[Evolution] Trait obtenido: {trait.nombreMostrar ?? trait.id} (x{state.traitStacks[trait.id]})");

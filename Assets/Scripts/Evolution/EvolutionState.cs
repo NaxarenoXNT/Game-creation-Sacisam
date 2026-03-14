@@ -11,6 +11,10 @@ namespace Evolution
     [Serializable]
     public class EvolutionState
     {
+        // ========== Identidad ==========
+        /// <summary>ID único del personaje al que pertenece este estado.</summary>
+        public string characterId;
+
         // ========== Básico ==========
         public int nivelJugador;
         public float karma; // -1 a 1

@@ -43,6 +43,10 @@ namespace Evolution
         [Tooltip("Máximo de stacks si es stackeable")]
         public int maxStacks = 1;
 
+        [Tooltip("Si es true, una vez obtenido por cualquier personaje, ningún otro puede obtenerlo. " +
+                 "Ej: matar un boss único que no respawnea.")]
+        public bool esGlobalmenteUnico;
+
         [Header("Condiciones de Desbloqueo")]
         [Tooltip("Lista de condiciones que deben cumplirse para desbloquear este trait (referencias a SOs)")]
         public List<EvolutionConditionSO> condiciones = new List<EvolutionConditionSO>();
