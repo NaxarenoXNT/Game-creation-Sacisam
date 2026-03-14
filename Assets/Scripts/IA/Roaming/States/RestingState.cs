@@ -20,7 +20,7 @@ namespace IA.Roaming
             var rigidbody = controller.GetComponent<Rigidbody>();
             if (rigidbody != null)
             {
-                rigidbody.velocity = Vector3.zero;
+                rigidbody.linearVelocity = Vector3.zero;
             }
             
             // TODO: Activar animación de descanso cuando se implemente

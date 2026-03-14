@@ -3,7 +3,7 @@ using UnityEngine;
 namespace IA
 {
     /// <summary>
-    /// Verifica si la vida del enemigo esta por debajo de un porcentaje.
+    /// Verifica si la vida del enemigo está por debajo de un porcentaje.
     /// </summary>
     public class CondicionVidaBaja : NodoIA
     {
@@ -19,7 +19,7 @@ namespace IA
     }
     
     /// <summary>
-    /// Verifica si hay jugadores con vida baja.
+    /// Verifica si hay jugadores con vida baja (% HP).
     /// </summary>
     public class CondicionJugadorDebil : NodoIA
     {
@@ -42,7 +42,7 @@ namespace IA
     }
     
     /// <summary>
-    /// Verifica si hay aliados caidos.
+    /// Verifica si hay aliados caídos.
     /// </summary>
     public class CondicionAliadosCaidos : NodoIA
     {
@@ -60,7 +60,36 @@ namespace IA
             return caidos >= cantidadMinima ? EstadoNodo.Exito : EstadoNodo.Fallo;
         }
     }
-    
+
+    /// <summary>
+    /// Verifica si algún aliado (o el propio enemigo) tiene vida por debajo del umbral dado.
+    /// Útil para que Sanadores/Soportes activen curación.
+    /// </summary>
+    public class CondicionAliadoHerido : NodoIA
+    {
+        private float umbral;
+
+        public CondicionAliadoHerido(float umbral = 0.6f) => this.umbral = umbral;
+
+        public override EstadoNodo Evaluar()
+        {
+            // Comprobar los aliados
+            foreach (var aliado in aliados)
+            {
+                if (!aliado.EstaVivo()) continue;
+                float pct = (float)aliado.VidaActual_Entidad / aliado.Vida_Entidad;
+                if (pct <= umbral) return EstadoNodo.Exito;
+            }
+            // Comprobar al propio enemigo
+            if (enemigo != null && enemigo.EstaVivo())
+            {
+                float selfPct = (float)enemigo.VidaActual_Entidad / enemigo.Vida_Entidad;
+                if (selfPct <= umbral) return EstadoNodo.Exito;
+            }
+            return EstadoNodo.Fallo;
+        }
+    }
+
     /// <summary>
     /// Ejecuta con probabilidad aleatoria.
     /// </summary>
@@ -76,3 +105,4 @@ namespace IA
         }
     }
 }
+

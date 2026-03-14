@@ -1,92 +1,104 @@
 using System.Collections.Generic;
 using Interfaces;
 using Padres;
+using Flags;
+using IA.Roles;
 
 namespace IA
 {
     /// <summary>
-    /// Cerebro de IA que maneja el arbol de comportamiento.
+    /// Cerebro de IA: coordina la toma de decisiones de un enemigo por turno.
+    /// No contiene lógica de combate propia; delega completamente al IDecisionRol asignado.
+    ///
+    /// Flujo:
+    ///   EnemigoData.arquetipoIA  →  CerebroIA.CrearParaArquetipo()
+    ///                            →  Registra el IDecisionRol correcto
+    ///                            →  Decidir() llama al rol cada turno
+    ///
+    /// Para agregar un nuevo rol:
+    ///   1. Crear Assets/Scripts/IA/Roles/RolNuevo.cs implementando IDecisionRol
+    ///   2. Agregar el valor al enum ArquetipoIA en Flags/TipoRecurso.cs
+    ///   3. Registrar la asignación en el bloque _registry de esta clase
     /// </summary>
     [System.Serializable]
     public class CerebroIA
     {
-        private NodoIA arbolRaiz;
-        private Enemigos enemigo;
-        
-        public CerebroIA(NodoIA arbolRaiz)
+        // El rol activo que toma las decisiones de combate
+        private IDecisionRol rolActivo;
+
+        // ----------------------------------------------------------------
+        //  REGISTRY: enum ArquetipoIA → IDecisionRol concreto
+        //  Agregar una línea acá para registrar un nuevo rol.
+        // ----------------------------------------------------------------
+        private static readonly Dictionary<ArquetipoIA, System.Func<IDecisionRol>> _registry =
+            new Dictionary<ArquetipoIA, System.Func<IDecisionRol>>
         {
-            this.arbolRaiz = arbolRaiz;
+            { ArquetipoIA.Basico,      () => new RolBasico()      },
+            { ArquetipoIA.Guerrero,    () => new RolGuerrero()    },
+            { ArquetipoIA.Mago,        () => new RolMago()        },
+            { ArquetipoIA.Sanador,     () => new RolSanador()     },
+            { ArquetipoIA.Berserk,     () => new RolBerserk()     },
+            { ArquetipoIA.Tanque,      () => new RolTanque()      },
+            { ArquetipoIA.Controlador, () => new RolControlador() },
+            { ArquetipoIA.Soporte,     () => new RolSoporte()     },
+        };
+
+        // ----------------------------------------------------------------
+        //  CONSTRUCTOR PRIVADO — usar CrearParaArquetipo()
+        // ----------------------------------------------------------------
+        private CerebroIA(IDecisionRol rol)
+        {
+            rolActivo = rol;
         }
-        
+
+        // ----------------------------------------------------------------
+        //  FACTORY — punto de entrada único
+        // ----------------------------------------------------------------
+
+        /// <summary>
+        /// Crea el CerebroIA con el rol correspondiente al arquetipo.
+        /// Si el arquetipo no está registrado, usa RolBasico como fallback.
+        /// </summary>
+        public static CerebroIA CrearParaArquetipo(ArquetipoIA arquetipo)
+        {
+            if (_registry.TryGetValue(arquetipo, out var factory))
+                return new CerebroIA(factory());
+
+            UnityEngine.Debug.LogWarning(
+                $"[CerebroIA] Arquetipo '{arquetipo}' no registrado. Usando RolBasico como fallback.");
+            return new CerebroIA(new RolBasico());
+        }
+
+        // ----------------------------------------------------------------
+        //  DECIDIR — llamado por Enemigos.ObtenerAccionElegida() cada turno
+        // ----------------------------------------------------------------
+
+        /// <summary>
+        /// Evalúa el árbol del rol activo y retorna la decisión (objetivo + habilidad).
+        /// Retorna null si el rol no encontró acción válida.
+        /// </summary>
+        public ResultadoIA Decidir(List<IEntidadCombate> jugadores, List<IEntidadCombate> aliados)
+        {
+            return rolActivo?.Decidir(enemigo, jugadores, aliados);
+        }
+
+        // Referencia al enemigo dueño de este cerebro (seteada por Configurar)
+        private Enemigos enemigo;
+
+        /// <summary>
+        /// Vincula el cerebro con el enemigo que lo posee.
+        /// Llamar una sola vez al inicializar desde EnemigoData.
+        /// </summary>
         public void Configurar(Enemigos enemigo)
         {
             this.enemigo = enemigo;
         }
-        
-        /// <summary>
-        /// Evalua el arbol y retorna la decision.
-        /// </summary>
-        public ResultadoIA Decidir(List<IEntidadCombate> jugadores, List<IEntidadCombate> aliados)
-        {
-            ContextoIA.UltimoResultado = null;
-            
-            arbolRaiz.Configurar(enemigo, jugadores, aliados);
-            arbolRaiz.Evaluar();
-            
-            return ContextoIA.UltimoResultado;
-        }
-        
-        /// <summary>
-        /// Crea un cerebro basico para enemigos simples.
-        /// </summary>
-        public static CerebroIA CrearBasico()
-        {
-            var arbol = new Selector(
-                // Si vida baja, intentar curarse
-                new Secuencia(
-                    new CondicionVidaBaja(0.25f),
-                    new CondicionProbabilidad(0.5f),
-                    new AccionCurarse()
-                ),
-                // Si hay jugador debil, atacarlo
-                new Secuencia(
-                    new CondicionJugadorDebil(0.3f),
-                    new AccionAtacarDebil()
-                ),
-                // Por defecto, atacar aleatorio
-                new AccionAtacarAleatorio()
-            );
-            
-            return new CerebroIA(arbol);
-        }
-        
-        /// <summary>
-        /// Crea un cerebro agresivo que siempre ataca al mas debil.
-        /// </summary>
-        public static CerebroIA CrearAgresivo()
-        {
-            var arbol = new Selector(
-                new AccionAtacarDebil(),
-                new AccionAtacarAleatorio()
-            );
-            
-            return new CerebroIA(arbol);
-        }
-        
-        /// <summary>
-        /// Crea un cerebro defensivo que prioriza sobrevivir.
-        /// </summary>
-        public static CerebroIA CrearDefensivo()
-        {
-            var arbol = new Selector(
-                new Secuencia(
-                    new CondicionVidaBaja(0.5f),
-                    new AccionCurarse()
-                ),
-                new AccionAtacarTank()
-            );
-            
-            return new CerebroIA(arbol);
-        }
+
+        // ----------------------------------------------------------------
+        //  HELPERS LEGACY — mantenidos para compatibilidad
+        // ----------------------------------------------------------------
+        public static CerebroIA CrearBasico()   => CrearParaArquetipo(ArquetipoIA.Basico);
+        public static CerebroIA CrearAgresivo() => CrearParaArquetipo(ArquetipoIA.Guerrero);
+        public static CerebroIA CrearDefensivo() => CrearParaArquetipo(ArquetipoIA.Tanque);
     }
 }
