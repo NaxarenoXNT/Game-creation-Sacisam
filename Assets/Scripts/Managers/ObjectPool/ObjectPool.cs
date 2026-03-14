@@ -22,7 +22,7 @@ namespace Managers
             {
                 if (_instance == null)
                 {
-                    _instance = FindObjectOfType<ObjectPool>();
+                    _instance = FindFirstObjectByType<ObjectPool>();
                     if (_instance == null)
                     {
                         GameObject go = new GameObject("ObjectPool");
