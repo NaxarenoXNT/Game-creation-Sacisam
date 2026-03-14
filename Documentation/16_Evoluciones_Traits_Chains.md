@@ -85,7 +85,7 @@ Assets/Scripts/Evolution/Conditions/
 
 ### Propiedades Comunes
 
-Todas las condiciones heredan de `EvolutionConditionSO`:
+Todas las condiciones heredan de `EvolutionConditionSO` y se evalúan contra el `EvolutionState` de un **personaje específico**:
 
 ```csharp
 // Campos compartidos
@@ -93,11 +93,13 @@ public string descripcionUI;  // Descripción manual (opcional)
 public Sprite icono;          // Icono para UI
 
 // Métodos que cada condición implementa
-bool Evaluar(EvolutionState state);           // ¿Se cumple?
+bool Evaluar(EvolutionState state);           // ¿Se cumple para este personaje?
 float GetProgreso(EvolutionState state);      // 0.0 a 1.0
 string GetDescripcionAuto();                  // Texto automático
 EvolutionConditionSO CrearCopiaEscalada(float mult);  // Para chains
 ```
+
+> **Multi-Personaje:** Cada condición recibe el `EvolutionState` del personaje evaluado — nunca un estado global. Esto permite que dos personajes tengan progreso independiente en la misma condición.
 
 ### Escalabilidad
 

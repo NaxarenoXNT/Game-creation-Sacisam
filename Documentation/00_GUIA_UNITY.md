@@ -1,6 +1,6 @@
 # ⭐ Guía de Adaptación en Unity
 
-Esta guía detalla todos los cambios que debes realizar en el Editor de Unity después de las modificaciones del código.
+Esta guía detalla los pasos para configurar el proyecto en Unity después de modificaciones de código.
 
 ---
 
@@ -13,7 +13,7 @@ Antes de hacer cualquier cambio, asegúrate de que Unity compile sin errores:
 
 ---
 
-## 2. Crear GameConfig (Singleton de Configuración)
+## 2. Crear GameConfig
 
 ### Paso a paso:
 1. **Crear el asset**:
@@ -25,7 +25,7 @@ Antes de hacer cualquier cambio, asegúrate de que Unity compile sin errores:
      - Fire, Water, Earth, Wind, Light, Dark, etc.
    - Asignar los sprites de iconos si los tienes
 
-3. **El GameConfig debe estar en Resources** para que el singleton lo encuentre automáticamente
+3. **El GameConfig debe estar en Resources** para que se cargue via `Resources.Load`
 
 ---
 
@@ -161,8 +161,14 @@ Efectos:
    Datos Clase: (arrastrar ClaseData del Guerrero)
    Habilidad Por Defecto: (arrastrar HabilidadData de ataque)
    Habilidades Disponibles: (lista de HabilidadData)
-   Entity Stats: (se auto-asigna)
+   Is Player Owned: true  (marca como propiedad del jugador)
    ```
+4. El `CharacterId` se genera automáticamente (GUID) si no se especifica
+
+### Multi-Personaje:
+- Cada EntityController con `IsPlayerOwned = true` se registra en `PlayerPartyManager`
+- El primer personaje registrado se establece como Main automáticamente
+- `PlayerInitializer` en la escena se encarga de registrar al personaje inicial
 
 ---
 
@@ -250,27 +256,23 @@ ObjectPool.Instance.DevolverDespuesDe(efecto, 2f);
 ## 11. Sistema de Guardado
 
 ### Configuración inicial:
-El SaveSystem crea automáticamente la carpeta de guardados en:
-```
-Windows: %APPDATA%/../LocalLow/[CompanyName]/[ProductName]/Saves/
-```
+El SaveSystem guarda en: `Application.persistentDataPath/saves/`
+
+### Estructura de datos (Multi-Personaje):
+- `SaveData` contiene `GlobalPlayerState`, `MissionSaveData`, y lista de `PersonajeSaveData`
+- Cada personaje tiene su `EvolutionState` serializado individualmente
+- Las misiones globales vs personales se guardan por separado
 
 ### Uso básico:
 ```csharp
-// Crear datos de guardado
-SaveData datos = SaveData.CrearNuevo();
-datos.nivelJugador = jugador.Nivel_Entidad;
-datos.vidaActual = jugador.VidaActual_Entidad;
-// ... más datos
-
 // Guardar
-SaveSystem.Guardar("slot1", datos);
+SaveSystem.Instance.Guardar(slot, datos);
 
 // Cargar
-SaveData cargado = SaveSystem.Cargar("slot1");
+SaveData cargado = SaveSystem.Instance.Cargar(slot);
 
-// Auto-guardado
-SaveSystem.AutoGuardar(datos);
+// Restaurar misiones
+missionManager.CargarDatosGuardado(cargado.missionData, globalState, estados);
 ```
 
 ---

@@ -1,321 +1,308 @@
-# Sistema de Misiones y Mundo Vivo
+# Sistema de Misiones
 
-> Documento de diseño y arquitectura para implementar misiones dinámicas, mundo reactivo y narrativa emergente en Unity, alineado con la arquitectura existente del proyecto.
+> Sistema de misiones multi-personaje con tres scopes: **Global**, **Personal** y **Exclusiva**.
 
 ---
 
 ## 1. Objetivo del Sistema
 
-Diseñar un sistema de misiones **sin historia principal**, donde:
+Diseñar un sistema de misiones donde:
 
 * Cada zona, ciudad, facción, religión y NPC tenga su propia narrativa.
 * El mundo avance con o sin la intervención del jugador.
 * Las decisiones tengan consecuencias permanentes.
-* La muerte o incapacidad de NPCs afecte misiones, zonas y narrativa.
-* Las misiones se adapten al estado del mundo o se pierdan definitivamente.
-
-El foco está en **narrativa sistémica**, no en scripts rígidos.
+* Cada **personaje** tenga su propio estado de misiones (per-character).
+* Existan misiones **globales** (compartidas), **personales** (exclusivas del personaje) y **exclusivas** (globales hasta ser reclamadas).
 
 ---
 
 ## 2. Principios de Diseño
 
-1. **Data-driven**: las misiones son datos, no lógica procedural.
-2. **Separación de responsabilidades**: mundo, misiones, NPCs y consecuencias desacoplados.
-3. **Roles antes que identidades**: las misiones dependen de roles, no de NPCs concretos.
-4. **Pérdida real de contenido**: no todo es salvable.
-5. **Consistencia del mundo**: evitar estados imposibles o contradictorios.
-6. **Escalabilidad**: agregar contenido no debe requerir reescribir código.
+1. **Data-driven**: las misiones son ScriptableObjects, no lógica procedural.
+2. **Per-character evaluation**: las condiciones se evalúan contra el `EvolutionState` de cada personaje.
+3. **Tres scopes**: Global, Personal, Exclusive — con reglas distintas de progreso y recompensas.
+4. **Event-driven**: el `MissionManager` no usa Update; reacciona a eventos del EventBus.
+5. **Separación de responsabilidades**: mundo, misiones, NPCs y consecuencias desacoplados.
+6. **Pérdida real de contenido**: no todo es salvable.
 
 ---
 
-## 3. Conceptos Clave
+## 3. Tipos de Misión (MissionScope)
 
-### 3.1 WorldState
+### Global
+- Atadas a facciones, ciudades, NPCs del mundo.
+- **Cualquier personaje** del jugador puede contribuir progreso.
+- Se evalúa si ALGÚN personaje registrado cumple las condiciones de desbloqueo.
+- Al completarse, se registra en `GlobalPlayerState.misionesGlobalesCompletadas`.
+- Se registra también en el `EvolutionState` de TODOS los personajes (para que cadenas funcionen).
+- Recompensas → cuenta del jugador (global).
 
-Fuente única de verdad del estado del mundo.
+### Personal
+- Únicas por personaje: se desbloquean por poseer una clase, evolución, trait o nivel específico.
+- Solo el personaje que la desbloqueó puede progresar y completarla.
+- Se registra en `CharacterMissionData` del personaje.
+- Se registra en `EvolutionState` del personaje que la completó.
+- Recompensas → al personaje específico.
 
-Contiene:
+### Exclusive (Exclusiva)
+- Comienzan como globales (disponibles para todos).
+- Cuando un personaje la **acepta**, queda asignada permanentemente a ese personaje.
+- La asignación se registra en `GlobalPlayerState.misionesExclusivasAsignadas`.
+- Una vez asignada, se trata como personal (solo ese personaje puede progresar).
+- Ningún otro personaje puede reclamarla.
 
-* Estado de NPCs (vivo, muerto, incapacitado)
-* Estado de zonas (abierta, sellada, destruida, en evento)
-* Flags narrativos globales
-* Relaciones entre facciones
+---
 
-**No depende de Unity (clases C# puras).**
+## 4. Arquitectura
+
+### MissionDefinitionSO (ScriptableObject)
 
 ```csharp
-class WorldState
+[CreateAssetMenu(menuName = "Missions/Mission Definition")]
+public class MissionDefinitionSO : ScriptableObject
 {
-    Dictionary<string, NPCState> npcs;
-    Dictionary<string, ZoneState> zonas;
-    HashSet<string> flags;
-}
-```
-
----
-
-### 3.2 NPC
-
-Un NPC se divide conceptualmente en:
-
-* **Rol funcional** (reemplazable)
-* **Arco narrativo personal** (no reemplazable)
-
-Ejemplo:
-
-* Rol: `VendedorPrincipal`
-* Arco: `DeudaConElGremio`
-
-Si el NPC muere:
-
-* El rol puede reasignarse.
-* El arco narrativo se pierde o falla.
-
----
-
-### 3.3 Roles (QuestRoleSO)
-
-Los roles representan **funciones narrativas o sistémicas** que una misión necesita.
-
-```csharp
-[CreateAssetMenu(menuName = "World/Rol")]
-public class QuestRoleSO : ScriptableObject
-{
-    public string roleId;
+    public string misionId;
+    public string nombreMostrar;
     public string descripcion;
+    public MissionScope scope;              // Global, Personal, Exclusive
+    public bool autoAceptar;                // ¿Se acepta automáticamente al estar disponible?
+
+    // Condiciones de desbloqueo — evaluadas contra EvolutionState del personaje
+    public List<MissionConditionSO> condicionesDesbloqueo;
+
+    // Objetivos — instanciados como MissionObjectiveInstance en runtime
+    public List<MissionObjectiveSO> objetivos;
+
+    // Recompensas
+    public List<MissionRewardSO> recompensas;
+
+    // Cadenas de misiones
+    public MissionDefinitionSO siguienteMisionEnCadena;
+
+    public bool CumpleCondicionesDesbloqueo(EvolutionState state)
+    {
+        foreach (var cond in condicionesDesbloqueo)
+            if (!cond.Evaluar(state)) return false;
+        return true;
+    }
 }
 ```
 
-Ejemplos:
+### MissionConditionSO (condiciones de desbloqueo)
 
-* VendedorPrincipal
-* SacerdoteCulto
-* GobernanteZona
-
----
-
-## 4. Sistema de Misiones
-
-### 4.1 QuestDefinitionSO
-
-Representa una misión como **definición de datos**.
+Patrón idéntico a `EvolutionConditionSO` — cada condición evalúa contra `EvolutionState`.
 
 ```csharp
-[CreateAssetMenu(menuName = "Quests/Quest Definition")]
-public class QuestDefinitionSO : ScriptableObject
+public abstract class MissionConditionSO : ScriptableObject
 {
-    public string questId;
-    public string nombre;
+    public abstract bool Evaluar(EvolutionState state);
+    public abstract float GetProgreso(EvolutionState state);
+    public abstract string GetDescripcionAuto();
+}
+```
+
+**Tipos implementados:**
+
+| SO | Evalúa |
+|----|--------|
+| `MissionCompletedConditionSO` | `state.misionesCompletadas.Contains(misionId)` |
+| `LevelMissionConditionSO` | `state.nivelJugador >= nivelRequerido` |
+| `KarmaMissionConditionSO` | `state.karma` rango |
+| `HasTraitMissionConditionSO` | `state.traitStacks.ContainsKey(traitId)` |
+| `FlagMissionConditionSO` | `state.customFlags[flagKey] >= valorRequerido` |
+
+### MissionObjectiveSO (objetivos)
+
+```csharp
+public abstract class MissionObjectiveSO : ScriptableObject
+{
+    public string objectiveId;
     public string descripcion;
-
-    public List<QuestConditionSO> condicionesActivacion;
-    public List<QuestRequirement> requerimientos;
-    public List<QuestVariantSO> variantes;
-    public List<QuestConsequenceSO> consecuencias;
+    public bool esObligatorio = true;
+    public abstract ObjectiveInstance CrearInstancia();
 }
 ```
 
----
+**Tipos**: `KillObjectiveSO`, `CollectItemObjectiveSO`, `ReachZoneObjectiveSO`, `InteractObjectiveSO`.
 
-### 4.2 Condiciones de Misión (QuestConditionSO)
-
-Determinan **cuándo una misión está disponible**.
-
-Siguen el mismo patrón que `EvolutionConditionSO`.
+### MissionInstance (runtime)
 
 ```csharp
-public abstract class QuestConditionSO : ScriptableObject
+public class MissionInstance
 {
-    public abstract bool Evaluar(WorldState world, PlayerState player);
+    public MissionDefinitionSO definition;
+    public MissionStatus status;          // Active, Completed, Failed
+    public List<ObjectiveInstance> objetivos;
+    public float tiempoAceptada;
 }
 ```
 
-Ejemplos:
+---
 
-* NPCAliveConditionSO
-* ZoneStateConditionSO
-* TraitConditionSO
-* QuestCompletedConditionSO
-* FlagConditionSO
+## 5. MissionManager (Orquestador)
+
+**Archivo**: `Assets/Scripts/Missions/MissionManager.cs`
+
+MonoBehaviour 100% event-driven (sin Update).
+
+### Responsabilidades
+- Gestiona misiones de los tres scopes.
+- Registra personajes con su `EvolutionState`.
+- Enruta eventos (kills, traits, items, zonas) al scope correcto.
+- Previene duplicados y regula estados compartidos vía `GlobalPlayerState`.
+
+### Inicialización
+
+```csharp
+// Se inicializa con estado global
+missionManager.Inicializar(globalPlayerState);
+
+// Cada personaje se registra con su estado individual
+missionManager.RegistrarPersonaje(characterId, evolutionState);
+```
+
+### Eventos Suscritos
+
+```csharp
+EventBus.Suscribir<EventoMuerte>(HandleMuerte);               // Kills → misiones personales + globales
+EventBus.Suscribir<EventoNivelSubido>(HandleNivelSubido);     // Re-evaluar todo
+EventBus.Suscribir<EventoTraitObtenido>(HandleTraitObtenido); // Registrar en global + re-evaluar
+EventBus.Suscribir<EventoEvolucionAplicada>(HandleEvolucion);
+EventBus.Suscribir<EventoMisionCompletada>(HandleCadena);     // Desbloquea misiones encadenadas
+```
+
+### Participantes de Combate
+
+Cuando un enemigo muere, **todos los personajes del party activo** reciben crédito para sus misiones personales. Misiones globales también reciben el kill.
+
+```
+Personaje A: "Mata 10 goblins" → progreso 6/10
+Personaje B: "Mata 10 goblins" → progreso 1/10
+→ Combat kill: 3 goblins
+Personaje A: → 9/10
+Personaje B: → 4/10
+```
+
+### API
+
+```csharp
+bool AceptarMisionGlobal(string misionId);
+bool AceptarMisionPersonal(string misionId, string characterId);
+bool AceptarMisionExclusiva(string misionId, string characterId);
+bool FallarMision(string misionId, string characterId, string razon);
+bool FallarMisionGlobal(string misionId, string razon);
+
+// Notificaciones externas
+void NotificarZonaAlcanzada(string zonaId, string characterId);
+void NotificarItemObtenido(string itemId, int cantidad, string characterId);
+void ForzarRevaluacion();
+
+// Consulta
+IReadOnlyDictionary<string, MissionInstance> GetMisionesActivasPersonaje(string charId);
+IReadOnlyDictionary<string, MissionInstance> GetMisionesGlobalesActivas();
+bool EsMisionCompletada(string misionId, string characterId = null);
+```
 
 ---
 
-### 4.3 Requerimientos de Misión
+## 6. Persistencia
 
-Definen **qué recursos necesita la misión para ejecutarse**.
+### MissionSaveData
 
 ```csharp
-[Serializable]
-public class QuestRequirement
+public class MissionSaveData
 {
-    public QuestRoleSO rolRequerido;
-    public bool esCritico;
+    // Globales
+    public List<string> globalesCompletadas;
+    public List<string> globalesFallidas;
+    public List<MissionExclusiveAssignment> exclusivasAsignadas;
+    public List<MissionActiveSaveData> globalesActivas;
+
+    // Per-personaje
+    public List<CharacterMissionSaveData> datosPersonajes;
 }
 ```
 
-* `esCritico = true`: si no se puede resolver, la misión se bloquea.
-* `esCritico = false`: el rol puede reasignarse.
+El `MissionManager` expone `ObtenerDatosGuardado()` y `CargarDatosGuardado()`.
 
 ---
 
-### 4.4 Resolución de Roles (Resource Resolver)
-
-Sistema encargado de:
-
-* Buscar NPCs que cumplan un rol
-* Priorizar según criterios:
-
-  * Estado (vivo)
-  * Facción
-  * Relación
-  * Proximidad
+## 7. CharacterMissionData (per-personaje)
 
 ```csharp
-NPC ResolverRol(QuestRoleSO rol);
-```
-
----
-
-### 4.5 Variantes de Misión (QuestVariantSO)
-
-Permiten que una misión **se adapte al estado del mundo**.
-
-```csharp
-[CreateAssetMenu(menuName = "Quests/Quest Variant")]
-public class QuestVariantSO : ScriptableObject
+public class CharacterMissionData
 {
-    public List<QuestConditionSO> condiciones;
-    public DialogueSO dialogo;
-    public ZoneSO zona;
+    public string characterId;
+    public Dictionary<string, MissionInstance> misionesActivas;
+    public HashSet<string> misionesCompletadas;
+    public HashSet<string> misionesFallidas;
+    public HashSet<string> misionesDisponibles;
 }
 ```
 
-El sistema selecciona **la primera variante válida**.
+---
 
-Ejemplos:
+## 8. Eventos Publicados
 
-* NPC original vivo
-* NPC reemplazado
-* Zona sellada
+| Evento | Cuándo |
+|--------|--------|
+| `EventoMisionDisponible` | Misión cumple condiciones de desbloqueo |
+| `EventoMisionAceptada` | Misión aceptada (cualquier scope) |
+| `EventoMisionProgreso` | Progreso en un objetivo |
+| `EventoObjetivoCompletado` | Un objetivo individual completado |
+| `EventoMisionCompletada` | Misión terminada exitosamente |
+| `EventoMisionFallida` | Misión fallida |
 
 ---
 
-### 4.6 Consecuencias de Misión (QuestConsequenceSO)
+## 9. Flujo Completo
 
-Efectos permanentes sobre el mundo.
-
-```csharp
-public abstract class QuestConsequenceSO : ScriptableObject
-{
-    public abstract void Aplicar(WorldState world);
-}
+```
+1. Juego → Evento (kill, nivel, trait, etc.)
+           ↓
+2. EventBus → MissionManager.Handle*()
+           ↓
+3. MissionManager enruta al scope correcto:
+   - Kill → misiones personales de cada participante + globales
+   - Trait → re-evaluar personaje + globales
+   - Nivel → re-evaluar todo
+           ↓
+4. RevaluarMisiones():
+   - Global: ¿ALGÚN personaje cumple condiciones? → disponible
+   - Personal: ¿ESTE personaje cumple? → disponible para él
+   - Exclusive: si no asignada → global; si asignada → personal del dueño
+           ↓
+5. Jugador acepta misión:
+   - Global: AceptarMisionGlobal()
+   - Personal: AceptarMisionPersonal(charId)
+   - Exclusive: AceptarMisionExclusiva(charId) → bloquea a ese personaje
+           ↓
+6. Progreso → VerificarCompletitud()
+           ↓
+7. Si completa:
+   - Global: registra en GlobalPlayerState + EvolutionState de TODOS
+   - Personal: registra en CharacterMissionData + EvolutionState del pj
+           ↓
+8. EventoMisionCompletada → puede desbloquear siguientes misiones en cadena
 ```
 
-Ejemplos:
+---
 
-* Cambiar estado de zona
-* Matar o incapacitar NPC
-* Activar flags
-* Desbloquear nuevas misiones
+## 10. Integración con Evoluciones
+
+- `MisionConditionSO` (en sistema de evoluciones) evalúa `state.misionesCompletadas` — funciona porque `MissionManager` registra misiones completadas en el `EvolutionState`.
+- Misiones globales completadas se propagan a TODOS los `EvolutionState`, asegurando que traits que requieren misiones globales se evalúen correctamente para cualquier personaje.
+- Misiones personales solo se registran en el `EvolutionState` del personaje que las completó.
 
 ---
 
-## 5. Arcos Narrativos
+## 11. Comparación con Sistema de Traits
 
-### 5.1 NarrativeArc
-
-Representa la historia personal de un NPC.
-
-```csharp
-class NarrativeArc
-{
-    public string arcId;
-    public ArcState estado; // Activo, Fallido, Completado
-    public List<ArcConsequence> consecuencias;
-}
-```
-
-Reglas:
-
-* No controla misiones directamente.
-* Cambia de estado según eventos del mundo.
-* Dispara consecuencias narrativas.
-
----
-
-## 6. Zonas y Bloqueos
-
-Las zonas pueden tener estados:
-
-* Abierta
-* Sellada
-* EnEvento
-* Destruida
-
-### Reglas:
-
-* Zonas secundarias pueden perderse permanentemente.
-* Zonas principales ofrecen rutas alternativas.
-* Un bloqueo siempre genera consecuencias nuevas.
-
----
-
-## 7. QuestManager (Unity)
-
-MonoBehaviour encargado de:
-
-* Evaluar misiones disponibles
-* Resolver roles
-* Seleccionar variantes
-* Aplicar consecuencias
-
-**No contiene lógica narrativa.**
-
----
-
-## 8. Flujo Completo
-
-1. El mundo cambia (evento, muerte, decisión).
-2. WorldState se actualiza.
-3. QuestManager reevalúa misiones.
-4. Nuevas misiones aparecen o se bloquean.
-5. El jugador actúa.
-6. Se aplican consecuencias.
-7. El mundo evoluciona.
-
----
-
-## 9. Comparación con Sistema de Traits
-
-| Traits               | Misiones         |
-| -------------------- | ---------------- |
-| TraitDefinition      | QuestDefinition  |
-| EvolutionConditionSO | QuestConditionSO |
-| TraitChain           | QuestVariants    |
-| EvolutionState       | WorldState       |
-| Efectos              | Consecuencias    |
-
----
-
-## 10. Implementación Recomendada (Roadmap)
-
-1. Crear `QuestConditionSO` base.
-2. Implementar `WorldState` mínimo.
-3. Crear `QuestDefinitionSO` simple.
-4. Implementar `ResourceResolver` básico.
-5. Una misión con 2 variantes.
-6. Integrar con EventBus.
-
----
-
-## 11. Objetivo Final
-
-Un mundo que:
-
-* No gira alrededor del jugador.
-* No garantiza finales felices.
-* Reacciona de forma coherente.
-* Genera historias emergentes.
-
-Este sistema prioriza **consistencia, escalabilidad y peso narrativo real**.
+| Evoluciones/Traits | Misiones |
+|---------------------|----------|
+| `EvolutionConditionSO` | `MissionConditionSO` |
+| `TraitDefinition` | `MissionDefinitionSO` |
+| `TraitChainDefinition` | `MissionDefinitionSO.siguienteMisionEnCadena` |
+| `EvolutionState` | `EvolutionState` (compartido) |
+| `GlobalPlayerState` | `GlobalPlayerState` (compartido) |
+| Evalúa: per-character | Evalúa: per-character |
