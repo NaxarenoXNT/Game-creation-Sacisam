@@ -49,6 +49,9 @@ public class EnemyController : MonoBehaviour, IEntidadCombate, IEntidadActuable,
     [Tooltip("Requiere aggro para entrar en combate")]
     [SerializeField] private bool requiresAggroToEngage = false;
     
+    [Tooltip("Layer de enemigos para detección de alerta (usado por alertaAliados)")]
+    [SerializeField] private LayerMask capaEnemigos = ~0;
+    
     // Estado de combate
     private bool isInCombat = false;
     private string candidateId;
@@ -235,6 +238,16 @@ public class EnemyController : MonoBehaviour, IEntidadCombate, IEntidadActuable,
         {
             roamingFSM.PlayerDetector.DrawGizmos();
         }
+
+        // Dibujar radio de alerta si este enemigo es alertador
+        if (datosEnemigo != null && datosEnemigo.alertaAliados)
+        {
+            float radio = datosEnemigo.rangoAliados > 0f ? datosEnemigo.rangoAliados : 20f;
+            Gizmos.color = new Color(1f, 0.5f, 0f, 0.25f); // naranja translúcido
+            Gizmos.DrawSphere(transform.position, radio);
+            Gizmos.color = new Color(1f, 0.5f, 0f, 0.9f);
+            Gizmos.DrawWireSphere(transform.position, radio);
+        }
     }
     
     // === Sistema de estados ===
@@ -264,20 +277,9 @@ public class EnemyController : MonoBehaviour, IEntidadCombate, IEntidadActuable,
         List<IEntidadCombate> enemigos
     )
     {
-        // El método DecidirObjetivo en Goblin.cs recibe List<IEntidadCombate>
-        Interfaces.IEntidadCombate objetivo = EnemigoLogica.DecidirObjetivo(enemigos); 
-        
-        // Decisión de Habilidad (Temporal: Usaremos la habilidad por defecto del ScriptableObject)
-        HabilidadData habilidad = datosEnemigo.habilidadPorDefecto; 
-        
-        // Si el enemigo no tiene objetivo o la habilidad no es viable, devuelve null.
-        if (objetivo == null || habilidad == null || !habilidad.EsViable(this, objetivo, aliados, enemigos))
-        {
-            return (null, null); 
-        }
-
-        // Devolver la acción y el objetivo (ambos a través de interfaces/clases que implementan interfaces)
-        return (habilidad, objetivo);
+        if (enemigoLogica == null) return (null, null);
+        // Toda la lógica de decisión vive en Enemigos (base class) + CerebroIA.
+        return enemigoLogica.ObtenerAccionElegida(aliados, enemigos);
     }
 
 
@@ -584,13 +586,14 @@ public class EnemyController : MonoBehaviour, IEntidadCombate, IEntidadActuable,
         {
             roamingFSM.Pause();
         }
+
+        // Si este tipo de enemigo alerta a aliados, notificarlos
+        if (datosEnemigo != null && datosEnemigo.alertaAliados)
+        {
+            AlertarEnemigosCercanos();
+        }
         
         Debug.Log($"⚔️ {Nombre_Entidad} entró en combate!");
-        
-        // Aquí podrías:
-        // - Activar animación de alerta
-        // - Cambiar comportamiento de IA
-        // - Reproducir sonido de aggro
     }
     
     /// <summary>
@@ -637,5 +640,59 @@ public class EnemyController : MonoBehaviour, IEntidadCombate, IEntidadActuable,
     public void SetCombatPriority(float priority)
     {
         baseCombatPriority = priority;
+    }
+
+    // ============================================================
+    // === Sistema de Alerta a Aliados ============================
+    // ============================================================
+
+    /// <summary>
+    /// Alerta a los enemigos cercanos para que entren en estado Alerted.
+    /// Solo se llama si datosEnemigo.alertaAliados es true.
+    /// El radio se toma de datosEnemigo.rangoAliados (default 20m).
+    /// Incluye verificación de línea de visión.
+    /// </summary>
+    private void AlertarEnemigosCercanos()
+    {
+        float radio = (datosEnemigo.rangoAliados > 0f) ? datosEnemigo.rangoAliados : 20f;
+
+        Collider[] cercanos = Physics.OverlapSphere(transform.position, radio, capaEnemigos);
+
+        // Evitar alertar al mismo enemigo dos veces si tiene múltiples colliders
+        var yaAlertados = new System.Collections.Generic.HashSet<EnemyController>();
+
+        foreach (var col in cercanos)
+        {
+            EnemyController aliado = col.GetComponentInParent<EnemyController>();
+
+            if (aliado == null || aliado == this) continue;
+            if (yaAlertados.Contains(aliado)) continue;
+            if (aliado.IsInCombat || aliado.IsAggro) continue;
+            if (aliado.RoamingFSM == null || !aliado.RoamingFSM.IsActive) continue;
+
+            // Verificar línea de visión
+            Vector3 origen  = transform.position + Vector3.up;
+            Vector3 destino = aliado.transform.position + Vector3.up;
+            Vector3 dir     = destino - origen;
+
+            if (Physics.Raycast(origen, dir.normalized, out RaycastHit hit, dir.magnitude,
+                                 ~0, QueryTriggerInteraction.Ignore))
+            {
+                // Si lo primero que golpea el rayo no es el aliado (ni parte de él)
+                // hay un obstáculo sólido bloqueando la visión
+                if (!hit.collider.transform.IsChildOf(aliado.transform) &&
+                     hit.collider.gameObject != aliado.gameObject)
+                {
+                    continue;
+                }
+            }
+
+            yaAlertados.Add(aliado);
+            aliado.RoamingFSM.ForceState(EnemyAIState.Alerted);
+            Debug.Log($"🔔 {Nombre_Entidad} alertó a {aliado.Nombre_Entidad}");
+        }
+
+        if (yaAlertados.Count > 0)
+            Debug.Log($"🔔 {Nombre_Entidad} alertó a {yaAlertados.Count} aliado(s) en un radio de {radio}m");
     }
 }

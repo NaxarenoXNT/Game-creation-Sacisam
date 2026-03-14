@@ -19,6 +19,20 @@ public class EntityController : MonoBehaviour, IEntidadCombate, IJugadorProgresi
     [Header("Ownership")]
     [Tooltip("Indica si este personaje pertenece al jugador")]
     [SerializeField] private bool isPlayerOwned = false;
+
+    [Tooltip("ID único de este personaje. Se genera automáticamente si está vacío.")]
+    [SerializeField] private string characterId;
+
+    /// <summary>ID único y estable del personaje. Generado en Awake si no se asigna.</summary>
+    public string CharacterId
+    {
+        get
+        {
+            if (string.IsNullOrEmpty(characterId))
+                characterId = System.Guid.NewGuid().ToString();
+            return characterId;
+        }
+    }
     
     [Header("Habilidades")]
     [SerializeField] private HabilidadData habilidadPorDefecto;
