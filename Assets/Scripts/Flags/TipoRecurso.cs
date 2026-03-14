@@ -29,4 +29,20 @@ namespace Flags
         Control,    // Stun, root, silence, etc.
         Utilidad    // Movimiento, invocación, etc.
     }
+
+    /// <summary>
+    /// Arquetipo de IA del enemigo. Define su rol y prioridades de combate.
+    /// Asignable desde el inspector en EnemigoData.
+    /// </summary>
+    public enum ArquetipoIA
+    {
+        Basico,      // Comportamiento genérico: cura si vida baja, ataca aleatorio
+        Guerrero,    // Prioriza ataque al jugador más débil, usa habilidades ofensivas
+        Mago,        // Prioriza habilidades de Ataque/Control/Debuff sobre ataque básico
+        Sanador,     // Cura aliados heridos primero, ataca en segundo plano
+        Berserk,     // Ataca siempre al jugador con más vida, ignora autopreservación
+        Tanque,      // Prioriza habilidades defensivas/Buff, ataca al más fuerte
+        Controlador, // Prioriza Debuff/Control, luego ataca al más débil
+        Soporte,     // Buffea aliados primero, cura en segundo lugar, ataca en último
+    }
 }
