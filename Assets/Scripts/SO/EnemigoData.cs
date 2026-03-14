@@ -25,6 +25,10 @@ public class EnemigoData : ScriptableObject
     public TipoEntidades tipoEntidad;
     public CombatStyle estiloCombate;
     
+    [Header("Arquetipo IA")]
+    [Tooltip("Define el rol y prioridades de combate de este enemigo")]
+    public ArquetipoIA arquetipoIA = ArquetipoIA.Basico;
+
     [Header("IA y Roaming")]
     [Tooltip("Radio de detección del jugador (0 = usar default 15m)")]
     [Range(0f, 50f)]
@@ -37,6 +41,9 @@ public class EnemigoData : ScriptableObject
     [Tooltip("Radio para buscar aliados al entrar en combate (0 = usar default 20m)")]
     [Range(0f, 100f)]
     public float rangoAliados = 0f;
+
+    [Tooltip("Si este enemigo alerta a los aliados cercanos al entrar en combate")]
+    public bool alertaAliados = false;
 
     [Header("Visual")]
     [Tooltip("Prefab del modelo visual (instanciado como hijo del controller)")]

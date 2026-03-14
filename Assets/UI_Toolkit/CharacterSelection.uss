@@ -1,0 +1,410 @@
+/* ============================================================
+   CharacterSelection.uss — Estilos de la pantalla de selección
+   ============================================================ */
+
+/* ========================================================
+   ROOT
+   ======================================================== */
+.selection-root {
+    width: 100%;
+    height: 100%;
+    background-color: rgb(18, 18, 28);
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+}
+
+/* ========================================================
+   TÍTULO
+   ======================================================== */
+.title-label {
+    font-size: 36px;
+    color: rgb(220, 200, 140);
+    -unity-font-style: bold;
+    margin-bottom: 16px;
+    letter-spacing: 4px;
+}
+
+/* ========================================================
+   CONTENIDO PRINCIPAL — 3 paneles
+   ======================================================== */
+.main-content {
+    flex-direction: row;
+    flex: 1;
+    width: 100%;
+    max-width: 1200px;
+    column-gap: 16px;
+}
+
+/* ── Sección genérica ── */
+.section-title {
+    font-size: 18px;
+    color: rgb(180, 175, 160);
+    -unity-font-style: bold;
+    margin-bottom: 8px;
+    border-bottom-width: 1px;
+    border-bottom-color: rgba(180, 175, 160, 0.3);
+    padding-bottom: 4px;
+}
+
+.section-subtitle {
+    font-size: 14px;
+    color: rgb(160, 155, 140);
+    -unity-font-style: bold;
+    margin-top: 12px;
+    margin-bottom: 6px;
+}
+
+/* ========================================================
+   PANEL IZQUIERDO — Lista de Clases
+   ======================================================== */
+.classes-panel {
+    width: 220px;
+    min-width: 200px;
+    background-color: rgba(30, 30, 45, 0.9);
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: rgba(100, 100, 130, 0.4);
+    padding: 12px;
+    flex-direction: column;
+}
+
+.class-list {
+    flex: 1;
+}
+
+/* Botón de clase */
+.class-btn {
+    height: 64px;
+    margin-bottom: 6px;
+    background-color: rgba(50, 50, 70, 0.8);
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: rgba(80, 80, 110, 0.5);
+    flex-direction: row;
+    align-items: center;
+    padding: 8px;
+    transition-property: background-color, border-color;
+    transition-duration: 0.15s;
+}
+
+.class-btn:hover {
+    background-color: rgba(70, 70, 100, 0.9);
+    border-color: rgba(120, 120, 160, 0.7);
+}
+
+.class-btn-selected {
+    background-color: rgba(80, 70, 50, 0.9);
+    border-color: rgb(200, 170, 80);
+    border-width: 2px;
+}
+
+.class-btn-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 4px;
+    background-color: rgba(40, 40, 55, 1);
+    margin-right: 8px;
+}
+
+.class-btn-name {
+    font-size: 16px;
+    color: rgb(210, 205, 190);
+    -unity-font-style: bold;
+}
+
+/* ========================================================
+   PANEL CENTRAL — Preview
+   ======================================================== */
+.preview-panel {
+    flex: 1;
+    background-color: rgba(30, 30, 45, 0.9);
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: rgba(100, 100, 130, 0.4);
+    padding: 16px;
+    flex-direction: column;
+    align-items: center;
+}
+
+.class-icon {
+    width: 96px;
+    height: 96px;
+    border-radius: 8px;
+    background-color: rgba(40, 40, 55, 1);
+    border-width: 2px;
+    border-color: rgba(100, 100, 130, 0.5);
+    margin-bottom: 8px;
+}
+
+.class-name {
+    font-size: 24px;
+    color: rgb(220, 200, 140);
+    -unity-font-style: bold;
+    margin-bottom: 4px;
+}
+
+.class-description {
+    font-size: 13px;
+    color: rgb(170, 165, 150);
+    white-space: normal;
+    text-align: center;
+    max-width: 400px;
+    margin-bottom: 12px;
+}
+
+/* ── Stats Grid ── */
+.stats-grid {
+    width: 100%;
+    max-width: 380px;
+    flex-direction: column;
+    row-gap: 6px;
+    margin-bottom: 8px;
+}
+
+.stat-row {
+    flex-direction: row;
+    align-items: center;
+    height: 22px;
+}
+
+.stat-label {
+    width: 80px;
+    font-size: 13px;
+    color: rgb(160, 155, 140);
+}
+
+.stat-bar-bg {
+    flex: 1;
+    height: 14px;
+    background-color: rgba(20, 20, 30, 0.8);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-right: 8px;
+}
+
+.stat-bar {
+    height: 100%;
+    border-radius: 3px;
+    transition-property: width;
+    transition-duration: 0.3s;
+}
+
+.stat-bar-vida { background-color: rgb(100, 180, 80); }
+.stat-bar-ataque { background-color: rgb(200, 80, 70); }
+.stat-bar-defensa { background-color: rgb(80, 140, 200); }
+.stat-bar-mana { background-color: rgb(100, 80, 200); }
+.stat-bar-velocidad { background-color: rgb(200, 180, 60); }
+
+.stat-value {
+    width: 35px;
+    font-size: 13px;
+    color: rgb(190, 185, 170);
+    -unity-text-align: middle-right;
+}
+
+/* ── Habilidades ── */
+.abilities-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+    column-gap: 6px;
+    row-gap: 4px;
+    margin-bottom: 12px;
+    min-height: 28px;
+    width: 100%;
+    max-width: 380px;
+}
+
+.ability-tag {
+    background-color: rgba(60, 55, 80, 0.9);
+    border-radius: 4px;
+    padding: 3px 8px;
+    font-size: 12px;
+    color: rgb(180, 170, 200);
+    border-width: 1px;
+    border-color: rgba(100, 90, 140, 0.5);
+}
+
+/* ── Campo de nombre ── */
+.name-input-row {
+    flex-direction: row;
+    align-items: center;
+    margin-top: 12px;
+    margin-bottom: 8px;
+    width: 100%;
+    max-width: 380px;
+}
+
+.name-label {
+    font-size: 14px;
+    color: rgb(170, 165, 150);
+    margin-right: 8px;
+    width: 65px;
+}
+
+.name-field {
+    flex: 1;
+}
+
+.name-field > .unity-text-field__input {
+    background-color: rgba(40, 40, 55, 1);
+    border-color: rgba(100, 100, 130, 0.5);
+    border-radius: 4px;
+    color: rgb(220, 215, 200);
+    font-size: 14px;
+    padding: 4px 8px;
+}
+
+.name-field > .unity-text-field__input:focus {
+    border-color: rgb(200, 170, 80);
+}
+
+/* ── Botón crear ── */
+.btn-crear {
+    width: 220px;
+    height: 42px;
+    font-size: 16px;
+    -unity-font-style: bold;
+    color: rgb(30, 30, 40);
+    background-color: rgb(200, 170, 80);
+    border-radius: 6px;
+    border-width: 0;
+    margin-top: 8px;
+    transition-property: background-color, scale;
+    transition-duration: 0.15s;
+}
+
+.btn-crear:hover {
+    background-color: rgb(220, 190, 100);
+    scale: 1.03;
+}
+
+.btn-crear:disabled {
+    background-color: rgba(100, 90, 60, 0.5);
+    color: rgba(30, 30, 40, 0.5);
+}
+
+/* ========================================================
+   PANEL DERECHO — Party
+   ======================================================== */
+.party-panel {
+    width: 240px;
+    min-width: 220px;
+    background-color: rgba(30, 30, 45, 0.9);
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: rgba(100, 100, 130, 0.4);
+    padding: 12px;
+    flex-direction: column;
+}
+
+.party-count {
+    font-size: 14px;
+    color: rgb(160, 155, 140);
+    margin-bottom: 8px;
+    -unity-text-align: middle-center;
+}
+
+.party-list {
+    flex: 1;
+}
+
+/* Slot de personaje creado */
+.party-slot {
+    height: 72px;
+    margin-bottom: 6px;
+    background-color: rgba(50, 50, 70, 0.8);
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: rgba(80, 80, 110, 0.5);
+    flex-direction: row;
+    align-items: center;
+    padding: 8px;
+}
+
+.party-slot-main {
+    border-color: rgb(200, 170, 80);
+    border-width: 2px;
+}
+
+.party-slot-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 4px;
+    background-color: rgba(40, 40, 55, 1);
+    margin-right: 8px;
+}
+
+.party-slot-info {
+    flex: 1;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.party-slot-name {
+    font-size: 14px;
+    color: rgb(210, 205, 190);
+    -unity-font-style: bold;
+}
+
+.party-slot-class {
+    font-size: 12px;
+    color: rgb(150, 145, 130);
+}
+
+.party-slot-main-badge {
+    font-size: 10px;
+    color: rgb(200, 170, 80);
+    -unity-font-style: bold;
+}
+
+.btn-remove {
+    width: 24px;
+    height: 24px;
+    font-size: 14px;
+    color: rgb(200, 80, 70);
+    background-color: rgba(200, 80, 70, 0.15);
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: rgba(200, 80, 70, 0.3);
+    -unity-text-align: middle-center;
+    padding: 0;
+}
+
+.btn-remove:hover {
+    background-color: rgba(200, 80, 70, 0.35);
+}
+
+/* ── Botón iniciar ── */
+.btn-iniciar {
+    height: 48px;
+    font-size: 18px;
+    -unity-font-style: bold;
+    color: rgb(240, 240, 240);
+    background-color: rgb(50, 140, 80);
+    border-radius: 6px;
+    border-width: 0;
+    margin-top: 8px;
+    transition-property: background-color, scale;
+    transition-duration: 0.15s;
+}
+
+.btn-iniciar:hover {
+    background-color: rgb(60, 160, 90);
+    scale: 1.03;
+}
+
+.btn-iniciar:disabled {
+    background-color: rgba(50, 100, 60, 0.4);
+    color: rgba(240, 240, 240, 0.4);
+}
+
+/* ========================================================
+   FOOTER
+   ======================================================== */
+.footer-label {
+    font-size: 12px;
+    color: rgba(150, 145, 130, 0.8);
+    margin-top: 12px;
+    -unity-text-align: middle-center;
+}

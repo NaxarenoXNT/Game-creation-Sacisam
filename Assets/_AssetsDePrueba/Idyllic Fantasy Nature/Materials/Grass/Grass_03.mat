@@ -8,17 +8,21 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: Grass_03
-  m_Shader: {fileID: -6465566751694194690, guid: 3230f6c5d09dd114c82b2287fcc7e15b, type: 3}
+  m_Shader: {fileID: -6465566751694194690, guid: 3230f6c5d09dd114c82b2287fcc7e15b,
+    type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
   m_ValidKeywords:
   - _ALPHATEST_ON
   - _COLOR_OVERLAY_UV
   - _SPECULAR_SETUP
   m_InvalidKeywords:
   - _BEND_WIND_OVERLAY_VERTEX_POSITION
+  - _EMISSION
   - _OVERLAY_B
   - _OVERLAY_UV
   - _WIND_OVERLAY_UV
-  m_LightmapFlags: 0
+  m_LightmapFlags: 2
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 1
   m_CustomRenderQueue: 2450
@@ -26,6 +30,8 @@ Material:
     RenderType: TransparentCutout
   disabledShaderPasses:
   - SHADOWCASTER
+  - MOTIONVECTORS
+  m_LockedProperties: 
   m_SavedProperties:
     serializedVersion: 3
     m_TexEnvs:
@@ -136,6 +142,7 @@ Material:
     - _DetailAlbedoMapScale: 1
     - _DetailNormalMapScale: 1
     - _DstBlend: 0
+    - _DstBlendAlpha: 0
     - _Enable_Top_Color: 1
     - _EnvironmentReflections: 1
     - _GlossMapScale: 0
@@ -167,6 +174,7 @@ Material:
     - _SpecSource: 0
     - _SpecularHighlights: 1
     - _SrcBlend: 1
+    - _SrcBlendAlpha: 1
     - _Start_Bend_Range: 0.4
     - _Start_To_Bend_Range: 1
     - _Start_to_bend_range: 1
@@ -210,6 +218,7 @@ Material:
     - _WindDirection_1: {r: 1, g: 2, b: 0, a: 0}
     - _Wind_Direction: {r: 0.1, g: 0.1, b: 0, a: 0}
   m_BuildTextureStacks: []
+  m_AllowLocking: 1
 --- !u!114 &4699994892524407305
 MonoBehaviour:
   m_ObjectHideFlags: 11
@@ -222,4 +231,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d0353a89b1f911e48b9e16bdc9f2e058, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  version: 7
+  version: 10

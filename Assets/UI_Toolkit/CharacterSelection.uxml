@@ -1,0 +1,91 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="CharacterSelection.uss" />
+    <ui:VisualElement name="selection-root" class="selection-root">
+
+        <!-- ============================================================
+             TÍTULO
+             ============================================================ -->
+        <ui:Label name="Title" class="title-label" text="SELECCIÓN DE PERSONAJE" />
+
+        <!-- ============================================================
+             CONTENIDO PRINCIPAL: Clases (izquierda) + Preview (derecha)
+             ============================================================ -->
+        <ui:VisualElement name="main-content" class="main-content">
+
+            <!-- ─── Panel Izquierdo: Lista de Clases ─── -->
+            <ui:VisualElement name="classes-panel" class="classes-panel">
+                <ui:Label class="section-title" text="Clases Disponibles" />
+                <ui:ScrollView name="ClassList" class="class-list">
+                    <!-- Los botones de clase se generan desde C# -->
+                </ui:ScrollView>
+            </ui:VisualElement>
+
+            <!-- ─── Panel Central: Preview de Clase ─── -->
+            <ui:VisualElement name="preview-panel" class="preview-panel">
+                <ui:VisualElement name="ClassIcon" class="class-icon" />
+                <ui:Label name="ClassName" class="class-name" text="—" />
+                <ui:Label name="ClassDescription" class="class-description" text="Selecciona una clase para ver su descripción." />
+
+                <!-- Stats -->
+                <ui:VisualElement name="stats-grid" class="stats-grid">
+                    <ui:VisualElement class="stat-row">
+                        <ui:Label class="stat-label" text="Vida" />
+                        <ui:VisualElement class="stat-bar-bg"><ui:VisualElement name="BarVida" class="stat-bar stat-bar-vida" /></ui:VisualElement>
+                        <ui:Label name="ValVida" class="stat-value" text="0" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="stat-row">
+                        <ui:Label class="stat-label" text="Ataque" />
+                        <ui:VisualElement class="stat-bar-bg"><ui:VisualElement name="BarAtaque" class="stat-bar stat-bar-ataque" /></ui:VisualElement>
+                        <ui:Label name="ValAtaque" class="stat-value" text="0" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="stat-row">
+                        <ui:Label class="stat-label" text="Defensa" />
+                        <ui:VisualElement class="stat-bar-bg"><ui:VisualElement name="BarDefensa" class="stat-bar stat-bar-defensa" /></ui:VisualElement>
+                        <ui:Label name="ValDefensa" class="stat-value" text="0" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="stat-row">
+                        <ui:Label class="stat-label" text="Mana" />
+                        <ui:VisualElement class="stat-bar-bg"><ui:VisualElement name="BarMana" class="stat-bar stat-bar-mana" /></ui:VisualElement>
+                        <ui:Label name="ValMana" class="stat-value" text="0" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="stat-row">
+                        <ui:Label class="stat-label" text="Velocidad" />
+                        <ui:VisualElement class="stat-bar-bg"><ui:VisualElement name="BarVelocidad" class="stat-bar stat-bar-velocidad" /></ui:VisualElement>
+                        <ui:Label name="ValVelocidad" class="stat-value" text="0" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+
+                <!-- Habilidades iniciales -->
+                <ui:Label class="section-subtitle" text="Habilidades Iniciales" />
+                <ui:VisualElement name="AbilitiesList" class="abilities-list">
+                    <!-- Se llenan desde C# -->
+                </ui:VisualElement>
+
+                <!-- Input nombre -->
+                <ui:VisualElement class="name-input-row">
+                    <ui:Label class="name-label" text="Nombre:" />
+                    <ui:TextField name="CharacterName" class="name-field" value="" />
+                </ui:VisualElement>
+
+                <ui:Button name="BtnCrear" class="btn-crear" text="Crear Personaje" />
+            </ui:VisualElement>
+
+            <!-- ─── Panel Derecho: Party Creado ─── -->
+            <ui:VisualElement name="party-panel" class="party-panel">
+                <ui:Label class="section-title" text="Tu Party" />
+                <ui:Label name="PartyCount" class="party-count" text="0 / 3" />
+                <ui:ScrollView name="PartyList" class="party-list">
+                    <!-- Los personajes creados se agregan desde C# -->
+                </ui:ScrollView>
+                <ui:Button name="BtnIniciar" class="btn-iniciar" text="¡Comenzar Aventura!" />
+            </ui:VisualElement>
+
+        </ui:VisualElement>
+
+        <!-- ============================================================
+             FOOTER: Info adicional
+             ============================================================ -->
+        <ui:Label name="Footer" class="footer-label" text="Crea al menos 1 personaje para iniciar. El primero será tu personaje principal." />
+
+    </ui:VisualElement>
+</ui:UXML>

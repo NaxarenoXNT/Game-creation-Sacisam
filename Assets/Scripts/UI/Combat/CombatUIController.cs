@@ -55,7 +55,7 @@ namespace UI.Combat
             if (Instance != null) return Instance;
 
             // Buscar un UIDocument que contenga el elemento hud-root
-            foreach (var doc in FindObjectsOfType<UIDocument>())
+            foreach (var doc in FindObjectsByType<UIDocument>(FindObjectsSortMode.None))
             {
                 if (doc.rootVisualElement == null) continue;
                 if (doc.rootVisualElement.Q("hud-root") == null) continue;
@@ -91,7 +91,7 @@ namespace UI.Combat
             if (hudController == null)
                 hudController = GetComponent<HUDController>();
             if (hudController == null)
-                hudController = FindObjectOfType<HUDController>();
+                hudController = FindFirstObjectByType<HUDController>();
 
             if (hudController == null)
                 Debug.LogWarning("[CombatUIController] No se encontró HUDController. " +

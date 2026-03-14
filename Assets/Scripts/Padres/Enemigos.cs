@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using Habilidades;
 using Combate;
+using IA;
 
 
 namespace Padres
@@ -32,7 +33,7 @@ namespace Padres
         }
     }
 
-    public abstract class Enemigos : Entidad
+    public abstract class Enemigos : Entidad, IEntidadActuable
     {
         public int XPOtorgada { get; protected set; }
         
@@ -44,6 +45,9 @@ namespace Padres
         
         // Habilidad por defecto (ataque básico)
         public HabilidadData HabilidadPorDefecto { get; protected set; }
+
+        // Cerebro de IA (árbol de comportamiento) — se asigna en InicializarDesdeEnemigoData
+        public CerebroIA CerebroIA { get; private set; }
 
         private ElementAttribute _atributos;
         private TipoEntidades _tipoDeEnemigo;
@@ -90,7 +94,7 @@ namespace Padres
         }
 
         /// <summary>
-        /// Inicializa las habilidades desde EnemigoData.
+        /// Inicializa las habilidades desde EnemigoData y crea el CerebroIA según el arquetipo.
         /// Llamar después de la construcción en las clases derivadas.
         /// </summary>
         public void InicializarDesdeEnemigoData(EnemigoData datos)
@@ -109,6 +113,10 @@ namespace Padres
                     GestorPasivas?.AgregarPasiva(pasiva);
                 }
             }
+
+            // Crear cerebro de IA según el arquetipo definido en el inspector
+            CerebroIA = CerebroIA.CrearParaArquetipo(datos.arquetipoIA);
+            CerebroIA.Configurar(this);
         }
 
         /// <summary>
@@ -160,5 +168,28 @@ namespace Padres
 
 
         public abstract IEntidadCombate DecidirObjetivo(List<IEntidadCombate> jugadores);
+
+        public (IHabilidadesCommand comando, IEntidadCombate objetivo) ObtenerAccionElegida(
+            List<IEntidadCombate> aliados,
+            List<IEntidadCombate> enemigos
+        )
+        {
+            // Si hay CerebroIA activo, delegar decisión al árbol de comportamiento
+            if (CerebroIA != null)
+            {
+                var resultado = CerebroIA.Decidir(jugadores: enemigos, aliados: aliados);
+                if (resultado?.Habilidad != null)
+                    return (resultado.Habilidad, resultado.Objetivo);
+            }
+
+            // Fallback: habilidad por defecto + DecidirObjetivo
+            IEntidadCombate objetivo = DecidirObjetivo(enemigos);
+            HabilidadData habilidad = HabilidadPorDefecto;
+
+            if (objetivo == null || habilidad == null || !habilidad.EsViable(this, objetivo, aliados, enemigos))
+                return (null, null);
+
+            return (habilidad, objetivo);
+        }
     }
 }
