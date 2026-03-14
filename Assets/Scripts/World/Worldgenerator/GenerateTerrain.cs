@@ -697,7 +697,7 @@ public class WorldGeneratorPro : EditorWindow
     /// </summary>
     private void AutoSyncAndApplySplatmap(Vector2Int modifiedCoord)
     {
-        var biomeMap = Object.FindObjectOfType<WorldBiomeMap>();
+        var biomeMap = Object.FindFirstObjectByType<WorldBiomeMap>();
         if (biomeMap == null) return;
         
         float chkSize = ChunkSize;
@@ -1395,7 +1395,7 @@ public class WorldGeneratorPro : EditorWindow
     /// </summary>
     private WorldBiomeMap FindBiomeMapInScene()
     {
-        var biomeMap = Object.FindObjectOfType<WorldBiomeMap>();
+        var biomeMap = Object.FindFirstObjectByType<WorldBiomeMap>();
         if (biomeMap == null)
         {
             EditorUtility.DisplayDialog("Error",
@@ -1631,7 +1631,7 @@ public class WorldGeneratorPro : EditorWindow
         EditorGUILayout.Space(5);
         
         // Contar markers en escena
-        var allMarkers = Object.FindObjectsOfType<World.ChunkSystem.PropMarker>();
+        var allMarkers = Object.FindObjectsByType<World.ChunkSystem.PropMarker>(FindObjectsSortMode.None);
         int totalMarkers = allMarkers.Length;
         int unbaked = 0;
         int baked = 0;
@@ -1679,7 +1679,7 @@ public class WorldGeneratorPro : EditorWindow
         // Botón de selección rápida
         if (GUILayout.Button("🔍 Seleccionar todos los PropMarkers"))
         {
-            var markers = Object.FindObjectsOfType<World.ChunkSystem.PropMarker>();
+            var markers = Object.FindObjectsByType<World.ChunkSystem.PropMarker>(FindObjectsSortMode.None);
             Selection.objects = markers.Select(m => m.gameObject).ToArray();
             Debug.Log($"🔍 Seleccionados {markers.Length} PropMarkers en la escena.");
         }
@@ -1693,7 +1693,7 @@ public class WorldGeneratorPro : EditorWindow
     /// </summary>
     private void BakePropsToChunkData()
     {
-        var allMarkers = Object.FindObjectsOfType<World.ChunkSystem.PropMarker>();
+        var allMarkers = Object.FindObjectsByType<World.ChunkSystem.PropMarker>(FindObjectsSortMode.None);
         
         if (allMarkers.Length == 0)
         {
@@ -1865,7 +1865,7 @@ public class WorldGeneratorPro : EditorWindow
     /// </summary>
     private void CleanBakedPropsFromScene()
     {
-        var allMarkers = Object.FindObjectsOfType<World.ChunkSystem.PropMarker>();
+        var allMarkers = Object.FindObjectsByType<World.ChunkSystem.PropMarker>(FindObjectsSortMode.None);
         var bakedMarkers = allMarkers.Where(m => m.isBaked).ToArray();
         
         if (bakedMarkers.Length == 0)

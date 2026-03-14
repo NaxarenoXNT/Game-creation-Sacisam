@@ -263,7 +263,7 @@ namespace World.BiomeSystem.Editor
         {
             // Resolver tamaño del chunk: intentar desde el manager en escena, fallback 256
             float chunkSize = 256f;
-            var manager = Object.FindObjectOfType<World.ChunkSystem.WorldChunkManager>();
+            var manager = Object.FindFirstObjectByType<World.ChunkSystem.WorldChunkManager>();
             if (manager != null) chunkSize = manager.ChunkSize;
 
             // Separar puntos generados automáticamente de los manuales.

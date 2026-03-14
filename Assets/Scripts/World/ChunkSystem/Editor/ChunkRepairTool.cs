@@ -72,7 +72,7 @@ namespace World.ChunkSystem.Editor
             
             targetChunkSize = EditorGUILayout.FloatField("ChunkSize correcto:", targetChunkSize);
             
-            var manager = FindObjectOfType<WorldChunkManager>();
+            var manager = FindFirstObjectByType<WorldChunkManager>();
             if (manager != null)
             {
                 EditorGUILayout.LabelField($"ChunkSize actual en WorldChunkManager: {manager.ChunkSize}");
@@ -153,7 +153,7 @@ namespace World.ChunkSystem.Editor
             EditorGUILayout.LabelField("2️⃣ Configurar ChunkLoader", EditorStyles.boldLabel);
             EditorGUILayout.HelpBox("El ChunkLoader es necesario para registrar los ChunkDataAssets en el WorldChunkManager.", MessageType.Info);
             
-            var loader = FindObjectOfType<ChunkLoader>();
+            var loader = FindFirstObjectByType<ChunkLoader>();
             
             if (loader == null)
             {
