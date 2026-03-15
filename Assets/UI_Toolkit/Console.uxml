@@ -1,0 +1,26 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="Console.uss" />
+
+    <!-- Panel raíz — oculto por defecto, toggle con BackQuote -->
+    <ui:VisualElement name="console-root" class="console-root">
+
+        <!-- Área de output: scroll con líneas de texto -->
+        <ui:ScrollView name="console-scroll" class="console-scroll"
+                       vertical-scroller-visibility="Hidden"
+                       horizontal-scroller-visibility="Hidden">
+            <ui:VisualElement name="console-output" class="console-output" />
+        </ui:ScrollView>
+
+        <!-- Separador -->
+        <ui:VisualElement class="console-separator" />
+
+        <!-- Fila de input: prompt ">" + campo de texto -->
+        <ui:VisualElement class="console-input-row">
+            <ui:Label class="console-prompt" text=">" />
+            <ui:TextField name="console-input" class="console-input"
+                          placeholder-text="escribe un comando..."
+                          is-delayed="false" />
+        </ui:VisualElement>
+
+    </ui:VisualElement>
+</ui:UXML>
