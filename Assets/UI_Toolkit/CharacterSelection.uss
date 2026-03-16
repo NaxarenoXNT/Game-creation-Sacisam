@@ -1,410 +1,436 @@
-/* ============================================================
-   CharacterSelection.uss — Estilos de la pantalla de selección
+﻿/* ============================================================
+   CharacterSelection.uss — Estilo visual inspirado en el widget
+   Paleta oscura + semitransparente, barras de stats coloreadas,
+   chips de habilidades/pasivas, layout de tres paneles.
    ============================================================ */
 
-/* ========================================================
-   ROOT
-   ======================================================== */
+/* ─── Raíz ─── */
 .selection-root {
-    width: 100%;
-    height: 100%;
-    background-color: rgb(18, 18, 28);
     flex-direction: column;
-    align-items: center;
-    padding: 20px;
+    background-color: rgba(12, 12, 18, 0.97);
+    border-color: rgba(100, 100, 130, 0.4);
+    border-width: 1px;
+    border-top-width: 2px;
+    border-radius: 10px;
+    flex-grow: 1;
+    min-height: 520px;
 }
 
-/* ========================================================
-   TÍTULO
-   ======================================================== */
+/* ─── Título ─── */
 .title-label {
-    font-size: 36px;
-    color: rgb(220, 200, 140);
+    -unity-text-align: middle-center;
+    font-size: 15px;
     -unity-font-style: bold;
-    margin-bottom: 16px;
-    letter-spacing: 4px;
+    letter-spacing: 2px;
+    color: rgba(210, 200, 255, 0.95);
+    padding-top: 14px;
+    padding-bottom: 10px;
+    border-bottom-width: 1px;
+    border-color: rgba(100, 100, 130, 0.25);
+    margin-bottom: 0;
 }
 
-/* ========================================================
-   CONTENIDO PRINCIPAL — 3 paneles
-   ======================================================== */
+/* ─── Contenido principal (tres paneles en fila) ─── */
 .main-content {
     flex-direction: row;
-    flex: 1;
-    width: 100%;
-    max-width: 1200px;
-    column-gap: 16px;
+    flex-grow: 1;
 }
 
-/* ── Sección genérica ── */
-.section-title {
-    font-size: 18px;
-    color: rgb(180, 175, 160);
-    -unity-font-style: bold;
-    margin-bottom: 8px;
-    border-bottom-width: 1px;
-    border-bottom-color: rgba(180, 175, 160, 0.3);
-    padding-bottom: 4px;
-}
-
-.section-subtitle {
-    font-size: 14px;
-    color: rgb(160, 155, 140);
-    -unity-font-style: bold;
-    margin-top: 12px;
-    margin-bottom: 6px;
-}
-
-/* ========================================================
-   PANEL IZQUIERDO — Lista de Clases
-   ======================================================== */
+/* ══════════════════════════════════════════
+   PANEL IZQUIERDO — Lista de clases
+   ══════════════════════════════════════════ */
 .classes-panel {
-    width: 220px;
-    min-width: 200px;
-    background-color: rgba(30, 30, 45, 0.9);
-    border-radius: 8px;
-    border-width: 1px;
-    border-color: rgba(100, 100, 130, 0.4);
-    padding: 12px;
+    width: 160px;
+    border-right-width: 1px;
+    border-color: rgba(100, 100, 130, 0.25);
     flex-direction: column;
+    padding-top: 10px;
+    padding-bottom: 10px;
+}
+
+.section-title {
+    font-size: 10px;
+    -unity-font-style: bold;
+    letter-spacing: 1px;
+    color: rgba(160, 160, 180, 0.7);
+    padding-left: 12px;
+    padding-right: 12px;
+    padding-bottom: 8px;
 }
 
 .class-list {
-    flex: 1;
+    flex-grow: 1;
 }
 
 /* Botón de clase */
-.class-btn {
-    height: 64px;
-    margin-bottom: 6px;
-    background-color: rgba(50, 50, 70, 0.8);
-    border-radius: 6px;
-    border-width: 1px;
-    border-color: rgba(80, 80, 110, 0.5);
+.class-button {
     flex-direction: row;
     align-items: center;
-    padding: 8px;
-    transition-property: background-color, border-color;
+    padding: 8px 12px;
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 0;
+    color: rgba(190, 190, 210, 0.85);
+    font-size: 12px;
+    -unity-text-align: middle-left;
+    width: 100%;
     transition-duration: 0.15s;
+    transition-property: background-color;
 }
 
-.class-btn:hover {
-    background-color: rgba(70, 70, 100, 0.9);
-    border-color: rgba(120, 120, 160, 0.7);
+.class-button:hover {
+    background-color: rgba(120, 100, 200, 0.12);
 }
 
-.class-btn-selected {
-    background-color: rgba(80, 70, 50, 0.9);
-    border-color: rgb(200, 170, 80);
-    border-width: 2px;
+.class-button--selected {
+    background-color: rgba(100, 80, 200, 0.22);
+    color: rgba(210, 200, 255, 1.0);
+    border-right-width: 2px;
+    border-color: rgba(140, 110, 255, 0.7);
 }
 
-.class-btn-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: 4px;
-    background-color: rgba(40, 40, 55, 1);
+/* Ícono pequeño dentro del botón de clase */
+.class-icon-small {
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
     margin-right: 8px;
-}
-
-.class-btn-name {
-    font-size: 16px;
-    color: rgb(210, 205, 190);
-    -unity-font-style: bold;
-}
-
-/* ========================================================
-   PANEL CENTRAL — Preview
-   ======================================================== */
-.preview-panel {
-    flex: 1;
-    background-color: rgba(30, 30, 45, 0.9);
-    border-radius: 8px;
+    flex-shrink: 0;
     border-width: 1px;
-    border-color: rgba(100, 100, 130, 0.4);
-    padding: 16px;
-    flex-direction: column;
-    align-items: center;
+    border-color: rgba(120, 100, 200, 0.4);
+    background-color: rgba(100, 80, 200, 0.25);
 }
 
+/* ══════════════════════════════════════════
+   PANEL CENTRAL — Preview de clase
+   ══════════════════════════════════════════ */
+.preview-panel {
+    flex-grow: 1;
+    padding: 14px 16px;
+    border-right-width: 1px;
+    border-color: rgba(100, 100, 130, 0.25);
+    flex-direction: column;
+}
+
+/* Ícono grande de la clase */
 .class-icon {
-    width: 96px;
-    height: 96px;
-    border-radius: 8px;
-    background-color: rgba(40, 40, 55, 1);
-    border-width: 2px;
-    border-color: rgba(100, 100, 130, 0.5);
-    margin-bottom: 8px;
+    width: 52px;
+    height: 52px;
+    border-radius: 10px;
+    border-width: 1px;
+    border-color: rgba(120, 100, 200, 0.35);
+    background-color: rgba(100, 80, 200, 0.25);
+    margin-right: 12px;
+    flex-shrink: 0;
 }
 
 .class-name {
-    font-size: 24px;
-    color: rgb(220, 200, 140);
+    font-size: 17px;
     -unity-font-style: bold;
+    color: rgba(220, 215, 255, 0.98);
     margin-bottom: 4px;
 }
 
 .class-description {
-    font-size: 13px;
-    color: rgb(170, 165, 150);
+    font-size: 11px;
+    color: rgba(160, 160, 180, 0.75);
     white-space: normal;
-    text-align: center;
-    max-width: 400px;
-    margin-bottom: 12px;
 }
 
-/* ── Stats Grid ── */
+/* ─── Stats ─── */
 .stats-grid {
-    width: 100%;
-    max-width: 380px;
     flex-direction: column;
-    row-gap: 6px;
-    margin-bottom: 8px;
+    margin-top: 10px;
+    margin-bottom: 6px;
 }
 
 .stat-row {
     flex-direction: row;
     align-items: center;
-    height: 22px;
+    margin-bottom: 5px;
 }
 
 .stat-label {
-    width: 80px;
-    font-size: 13px;
-    color: rgb(160, 155, 140);
+    width: 56px;
+    font-size: 11px;
+    color: rgba(160, 160, 180, 0.7);
+    flex-shrink: 0;
 }
 
 .stat-bar-bg {
-    flex: 1;
-    height: 14px;
-    background-color: rgba(20, 20, 30, 0.8);
+    flex-grow: 1;
+    height: 5px;
+    background-color: rgba(60, 60, 80, 0.6);
     border-radius: 3px;
     overflow: hidden;
-    margin-right: 8px;
+    margin-right: 7px;
 }
 
 .stat-bar {
-    height: 100%;
+    height: 5px;
     border-radius: 3px;
-    transition-property: width;
-    transition-duration: 0.3s;
+    /* El width se setea desde C# con style.width = Length.Percent(valor) */
 }
 
-.stat-bar-vida { background-color: rgb(100, 180, 80); }
-.stat-bar-ataque { background-color: rgb(200, 80, 70); }
-.stat-bar-defensa { background-color: rgb(80, 140, 200); }
-.stat-bar-mana { background-color: rgb(100, 80, 200); }
-.stat-bar-velocidad { background-color: rgb(200, 180, 60); }
+.stat-bar-vida      { background-color: rgba(90, 210, 130, 0.85); }
+.stat-bar-ataque    { background-color: rgba(230, 100, 80, 0.85); }
+.stat-bar-defensa   { background-color: rgba(90, 160, 220, 0.85); }
+.stat-bar-mana      { background-color: rgba(160, 100, 230, 0.85); }
+.stat-bar-velocidad { background-color: rgba(240, 190, 60, 0.85); }
 
 .stat-value {
-    width: 35px;
-    font-size: 13px;
-    color: rgb(190, 185, 170);
+    width: 24px;
+    font-size: 11px;
+    color: rgba(200, 200, 215, 0.85);
     -unity-text-align: middle-right;
+    flex-shrink: 0;
 }
 
-/* ── Habilidades ── */
+/* ─── Subtítulos de sección (Habilidades, Pasivas) ─── */
+.section-subtitle {
+    font-size: 10px;
+    -unity-font-style: bold;
+    letter-spacing: 1px;
+    color: rgba(140, 140, 165, 0.65);
+    padding-bottom: 4px;
+    border-bottom-width: 1px;
+    border-color: rgba(100, 100, 130, 0.2);
+    margin-top: 8px;
+    margin-bottom: 6px;
+}
+
+/* ─── Lista de habilidades / pasivas ─── */
 .abilities-list {
     flex-direction: row;
     flex-wrap: wrap;
-    column-gap: 6px;
-    row-gap: 4px;
-    margin-bottom: 12px;
-    min-height: 28px;
-    width: 100%;
-    max-width: 380px;
+    margin-bottom: 4px;
 }
 
-.ability-tag {
-    background-color: rgba(60, 55, 80, 0.9);
-    border-radius: 4px;
-    padding: 3px 8px;
-    font-size: 12px;
-    color: rgb(180, 170, 200);
+/* Chip de habilidad activa */
+.ability-chip {
+    padding: 3px 9px;
+    border-radius: 12px;
+    font-size: 10px;
+    background-color: rgba(100, 80, 200, 0.18);
     border-width: 1px;
-    border-color: rgba(100, 90, 140, 0.5);
+    border-color: rgba(100, 80, 200, 0.35);
+    color: rgba(190, 175, 255, 0.9);
+    margin-right: 5px;
+    margin-bottom: 5px;
 }
 
-/* ── Campo de nombre ── */
+/* Chip de pasiva */
+.passive-chip {
+    padding: 3px 9px;
+    border-radius: 12px;
+    font-size: 10px;
+    background-color: rgba(60, 160, 110, 0.15);
+    border-width: 1px;
+    border-color: rgba(60, 160, 110, 0.32);
+    color: rgba(120, 220, 160, 0.9);
+    margin-right: 5px;
+    margin-bottom: 5px;
+}
+
+/* ─── Fila de nombre ─── */
 .name-input-row {
     flex-direction: row;
     align-items: center;
-    margin-top: 12px;
+    margin-top: 8px;
     margin-bottom: 8px;
-    width: 100%;
-    max-width: 380px;
 }
 
 .name-label {
-    font-size: 14px;
-    color: rgb(170, 165, 150);
+    font-size: 11px;
+    color: rgba(160, 160, 180, 0.7);
     margin-right: 8px;
-    width: 65px;
+    flex-shrink: 0;
 }
 
 .name-field {
-    flex: 1;
-}
-
-.name-field > .unity-text-field__input {
-    background-color: rgba(40, 40, 55, 1);
-    border-color: rgba(100, 100, 130, 0.5);
-    border-radius: 4px;
-    color: rgb(220, 215, 200);
-    font-size: 14px;
-    padding: 4px 8px;
-}
-
-.name-field > .unity-text-field__input:focus {
-    border-color: rgb(200, 170, 80);
-}
-
-/* ── Botón crear ── */
-.btn-crear {
-    width: 220px;
-    height: 42px;
-    font-size: 16px;
-    -unity-font-style: bold;
-    color: rgb(30, 30, 40);
-    background-color: rgb(200, 170, 80);
+    flex-grow: 1;
+    background-color: rgba(30, 30, 50, 0.7);
+    border-width: 1px;
+    border-color: rgba(100, 100, 130, 0.4);
     border-radius: 6px;
+    color: rgba(220, 220, 235, 0.95);
+    font-size: 12px;
+}
+
+.name-field:focus {
+    border-color: rgba(120, 100, 220, 0.65);
+}
+
+.name-field > .unity-base-text-field__input,
+.name-field #unity-text-input {
+    background-color: rgba(0, 0, 0, 0);
     border-width: 0;
-    margin-top: 8px;
-    transition-property: background-color, scale;
+    color: rgba(220, 220, 235, 0.95);
+    font-size: 12px;
+    padding: 5px 9px;
+}
+
+/* ─── Botón Crear ─── */
+.btn-crear {
+    padding-top: 8px;
+    padding-bottom: 8px;
+    background-color: rgba(100, 75, 200, 0.3);
+    border-width: 1px;
+    border-color: rgba(120, 95, 220, 0.5);
+    border-radius: 7px;
+    color: rgba(210, 200, 255, 0.95);
+    font-size: 12px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
     transition-duration: 0.15s;
+    transition-property: background-color;
 }
 
 .btn-crear:hover {
-    background-color: rgb(220, 190, 100);
-    scale: 1.03;
+    background-color: rgba(110, 85, 215, 0.48);
 }
 
-.btn-crear:disabled {
-    background-color: rgba(100, 90, 60, 0.5);
-    color: rgba(30, 30, 40, 0.5);
-}
-
-/* ========================================================
+/* ══════════════════════════════════════════
    PANEL DERECHO — Party
-   ======================================================== */
+   ══════════════════════════════════════════ */
 .party-panel {
-    width: 240px;
-    min-width: 220px;
-    background-color: rgba(30, 30, 45, 0.9);
-    border-radius: 8px;
-    border-width: 1px;
-    border-color: rgba(100, 100, 130, 0.4);
-    padding: 12px;
+    width: 155px;
+    flex-shrink: 0;
+    padding: 10px;
     flex-direction: column;
 }
 
 .party-count {
-    font-size: 14px;
-    color: rgb(160, 155, 140);
+    font-size: 10px;
+    color: rgba(150, 150, 170, 0.65);
     margin-bottom: 8px;
-    -unity-text-align: middle-center;
 }
 
 .party-list {
-    flex: 1;
+    flex-grow: 1;
+    flex-direction: column;
 }
 
-/* Slot de personaje creado */
-.party-slot {
-    height: 72px;
-    margin-bottom: 6px;
-    background-color: rgba(50, 50, 70, 0.8);
-    border-radius: 6px;
-    border-width: 1px;
-    border-color: rgba(80, 80, 110, 0.5);
+/* Tarjeta de personaje en la party */
+.party-card {
     flex-direction: row;
     align-items: center;
-    padding: 8px;
+    background-color: rgba(40, 38, 65, 0.6);
+    border-width: 1px;
+    border-color: rgba(100, 100, 130, 0.3);
+    border-radius: 7px;
+    padding: 6px 8px;
+    margin-bottom: 6px;
 }
 
-.party-slot-main {
-    border-color: rgb(200, 170, 80);
-    border-width: 2px;
+.party-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    margin-right: 7px;
+    flex-shrink: 0;
+    border-width: 1px;
+    border-color: rgba(100, 100, 130, 0.3);
 }
 
-.party-slot-icon {
-    width: 48px;
-    height: 48px;
-    border-radius: 4px;
-    background-color: rgba(40, 40, 55, 1);
-    margin-right: 8px;
+.party-char-name {
+    font-size: 11px;
+    color: rgba(210, 210, 225, 0.95);
 }
 
+.party-char-class {
+    font-size: 10px;
+    color: rgba(140, 130, 180, 0.7);
+}
+
+/* ─── Botón Iniciar ─── */
+.btn-iniciar {
+    padding-top: 9px;
+    padding-bottom: 9px;
+    background-color: rgba(40, 160, 100, 0.22);
+    border-width: 1px;
+    border-color: rgba(50, 180, 110, 0.45);
+    border-radius: 7px;
+    color: rgba(100, 220, 150, 0.9);
+    font-size: 11px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+    margin-top: 8px;
+    transition-duration: 0.15s;
+    transition-property: background-color;
+}
+
+.btn-iniciar:hover {
+    background-color: rgba(45, 180, 110, 0.38);
+}
+
+.btn-iniciar:disabled {
+    opacity: 0.4;
+}
+
+/* ══════════════════════════════════════════
+   FOOTER
+   ══════════════════════════════════════════ */
+.footer-label {
+    font-size: 10px;
+    -unity-text-align: middle-center;
+    color: rgba(120, 120, 145, 0.6);
+    padding: 7px 16px;
+    border-top-width: 1px;
+    border-color: rgba(100, 100, 130, 0.2);
+    white-space: normal;
+}
+
+/* ══════════════════════════════════════════
+   COMPAT — Clases usadas por el controlador C#
+   (no están en el nuevo diseño pero la lógica
+    las sigue necesitando)
+   ══════════════════════════════════════════ */
+
+/* Label del nombre de clase dentro del botón */
+.class-btn-name {
+    font-size: 12px;
+    color: rgba(190, 190, 210, 0.85);
+    flex-shrink: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Contenedor de info dentro de la tarjeta de party */
 .party-slot-info {
     flex: 1;
     flex-direction: column;
     justify-content: center;
 }
 
-.party-slot-name {
-    font-size: 14px;
-    color: rgb(210, 205, 190);
-    -unity-font-style: bold;
+/* Resalte del personaje principal */
+.party-slot-main {
+    border-color: rgba(140, 110, 255, 0.6);
+    border-width: 2px;
 }
 
-.party-slot-class {
-    font-size: 12px;
-    color: rgb(150, 145, 130);
-}
-
+/* Badge "MAIN" */
 .party-slot-main-badge {
-    font-size: 10px;
-    color: rgb(200, 170, 80);
+    font-size: 9px;
+    color: rgba(190, 175, 255, 0.85);
     -unity-font-style: bold;
 }
 
+/* Botón eliminar personaje */
 .btn-remove {
-    width: 24px;
-    height: 24px;
-    font-size: 14px;
-    color: rgb(200, 80, 70);
-    background-color: rgba(200, 80, 70, 0.15);
+    width: 20px;
+    height: 20px;
+    font-size: 12px;
+    color: rgba(230, 100, 80, 0.85);
+    background-color: rgba(200, 80, 70, 0.10);
     border-radius: 4px;
     border-width: 1px;
-    border-color: rgba(200, 80, 70, 0.3);
+    border-color: rgba(200, 80, 70, 0.28);
     -unity-text-align: middle-center;
     padding: 0;
+    flex-shrink: 0;
+    margin-left: 4px;
 }
 
 .btn-remove:hover {
-    background-color: rgba(200, 80, 70, 0.35);
-}
-
-/* ── Botón iniciar ── */
-.btn-iniciar {
-    height: 48px;
-    font-size: 18px;
-    -unity-font-style: bold;
-    color: rgb(240, 240, 240);
-    background-color: rgb(50, 140, 80);
-    border-radius: 6px;
-    border-width: 0;
-    margin-top: 8px;
-    transition-property: background-color, scale;
-    transition-duration: 0.15s;
-}
-
-.btn-iniciar:hover {
-    background-color: rgb(60, 160, 90);
-    scale: 1.03;
-}
-
-.btn-iniciar:disabled {
-    background-color: rgba(50, 100, 60, 0.4);
-    color: rgba(240, 240, 240, 0.4);
-}
-
-/* ========================================================
-   FOOTER
-   ======================================================== */
-.footer-label {
-    font-size: 12px;
-    color: rgba(150, 145, 130, 0.8);
-    margin-top: 12px;
-    -unity-text-align: middle-center;
+    background-color: rgba(200, 80, 70, 0.30);
 }

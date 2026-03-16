@@ -88,3 +88,23 @@
     border-width: 0;
     border-color: rgba(0,0,0,0);
 }
+
+/* ─── Internals del TextField (UI Toolkit genera estos hijos automáticamente) ─── */
+/* Sin estos overrides el fondo es blanco y el texto blanco no se ve */
+.console-input > .unity-base-text-field__input,
+.console-input #unity-text-input {
+    background-color: rgba(0, 0, 0, 0.0);
+    border-width: 0;
+    color: rgba(230, 230, 240, 1.0);
+    -unity-text-align: middle-left;
+    padding: 0;
+    margin: 0;
+    font-size: 12px;
+}
+
+.console-input > .unity-base-text-field__input:focus,
+.console-input #unity-text-input:focus {
+    background-color: rgba(0, 0, 0, 0.0);
+    border-width: 0;
+    border-color: rgba(0, 0, 0, 0.0);
+}

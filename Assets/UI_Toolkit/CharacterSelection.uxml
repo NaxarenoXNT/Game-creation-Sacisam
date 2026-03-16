@@ -8,13 +8,13 @@
         <ui:Label name="Title" class="title-label" text="SELECCIÓN DE PERSONAJE" />
 
         <!-- ============================================================
-             CONTENIDO PRINCIPAL: Clases (izquierda) + Preview (derecha)
+             CONTENIDO PRINCIPAL: Clases (izquierda) + Preview (centro) + Party (derecha)
              ============================================================ -->
         <ui:VisualElement name="main-content" class="main-content">
 
             <!-- ─── Panel Izquierdo: Lista de Clases ─── -->
             <ui:VisualElement name="classes-panel" class="classes-panel">
-                <ui:Label class="section-title" text="Clases Disponibles" />
+                <ui:Label class="section-title" text="CLASES DISPONIBLES" />
                 <ui:ScrollView name="ClassList" class="class-list">
                     <!-- Los botones de clase se generan desde C# -->
                 </ui:ScrollView>
@@ -22,9 +22,16 @@
 
             <!-- ─── Panel Central: Preview de Clase ─── -->
             <ui:VisualElement name="preview-panel" class="preview-panel">
-                <ui:VisualElement name="ClassIcon" class="class-icon" />
-                <ui:Label name="ClassName" class="class-name" text="—" />
-                <ui:Label name="ClassDescription" class="class-description" text="Selecciona una clase para ver su descripción." />
+
+                <!-- Header: ícono grande + nombre + descripción -->
+                <ui:VisualElement style="flex-direction: row; align-items: center; margin-bottom: 10px;">
+                    <ui:VisualElement name="ClassIcon" class="class-icon" />
+                    <ui:VisualElement style="flex-grow: 1;">
+                        <ui:Label name="ClassName" class="class-name" text="—" />
+                        <ui:Label name="ClassDescription" class="class-description"
+                                  text="Selecciona una clase para ver su descripción." />
+                    </ui:VisualElement>
+                </ui:VisualElement>
 
                 <!-- Stats -->
                 <ui:VisualElement name="stats-grid" class="stats-grid">
@@ -56,8 +63,14 @@
                 </ui:VisualElement>
 
                 <!-- Habilidades iniciales -->
-                <ui:Label class="section-subtitle" text="Habilidades Iniciales" />
+                <ui:Label class="section-subtitle" text="HABILIDADES INICIALES" />
                 <ui:VisualElement name="AbilitiesList" class="abilities-list">
+                    <!-- Se llenan desde C# -->
+                </ui:VisualElement>
+
+                <!-- Pasivas iniciales -->
+                <ui:Label class="section-subtitle" text="PASIVAS INICIALES" />
+                <ui:VisualElement name="PasivasList" class="abilities-list">
                     <!-- Se llenan desde C# -->
                 </ui:VisualElement>
 
@@ -72,8 +85,8 @@
 
             <!-- ─── Panel Derecho: Party Creado ─── -->
             <ui:VisualElement name="party-panel" class="party-panel">
-                <ui:Label class="section-title" text="Tu Party" />
-                <ui:Label name="PartyCount" class="party-count" text="0 / 3" />
+                <ui:Label class="section-title" text="TU PARTY" />
+                <ui:Label name="PartyCount" class="party-count" text="0 / 4 personajes" />
                 <ui:ScrollView name="PartyList" class="party-list">
                     <!-- Los personajes creados se agregan desde C# -->
                 </ui:ScrollView>
