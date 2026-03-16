@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
 using Console.Core;
+using GameInput;
 
 namespace Console.UI
 {
@@ -26,6 +27,7 @@ namespace Console.UI
         private TextField _inputField;
 
         private bool _isOpen;
+        private InputContext _previousContext;
         private readonly List<string> _history = new List<string>();
         private int _historyIndex = -1;
 
@@ -67,12 +69,24 @@ namespace Console.UI
             _isOpen = visible;
             _root.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
 
+            var inputManager = GameInputManager.Instance;
             if (visible)
             {
+                // Guardar contexto actual y bloquear input del juego
+                if (inputManager != null)
+                {
+                    _previousContext = inputManager.CurrentContext;
+                    inputManager.SetContext(InputContext.Menu);
+                }
+
                 _inputField.value = string.Empty;
                 _inputField.Focus();
-                // Forzar focus real en el TextField
                 _inputField.schedule.Execute(() => _inputField.Focus()).ExecuteLater(1);
+            }
+            else
+            {
+                // Restaurar el contexto anterior al cerrar
+                inputManager?.SetContext(_previousContext);
             }
         }
 

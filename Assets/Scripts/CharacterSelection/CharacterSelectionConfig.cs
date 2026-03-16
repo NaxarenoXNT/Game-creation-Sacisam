@@ -20,7 +20,7 @@ namespace CharacterSelection
 
         [Header("Party")]
         [Tooltip("Máximo de personajes que se pueden crear antes de empezar")]
-        public int maxPersonajesInicial = 3;
+        public int maxPersonajesInicial = 1;
 
         [Tooltip("Mínimo de personajes requeridos para iniciar")]
         public int minPersonajesRequeridos = 1;

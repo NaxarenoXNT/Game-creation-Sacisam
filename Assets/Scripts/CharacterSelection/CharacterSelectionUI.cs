@@ -24,6 +24,7 @@ namespace CharacterSelection
         private Label _className;
         private Label _classDescription;
         private VisualElement _abilitiesList;
+        private VisualElement _pasivasList;
         private TextField _characterName;
         private Button _btnCrear;
         private ScrollView _partyList;
@@ -36,14 +37,15 @@ namespace CharacterSelection
 
         // Estado interno
         private ClaseData _selectedClass;
-        private readonly List<Button> _classButtons = new();
 
-        // Constantes para normalización de barras de stats
-        private const float MAX_VIDA = 200f;
-        private const float MAX_ATAQUE = 30f;
-        private const float MAX_DEFENSA = 20f;
-        private const float MAX_MANA = 100f;
-        private const float MAX_VELOCIDAD = 100f;
+        // Constantes para normalización de barras de stats.
+        // Representan el valor máximo teórico de cada stat (techo, no el máximo actual).
+        // Ajustá estos valores si alguna clase supera el techo.
+        private const float MAX_VIDA = 2000f;
+        private const float MAX_ATAQUE = 150f;
+        private const float MAX_DEFENSA = 100f;
+        private const float MAX_MANA = 200f;
+        private const float MAX_VELOCIDAD = 150f;
 
         private void OnEnable()
         {
@@ -58,9 +60,6 @@ namespace CharacterSelection
 
             CacheElements();
             SetupCallbacks();
-            PopulateClassList();
-            RefreshPartyList();
-            RefreshButtons();
 
             if (manager == null)
             {
@@ -75,6 +74,10 @@ namespace CharacterSelection
             // Suscribirse a eventos del manager
             manager.OnPersonajeCreado += OnPersonajeCreado;
             manager.OnPersonajeEliminado += OnPersonajeEliminado;
+
+            PopulateClassList();
+            RefreshPartyList();
+            RefreshButtons();
         }
 
         private void OnDisable()
@@ -93,6 +96,7 @@ namespace CharacterSelection
             _className = _root.Q<Label>("ClassName");
             _classDescription = _root.Q<Label>("ClassDescription");
             _abilitiesList = _root.Q("AbilitiesList");
+            _pasivasList = _root.Q("PasivasList");
             _characterName = _root.Q<TextField>("CharacterName");
             _btnCrear = _root.Q<Button>("BtnCrear");
             _partyList = _root.Q<ScrollView>("PartyList");
@@ -125,7 +129,6 @@ namespace CharacterSelection
         private void PopulateClassList()
         {
             _classList.Clear();
-            _classButtons.Clear();
 
             if (manager?.Config?.clasesDisponibles == null) return;
 
@@ -134,10 +137,10 @@ namespace CharacterSelection
                 if (clase == null) continue;
 
                 var btn = new VisualElement();
-                btn.AddToClassList("class-btn");
+                btn.AddToClassList("class-button");
 
                 var icon = new VisualElement();
-                icon.AddToClassList("class-btn-icon");
+                icon.AddToClassList("class-icon-small");
                 if (clase.iconoClase != null)
                     icon.style.backgroundImage = new StyleBackground(clase.iconoClase);
 
@@ -167,9 +170,9 @@ namespace CharacterSelection
             // Actualizar selección visual
             foreach (var child in _classList.contentContainer.Children())
             {
-                child.RemoveFromClassList("class-btn-selected");
+                child.RemoveFromClassList("class-button--selected");
             }
-            clickedBtn.AddToClassList("class-btn-selected");
+            clickedBtn.AddToClassList("class-button--selected");
 
             // Actualizar preview
             UpdatePreview(clase);
@@ -205,8 +208,21 @@ namespace CharacterSelection
                 {
                     if (hab == null) continue;
                     var tag = new Label(hab.nombreHabilidad);
-                    tag.AddToClassList("ability-tag");
+                    tag.AddToClassList("ability-chip");
                     _abilitiesList.Add(tag);
+                }
+            }
+
+            // Pasivas iniciales
+            _pasivasList.Clear();
+            if (clase.pasivasIniciales != null)
+            {
+                foreach (var pasiva in clase.pasivasIniciales)
+                {
+                    if (pasiva == null) continue;
+                    var tag = new Label(pasiva.nombrePasiva);
+                    tag.AddToClassList("passive-chip");
+                    _pasivasList.Add(tag);
                 }
             }
 
@@ -278,12 +294,12 @@ namespace CharacterSelection
         private VisualElement CreatePartySlot(CharacterCreationData data, int index)
         {
             var slot = new VisualElement();
-            slot.AddToClassList("party-slot");
+            slot.AddToClassList("party-card");
             if (data.esMain) slot.AddToClassList("party-slot-main");
 
             // Icono
             var icon = new VisualElement();
-            icon.AddToClassList("party-slot-icon");
+            icon.AddToClassList("party-avatar");
             if (data.clase?.iconoClase != null)
                 icon.style.backgroundImage = new StyleBackground(data.clase.iconoClase);
             slot.Add(icon);
@@ -293,11 +309,11 @@ namespace CharacterSelection
             info.AddToClassList("party-slot-info");
 
             var nombre = new Label(data.nombre);
-            nombre.AddToClassList("party-slot-name");
+            nombre.AddToClassList("party-char-name");
             info.Add(nombre);
 
             var clase = new Label(data.clase?.nombreClase ?? "???");
-            clase.AddToClassList("party-slot-class");
+            clase.AddToClassList("party-char-class");
             info.Add(clase);
 
             if (data.esMain)
