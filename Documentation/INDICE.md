@@ -68,17 +68,8 @@
 | # | Documento | Descripción |
 |---|-----------|-------------|
 | 11 | [UI_Reactiva](11_UI_Reactiva.md) | Sistema de UI reactiva |
-| 20 | [UI](20_UI.md) | Sistemas de UI general |
-
-### Selección de Personaje (UI Toolkit)
-| Archivo | Ubicación | Descripción |
-|---------|-----------|-------------|
-| `CharacterSelectionConfig.cs` | Scripts/CharacterSelection/ | SO con clases, prefab, límites |
-| `CharacterSelectionManager.cs` | Scripts/CharacterSelection/ | Lógica de creación y transición |
-| `CharacterSelectionUI.cs` | Scripts/CharacterSelection/ | Controlador UI Toolkit |
-| `CharacterSelectionBootstrap.cs` | Scripts/CharacterSelection/ | Setup de escena |
-| `CharacterSelection.uxml` | UI_Toolkit/ | Layout UXML |
-| `CharacterSelection.uss` | UI_Toolkit/ | Estilos USS |
+| 20 | [UI](20_UI.md) | UI de combate: HUD, CombatUIController, TargetSelector |
+| **33** | [**CharacterSelection_UI**](33_CharacterSelection_UI.md) | **Pantalla de selección de personaje + creación de party (UI Toolkit)** ⭐ |
 
 ---
 
