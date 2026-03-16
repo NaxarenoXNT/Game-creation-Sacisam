@@ -49,19 +49,17 @@ using System.Collections.Generic;
       [Tooltip("Máximo de habilidades pasivas equipadas (0 = sin límite)")]
       public int limitePasivas = 4;
 
+      [Header("Inicio")]
+      [Tooltip("ID de ubicación de spawn inicial (no implementado aún)")]
+      public string ubicacionInicialId;
+
       [Header("Módulos de Evolución Iniciales")]
       [Tooltip("Módulos de comportamiento activos desde el inicio. Útil para NPCs que arrancan ya evolucionados.")]
       public List<ModuloClaseSO> modulosIniciales = new List<ModuloClaseSO>();
       
       public Jugador CrearInstancia()
       {
-          Jugador instancia = nombreClase switch
-          {
-              "Guerrero" => new Guerrero(this),
-              "Mago"     => new Mago(this),
-              "Arquero"  => new Arquero(this),
-              _          => throw new System.Exception($"Clase {nombreClase} no implementada")
-          };
+          Jugador instancia = JugadorFactory.Crear(this);
 
           // Aplicar módulos iniciales (para NPCs o personajes que arrancan ya evolucionados)
           if (modulosIniciales != null)
