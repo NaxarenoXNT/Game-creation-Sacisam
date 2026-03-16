@@ -43,6 +43,7 @@ namespace GameFlow
                 return;
             }
             _instance = this;
+            DontDestroyOnLoad(gameObject);
         }
 
         private void Start()
@@ -51,11 +52,19 @@ namespace GameFlow
             EventBus.Suscribir<EventoEncounterIniciado>(OnEncounterStarted);
             EventBus.Suscribir<EventoCombateFinalizado>(OnCombatFinished);
 
-            // Estado inicial: Exploración
+            // Estado inicial según partida guardada
             if (_stateStack.Count == 0)
             {
-                PushInternal(new ExplorationFlowState(), skipValidation: true);
-                Debug.Log("[GameFlow] Estado inicial: Exploration");
+                if (SaveSystem.ExisteGuardado("autosave"))
+                {
+                    PushInternal(new ExplorationFlowState(), skipValidation: true);
+                    Debug.Log("[GameFlow] Estado inicial: Exploration (partida existente)");
+                }
+                else
+                {
+                    PushInternal(new CharacterSelectionFlowState(), skipValidation: true);
+                    Debug.Log("[GameFlow] Estado inicial: CharacterSelection (nueva partida)");
+                }
             }
         }
 
