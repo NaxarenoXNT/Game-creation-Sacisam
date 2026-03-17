@@ -1084,15 +1084,15 @@ public class WorldGeneratorPro : EditorWindow
         // Aplicar plantilla de spawns si está asignada
         if (spawnTemplate != null)
         {
-            data.enemySpawns = spawnTemplate.GenerateSpawnConfigs(new Vector2Int(x, y), ChunkSize);
+            data.enemySpawnConfigs = spawnTemplate.GenerateSpawnConfigs(new Vector2Int(x, y), ChunkSize);
             EditorUtility.SetDirty(data); // Marcar como modificado
         }
         else
         {
             // Sin plantilla, asegurar que la lista existe pero está vacía
-            if (data.enemySpawns == null)
+            if (data.enemySpawnConfigs == null)
             {
-                data.enemySpawns = new List<EnemySpawnConfig>();
+                data.enemySpawnConfigs = new List<EnemySpawnConfig>();
             }
         }
     }

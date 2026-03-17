@@ -196,21 +196,12 @@ namespace World.ChunkSystem.Editor
         
         private void AutoLoadChunksInLoader(ChunkLoader loader)
         {
-            // Usar reflexión para llamar al método
-            var method = typeof(ChunkLoader).GetMethod("AutoLoadFromResources");
-            if (method != null)
-            {
-                method.Invoke(loader, null);
-                
-                repairLog = "✅ Chunks auto-cargados en el ChunkLoader\n";
-                repairLog += "   Revisa el Inspector del ChunkLoader para ver los chunks detectados\n";
-                
-                Debug.Log("✅ Chunks auto-cargados en ChunkLoader");
-            }
-            else
-            {
-                repairLog = "❌ Error: No se pudo ejecutar AutoLoadFromResources\n";
-            }
+            loader.LoadAllChunks();
+            
+            repairLog = "✅ Chunks auto-cargados en el ChunkLoader\n";
+            repairLog += "   Revisa el Inspector del ChunkLoader para ver los chunks detectados\n";
+            
+            Debug.Log("✅ Chunks auto-cargados en ChunkLoader");
         }
         
         private void DrawValidateSpawnsSection()
@@ -249,9 +240,9 @@ namespace World.ChunkSystem.Editor
             {
                 int chunkProblems = 0;
                 
-                for (int i = 0; i < chunk.enemySpawns.Count; i++)
+                for (int i = 0; i < chunk.enemySpawnConfigs.Count; i++)
                 {
-                    var spawn = chunk.enemySpawns[i];
+                    var spawn = chunk.enemySpawnConfigs[i];
                     
                     // Problema 1: Sin EnemyData
                     if (spawn.enemyData == null)
@@ -349,9 +340,9 @@ namespace World.ChunkSystem.Editor
                 
                 if (chunk != null)
                 {
-                    int beforeCount = chunk.enemySpawns.Count;
-                    chunk.enemySpawns.RemoveAll(spawn => spawn.enemyData == null);
-                    int afterCount = chunk.enemySpawns.Count;
+                    int beforeCount = chunk.enemySpawnConfigs.Count;
+                    chunk.enemySpawnConfigs.RemoveAll(spawn => spawn.enemyData == null);
+                    int afterCount = chunk.enemySpawnConfigs.Count;
                     
                     if (beforeCount != afterCount)
                     {
@@ -389,15 +380,15 @@ namespace World.ChunkSystem.Editor
                 {
                     bool modified = false;
                     
-                    for (int i = 0; i < chunk.enemySpawns.Count; i++)
+                    for (int i = 0; i < chunk.enemySpawnConfigs.Count; i++)
                     {
-                        var spawn = chunk.enemySpawns[i];
+                        var spawn = chunk.enemySpawnConfigs[i];
                         
                         if (float.IsNaN(spawn.spawnRotation.x) || float.IsNaN(spawn.spawnRotation.y) || 
                             float.IsNaN(spawn.spawnRotation.z) || float.IsNaN(spawn.spawnRotation.w))
                         {
                             spawn.spawnRotation = Quaternion.identity;
-                            chunk.enemySpawns[i] = spawn;
+                            chunk.enemySpawnConfigs[i] = spawn;
                             totalFixed++;
                             modified = true;
                         }

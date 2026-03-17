@@ -88,9 +88,9 @@ namespace World.ChunkSystem.Editor
             DrawChunkGrid(chunkWorldPos, chunkSize);
             
             // Dibujar spawns
-            for (int i = 0; i < chunk.enemySpawns.Count; i++)
+            for (int i = 0; i < chunk.enemySpawnConfigs.Count; i++)
             {
-                DrawSpawn(chunk.enemySpawns[i], i);
+                DrawSpawn(chunk.enemySpawnConfigs[i], i);
             }
             
             // Manejar interacción según el modo (pasar controlId)
@@ -105,11 +105,11 @@ namespace World.ChunkSystem.Editor
         /// </summary>
         private void ValidateAllSpawns()
         {
-            if (chunk == null || chunk.enemySpawns == null) return;
+            if (chunk == null || chunk.enemySpawnConfigs == null) return;
             
             bool needsSave = false;
             
-            foreach (var spawn in chunk.enemySpawns)
+            foreach (var spawn in chunk.enemySpawnConfigs)
             {
                 // Validar quaternion
                 if (float.IsNaN(spawn.spawnRotation.x) || spawn.spawnRotation == new Quaternion(0, 0, 0, 0))
@@ -134,7 +134,7 @@ namespace World.ChunkSystem.Editor
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
             EditorGUILayout.LabelField($"📦 Chunk Editor - {chunk.name}", EditorStyles.largeLabel);
             EditorGUILayout.LabelField($"Coordenadas: ({chunk.coordinates.x}, {chunk.coordinates.y})", EditorStyles.miniLabel);
-            EditorGUILayout.LabelField($"Enemigos: {chunk.enemySpawns.Count}", EditorStyles.miniLabel);
+            EditorGUILayout.LabelField($"Enemigos: {chunk.enemySpawnConfigs.Count}", EditorStyles.miniLabel);
             EditorGUILayout.EndVertical();
             
             EditorGUILayout.Space(10);
@@ -241,9 +241,9 @@ namespace World.ChunkSystem.Editor
             
             if (waypointMode)
             {
-                if (selectedSpawnIndex >= 0 && selectedSpawnIndex < chunk.enemySpawns.Count)
+                if (selectedSpawnIndex >= 0 && selectedSpawnIndex < chunk.enemySpawnConfigs.Count)
                 {
-                    var spawn = chunk.enemySpawns[selectedSpawnIndex];
+                    var spawn = chunk.enemySpawnConfigs[selectedSpawnIndex];
                     string enemyName = spawn.enemyData?.nombreEnemigo ?? "Sin asignar";
                     
                     EditorGUILayout.HelpBox($"✅ Editando waypoints de: #{selectedSpawnIndex} ({enemyName})\nClick en Scene View para agregar waypoints", MessageType.Info);
@@ -338,7 +338,7 @@ namespace World.ChunkSystem.Editor
             {
                 if (EditorUtility.DisplayDialog("Confirmar", "¿Borrar todos los spawns?", "Sí", "No"))
                 {
-                    chunk.enemySpawns.Clear();
+                    chunk.enemySpawnConfigs.Clear();
                     selectedSpawnIndex = -1;
                     EditorUtility.SetDirty(chunk);
                 }
@@ -349,17 +349,17 @@ namespace World.ChunkSystem.Editor
         
         private void DrawSpawnListSection()
         {
-            EditorGUILayout.LabelField($"📋 Lista de Enemigos ({chunk.enemySpawns.Count})", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField($"📋 Lista de Enemigos ({chunk.enemySpawnConfigs.Count})", EditorStyles.boldLabel);
             
-            if (chunk.enemySpawns.Count == 0)
+            if (chunk.enemySpawnConfigs.Count == 0)
             {
                 EditorGUILayout.HelpBox("No hay enemigos. Usa el Modo Pintar para agregar.", MessageType.Info);
                 return;
             }
             
-            for (int i = 0; i < chunk.enemySpawns.Count; i++)
+            for (int i = 0; i < chunk.enemySpawnConfigs.Count; i++)
             {
-                var spawn = chunk.enemySpawns[i];
+                var spawn = chunk.enemySpawnConfigs[i];
                 
                 EditorGUILayout.BeginVertical(EditorStyles.helpBox);
                 
@@ -382,7 +382,7 @@ namespace World.ChunkSystem.Editor
                 GUI.backgroundColor = new Color(1f, 0.5f, 0.5f);
                 if (GUILayout.Button("X", GUILayout.Width(30)))
                 {
-                    chunk.enemySpawns.RemoveAt(i);
+                    chunk.enemySpawnConfigs.RemoveAt(i);
                     if (selectedSpawnIndex == i) selectedSpawnIndex = -1;
                     else if (selectedSpawnIndex > i) selectedSpawnIndex--;
                     EditorUtility.SetDirty(chunk);
@@ -696,7 +696,7 @@ namespace World.ChunkSystem.Editor
             
             var newSpawn = new EnemySpawnConfig
             {
-                spawnId = $"{chunk.name}_spawn_{chunk.enemySpawns.Count}",
+                spawnId = $"{chunk.name}_spawn_{chunk.enemySpawnConfigs.Count}",
                 enemyData = paintEnemyData,
                 spawnPosition = position,
                 spawnRotation = rotation,
@@ -711,7 +711,7 @@ namespace World.ChunkSystem.Editor
             }
             
             Undo.RecordObject(chunk, "Paint Enemy");
-            chunk.enemySpawns.Add(newSpawn);
+            chunk.enemySpawnConfigs.Add(newSpawn);
             EditorUtility.SetDirty(chunk);
             SceneView.RepaintAll();
             Repaint();
@@ -721,7 +721,7 @@ namespace World.ChunkSystem.Editor
         
         private void HandleWaypointClick(Vector3 position)
         {
-            if (selectedSpawnIndex < 0 || selectedSpawnIndex >= chunk.enemySpawns.Count)
+            if (selectedSpawnIndex < 0 || selectedSpawnIndex >= chunk.enemySpawnConfigs.Count)
             {
                 EditorUtility.DisplayDialog("⚠️ Sin selección", 
                     "Primero selecciona un enemigo de la lista en el Inspector.\n\n" +
@@ -732,7 +732,7 @@ namespace World.ChunkSystem.Editor
                 return;
             }
             
-            var spawn = chunk.enemySpawns[selectedSpawnIndex];
+            var spawn = chunk.enemySpawnConfigs[selectedSpawnIndex];
             
             Undo.RecordObject(chunk, "Add Waypoint");
             spawn.patrolWaypoints.Add(position);
@@ -749,9 +749,9 @@ namespace World.ChunkSystem.Editor
             int closestIndex = -1;
             float closestDist = float.MaxValue;
             
-            for (int i = 0; i < chunk.enemySpawns.Count; i++)
+            for (int i = 0; i < chunk.enemySpawnConfigs.Count; i++)
             {
-                float dist = Vector3.Distance(clickPosition, chunk.enemySpawns[i].spawnPosition);
+                float dist = Vector3.Distance(clickPosition, chunk.enemySpawnConfigs[i].spawnPosition);
                 if (dist < 2f && dist < closestDist) // Radio de 2 metros
                 {
                     closestDist = dist;
@@ -761,10 +761,10 @@ namespace World.ChunkSystem.Editor
             
             if (closestIndex >= 0)
             {
-                string enemyName = chunk.enemySpawns[closestIndex].enemyData?.nombreEnemigo ?? "Spawn";
+                string enemyName = chunk.enemySpawnConfigs[closestIndex].enemyData?.nombreEnemigo ?? "Spawn";
                 
                 Undo.RecordObject(chunk, "Delete Spawn");
-                chunk.enemySpawns.RemoveAt(closestIndex);
+                chunk.enemySpawnConfigs.RemoveAt(closestIndex);
                 
                 if (selectedSpawnIndex == closestIndex)
                     selectedSpawnIndex = -1;
@@ -784,9 +784,9 @@ namespace World.ChunkSystem.Editor
             int closestIndex = -1;
             float closestDist = float.MaxValue;
             
-            for (int i = 0; i < chunk.enemySpawns.Count; i++)
+            for (int i = 0; i < chunk.enemySpawnConfigs.Count; i++)
             {
-                float dist = Vector3.Distance(clickPosition, chunk.enemySpawns[i].spawnPosition);
+                float dist = Vector3.Distance(clickPosition, chunk.enemySpawnConfigs[i].spawnPosition);
                 if (dist < 2f && dist < closestDist)
                 {
                     closestDist = dist;
@@ -824,9 +824,9 @@ namespace World.ChunkSystem.Editor
             else if (waypointMode)
             {
                 GUILayout.Label("🗺️ MODO WAYPOINT", titleStyle);
-                if (selectedSpawnIndex >= 0 && selectedSpawnIndex < chunk.enemySpawns.Count)
+                if (selectedSpawnIndex >= 0 && selectedSpawnIndex < chunk.enemySpawnConfigs.Count)
                 {
-                    var spawn = chunk.enemySpawns[selectedSpawnIndex];
+                    var spawn = chunk.enemySpawnConfigs[selectedSpawnIndex];
                     string enemyName = spawn.enemyData?.nombreEnemigo ?? "Spawn";
                     GUILayout.Label("Click para agregar waypoints", infoStyle);
                     GUILayout.Label($"Editando: #{selectedSpawnIndex} ({enemyName})", infoStyle);
@@ -845,7 +845,7 @@ namespace World.ChunkSystem.Editor
             }
             else
             {
-                GUILayout.Label($"Enemigos: {chunk.enemySpawns.Count}", infoStyle);
+                GUILayout.Label($"Enemigos: {chunk.enemySpawnConfigs.Count}", infoStyle);
                 if (selectedSpawnIndex >= 0)
                     GUILayout.Label($"Seleccionado: #{selectedSpawnIndex}", infoStyle);
             }
@@ -869,12 +869,12 @@ namespace World.ChunkSystem.Editor
             
             var newSpawn = new EnemySpawnConfig
             {
-                spawnId = $"{chunk.name}_spawn_{chunk.enemySpawns.Count}",
+                spawnId = $"{chunk.name}_spawn_{chunk.enemySpawnConfigs.Count}",
                 spawnPosition = go.transform.position,
                 spawnRotation = go.transform.rotation
             };
             
-            chunk.enemySpawns.Add(newSpawn);
+            chunk.enemySpawnConfigs.Add(newSpawn);
             EditorUtility.SetDirty(chunk);
             
             Debug.Log($"✅ Spawn creado en {go.transform.position}");
@@ -897,7 +897,7 @@ namespace World.ChunkSystem.Editor
         
         private void AutoPositionSpawns()
         {
-            if (chunk.enemySpawns.Count == 0)
+            if (chunk.enemySpawnConfigs.Count == 0)
             {
                 EditorUtility.DisplayDialog("Error", "No hay spawns para posicionar", "OK");
                 return;
@@ -909,11 +909,11 @@ namespace World.ChunkSystem.Editor
                 chunk.coordinates.y * 256 + 128
             );
             
-            int gridSize = Mathf.CeilToInt(Mathf.Sqrt(chunk.enemySpawns.Count));
+            int gridSize = Mathf.CeilToInt(Mathf.Sqrt(chunk.enemySpawnConfigs.Count));
             float cellSize = 220f / gridSize; // 220m usable area
             float startOffset = -110f; // Start from corner
             
-            for (int i = 0; i < chunk.enemySpawns.Count; i++)
+            for (int i = 0; i < chunk.enemySpawnConfigs.Count; i++)
             {
                 int x = i % gridSize;
                 int y = i / gridSize;
@@ -924,16 +924,16 @@ namespace World.ChunkSystem.Editor
                     startOffset + y * cellSize + cellSize / 2
                 );
                 
-                chunk.enemySpawns[i].spawnPosition = position;
+                chunk.enemySpawnConfigs[i].spawnPosition = position;
             }
             
             EditorUtility.SetDirty(chunk);
-            Debug.Log($"✅ {chunk.enemySpawns.Count} spawns posicionados en grid");
+            Debug.Log($"✅ {chunk.enemySpawnConfigs.Count} spawns posicionados en grid");
         }
         
         private void AutoPositionCircle()
         {
-            if (chunk.enemySpawns.Count == 0)
+            if (chunk.enemySpawnConfigs.Count == 0)
             {
                 EditorUtility.DisplayDialog("Error", "No hay spawns para posicionar", "OK");
                 return;
@@ -946,9 +946,9 @@ namespace World.ChunkSystem.Editor
             );
             
             float radius = 90f;
-            float angleStep = 360f / chunk.enemySpawns.Count;
+            float angleStep = 360f / chunk.enemySpawnConfigs.Count;
             
-            for (int i = 0; i < chunk.enemySpawns.Count; i++)
+            for (int i = 0; i < chunk.enemySpawnConfigs.Count; i++)
             {
                 float angle = i * angleStep * Mathf.Deg2Rad;
                 Vector3 offset = new Vector3(
@@ -956,17 +956,17 @@ namespace World.ChunkSystem.Editor
                     0,
                     Mathf.Sin(angle) * radius
                 );
-                chunk.enemySpawns[i].spawnPosition = chunkCenter + offset;
-                chunk.enemySpawns[i].spawnRotation = Quaternion.LookRotation(offset.normalized);
+                chunk.enemySpawnConfigs[i].spawnPosition = chunkCenter + offset;
+                chunk.enemySpawnConfigs[i].spawnRotation = Quaternion.LookRotation(offset.normalized);
             }
             
             EditorUtility.SetDirty(chunk);
-            Debug.Log($"✅ {chunk.enemySpawns.Count} spawns posicionados en círculo");
+            Debug.Log($"✅ {chunk.enemySpawnConfigs.Count} spawns posicionados en círculo");
         }
         
         private void AutoPositionLine()
         {
-            if (chunk.enemySpawns.Count == 0)
+            if (chunk.enemySpawnConfigs.Count == 0)
             {
                 EditorUtility.DisplayDialog("Error", "No hay spawns para posicionar", "OK");
                 return;
@@ -978,28 +978,28 @@ namespace World.ChunkSystem.Editor
                 chunk.coordinates.y * 256 + 128
             );
             
-            float spacing = 220f / Mathf.Max(1, chunk.enemySpawns.Count - 1);
+            float spacing = 220f / Mathf.Max(1, chunk.enemySpawnConfigs.Count - 1);
             
-            for (int i = 0; i < chunk.enemySpawns.Count; i++)
+            for (int i = 0; i < chunk.enemySpawnConfigs.Count; i++)
             {
-                chunk.enemySpawns[i].spawnPosition = chunkStart + new Vector3(spacing * i, 0, 0);
-                chunk.enemySpawns[i].spawnRotation = Quaternion.Euler(0, 90, 0);
+                chunk.enemySpawnConfigs[i].spawnPosition = chunkStart + new Vector3(spacing * i, 0, 0);
+                chunk.enemySpawnConfigs[i].spawnRotation = Quaternion.Euler(0, 90, 0);
             }
             
             EditorUtility.SetDirty(chunk);
-            Debug.Log($"✅ {chunk.enemySpawns.Count} spawns posicionados en línea");
+            Debug.Log($"✅ {chunk.enemySpawnConfigs.Count} spawns posicionados en línea");
         }
         
         private void AutoGenerateAllWaypoints()
         {
-            if (chunk.enemySpawns.Count == 0)
+            if (chunk.enemySpawnConfigs.Count == 0)
             {
                 EditorUtility.DisplayDialog("Error", "No hay spawns", "OK");
                 return;
             }
             
             int count = 0;
-            foreach (var spawn in chunk.enemySpawns)
+            foreach (var spawn in chunk.enemySpawnConfigs)
             {
                 if (spawn.initialAIState == EnemyAIState.Patrolling || spawn.initialAIState == EnemyAIState.Idle)
                 {

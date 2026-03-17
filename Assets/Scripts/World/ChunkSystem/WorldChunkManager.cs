@@ -2,14 +2,16 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Managers;
-using World.BiomeSystem;
 
 namespace World.ChunkSystem
 {
     /// <summary>
     /// Manager central del sistema de chunks.
-    /// Gestiona carga/descarga de chunks y spawning de enemigos.
-    /// Se integra con DynamicEnemyPoolManager para obtener controllers.
+    /// Orquesta carga/descarga de chunks delegando a sub-módulos especializados:
+    /// - ChunkTerrainLoader: terreno dinámico
+    /// - ChunkEnemySpawner: spawning/despawning de enemigos
+    /// - ChunkProceduralDecorator: decoración procedural por bioma
+    /// - ChunkPropsManager: props con identidad (edificios, cofres, NPCs)
     /// </summary>
     public class WorldChunkManager : MonoBehaviour
     {
@@ -61,10 +63,15 @@ namespace World.ChunkSystem
         [SerializeField] private bool showDebugGizmos = true;
         [SerializeField] private bool showDebugLogs = true;
         
+        // Sub-módulos
+        private ChunkTerrainLoader terrainLoader;
+        private ChunkEnemySpawner enemySpawner;
+        private ChunkProceduralDecorator proceduralDecorator;
+        private ChunkPropsManager propsManager;
+        
         // Estado interno
         private Dictionary<Vector2Int, ChunkData> chunks = new Dictionary<Vector2Int, ChunkData>();
         private HashSet<Vector2Int> loadedChunks = new HashSet<Vector2Int>();
-        private HashSet<Vector2Int> noTerrainChunks = new HashSet<Vector2Int>(); // chunks sin TerrainData, para no repetir warning
         private Vector2Int currentPlayerChunk;
         private Vector2Int lastPlayerChunk;
         private float lastUpdateTime;
@@ -125,6 +132,12 @@ namespace World.ChunkSystem
             {
                 enemyPoolManager = DynamicEnemyPoolManager.Instance;
             }
+            
+            // Inicializar sub-módulos
+            terrainLoader = new ChunkTerrainLoader();
+            enemySpawner = new ChunkEnemySpawner(enemyPoolManager, WorldToChunkCoords);
+            proceduralDecorator = new ChunkProceduralDecorator();
+            propsManager = new ChunkPropsManager();
             
             // Auto-cargar ChunkDataAssets desde Resources/World/Chunks/
             AutoLoadChunkAssets();
@@ -246,6 +259,8 @@ namespace World.ChunkSystem
             }
         }
         
+        // ─── Ciclo de Vida de Chunks ──────────────────────────────────────────────
+        
         /// <summary>
         /// Actualiza chunks según posición del jugador.
         /// </summary>
@@ -309,7 +324,7 @@ namespace World.ChunkSystem
         }
         
         /// <summary>
-        /// Carga un chunk (spawnea enemigos).
+        /// Carga un chunk: terreno, props, decoración y enemigos.
         /// </summary>
         private void LoadChunk(Vector2Int coords)
         {
@@ -337,19 +352,27 @@ namespace World.ChunkSystem
             
             // Paso 0: Terreno dinámico
             if (loadTerrainDynamically)
-                LoadTerrainForChunk(chunkData);
+                terrainLoader.LoadTerrainForChunk(chunkData, chunkSize, showDebugLogs);
             
             // Crear contenedor de props para este chunk
-            EnsurePropsRoot(chunkData);
+            propsManager.EnsurePropsRoot(chunkData);
             
             // Paso 1: Props con identidad (manuales)
-            SpawnNamedProps(chunkData);
+            propsManager.SpawnNamedProps(chunkData, showDebugLogs);
             
             // Paso 2: Decoración procedural (vegetación, rocas)
-            StartCoroutine(SpawnProceduralDecorationCoroutine(chunkData));
+            var decorConfig = new ProceduralDecorationConfig
+            {
+                chunkSize = chunkSize,
+                maxDecorativePropsPerChunk = maxDecorativePropsPerChunk,
+                proceduralPlacementAttempts = proceduralPlacementAttempts,
+                maxPropsPerFrame = maxPropsPerFrame,
+                showDebugLogs = showDebugLogs
+            };
+            StartCoroutine(proceduralDecorator.SpawnProceduralDecorationCoroutine(chunkData, decorConfig));
             
             // Paso 3: Enemigos
-            StartCoroutine(SpawnEnemiesCoroutine(chunkData));
+            StartCoroutine(enemySpawner.SpawnEnemiesCoroutine(chunkData, maxSpawnsPerFrame, showDebugLogs));
             
             chunkData.isLoaded = true;
             chunkData.lastLoadTime = Time.time;
@@ -374,20 +397,13 @@ namespace World.ChunkSystem
             
             // Destruir terreno del chunk
             if (loadTerrainDynamically)
-                UnloadTerrainForChunk(chunkData);
+                terrainLoader.UnloadTerrainForChunk(chunkData, showDebugLogs);
             
             // Destruir props del chunk
-            UnloadProps(chunkData);
+            propsManager.UnloadProps(chunkData);
             
             // Devolver enemigos al pool (solo los que están vivos)
-            var enemiesToReturn = new List<EnemyController>(chunkData.activeEnemies);
-            foreach (var enemy in enemiesToReturn)
-            {
-                if (enemy != null && enemy.EstaVivo() && enemyPoolManager != null)
-                {
-                    enemyPoolManager.DevolverController(enemy, enemy.DatosEnemigo);
-                }
-            }
+            enemySpawner.ReturnEnemiesToPool(chunkData);
             
             chunkData.ClearActiveReferences();
             chunkData.isLoaded = false;
@@ -395,136 +411,7 @@ namespace World.ChunkSystem
             loadedChunks.Remove(coords);
         }
         
-        /// <summary>
-        /// Spawnea enemigos de un chunk de forma escalonada.
-        /// </summary>
-        private System.Collections.IEnumerator SpawnEnemiesCoroutine(ChunkData chunk)
-        {
-            if (enemyPoolManager == null)
-            {
-                Debug.LogError("❌ DynamicEnemyPoolManager no está asignado");
-                yield break;
-            }
-            
-            var spawnableConfigs = chunk.GetSpawnableConfigs();
-            
-            if (showDebugLogs)
-            {
-                Debug.Log($"📋 Chunk {chunk.coordinates}: {spawnableConfigs.Count} configs spawneables de {chunk.enemySpawnConfigs.Count} totales");
-            }
-            
-            if (spawnableConfigs.Count == 0)
-            {
-                if (showDebugLogs && chunk.enemySpawnConfigs.Count > 0)
-                {
-                    Debug.LogWarning($"⚠️ Chunk {chunk.coordinates} tiene {chunk.enemySpawnConfigs.Count} configs pero 0 spawneables. " +
-                                    "¿Están todos derrotados o mal configurados?");
-                }
-                yield break;
-            }
-            
-            int spawned = 0;
-            
-            foreach (var config in spawnableConfigs)
-            {
-                // Spawnear enemigo
-                var controller = SpawnEnemy(config);
-                
-                if (controller != null)
-                {
-                    chunk.activeEnemies.Add(controller);
-                    spawned++;
-                    
-                    // Limitar spawns por frame
-                    if (spawned % maxSpawnsPerFrame == 0)
-                    {
-                        yield return null;
-                    }
-                }
-            }
-            
-            if (showDebugLogs)
-            {
-                Debug.Log($"✅ Chunk {chunk.coordinates}: {spawned}/{spawnableConfigs.Count} enemigos spawneados correctamente");
-            }
-        }
-        
-        /// <summary>
-        /// Spawnea un enemigo individual desde configuración.
-        /// </summary>
-        private EnemyController SpawnEnemy(EnemySpawnConfig config)
-        {
-            if (config.enemyData == null)
-            {
-                Debug.LogWarning($"⚠️ EnemySpawnConfig sin EnemigoData: {config.spawnId}");
-                return null;
-            }
-            
-            // Obtener controller del pool
-            var controller = enemyPoolManager.ObtenerController(config.enemyData);
-            
-            if (controller == null)
-            {
-                Debug.LogError($"❌ No se pudo obtener controller para {config.enemyData.name}");
-                return null;
-            }
-            
-            // Configurar posición y rotación
-            controller.transform.position = config.spawnPosition;
-            controller.transform.rotation = config.spawnRotation;
-            
-            // ✅ INICIALIZAR CON DATOS DEL ENEMIGO, CHUNK Y SPAWN CONFIG
-            var chunkCoords = WorldToChunkCoords(config.spawnPosition);
-            controller.InicializarDesdeChunk(config.enemyData, config.spawnId, chunkCoords, config);
-            
-            // Guardar referencia en el config
-            config.activeController = controller;
-            
-            // Activar
-            controller.gameObject.SetActive(true);
-            
-            // ✅ Sistema de IA implementado - el FSM se inicializa automáticamente en InicializarDesdeChunk
-            
-            return controller;
-        }
-        
-        /// <summary>
-        /// Aplica la configuración de IA del EnemySpawnConfig al controller.
-        /// TODO: Implementar cuando tengas el sistema de IA.
-        /// </summary>
-        private void ApplyAIConfiguration(EnemyController controller, EnemySpawnConfig config)
-        {
-            // Ejemplo de lo que podrías hacer:
-            
-            // 1. Configurar estado inicial de IA
-            // controller.SetAIState(config.initialAIState);
-            
-            // 2. Configurar patrulla si tiene waypoints
-            // if (config.patrolWaypoints.Count > 0)
-            // {
-            //     controller.SetPatrolRoute(config.patrolWaypoints, config.patrolBehavior);
-            //     controller.SetPatrolSpeed(config.patrolSpeed > 0 ? config.patrolSpeed : controller.DefaultSpeed);
-            //     controller.SetWaypointWaitTime(config.waypointWaitTime);
-            // }
-            
-            // 3. Configurar radios de detección
-            // if (config.detectionRadius > 0)
-            //     controller.SetDetectionRadius(config.detectionRadius);
-            // if (config.chaseRadius > 0)
-            //     controller.SetChaseRadius(config.chaseRadius);
-            
-            // 4. Aplicar tags personalizados
-            // foreach (var tag in config.customTags)
-            // {
-            //     controller.AddTag(tag);
-            // }
-            
-            // 5. Aplicar datos personalizados
-            // foreach (var data in config.customData)
-            // {
-            //     controller.SetCustomData(data.key, data.value);
-            // }
-        }
+        // ─── Coordenadas ──────────────────────────────────────────────────────────
         
         /// <summary>
         /// Convierte coordenadas del mundo a coordenadas de chunk.
@@ -545,6 +432,8 @@ namespace World.ChunkSystem
             float z = (chunkCoords.y + 0.5f) * chunkSize;
             return new Vector3(x, 0, z);
         }
+        
+        // ─── Registro de Chunks ───────────────────────────────────────────────────
         
         /// <summary>
         /// Registra un chunk con configuración de enemigos.
@@ -590,6 +479,30 @@ namespace World.ChunkSystem
         }
         
         /// <summary>
+        /// Marca un enemigo único como derrotado buscando en todos los chunks.
+        /// Útil para bosses identificados por uniqueId.
+        /// </summary>
+        public bool MarcarUnicoDerrotado(string uniqueId)
+        {
+            foreach (var chunk in chunks.Values)
+            {
+                var config = chunk.enemySpawnConfigs.Find(c => c.uniqueId == uniqueId);
+                if (config != null)
+                {
+                    config.isDefeated = true;
+                    if (showDebugLogs)
+                        Debug.Log($"✅ Único '{uniqueId}' marcado como derrotado en chunk {chunk.coordinates}");
+                    return true;
+                }
+            }
+            
+            Debug.LogWarning($"⚠️ Enemigo único '{uniqueId}' no encontrado en ningún chunk");
+            return false;
+        }
+        
+        // ─── Gestión Global ───────────────────────────────────────────────────────
+        
+        /// <summary>
         /// Fuerza recarga de todos los chunks activos.
         /// </summary>
         public void ReloadAllChunks()
@@ -621,432 +534,7 @@ namespace World.ChunkSystem
             Debug.Log($"🧹 Todos los chunks descargados: {chunksToUnload.Count}");
         }
         
-        // ─── Decoración Procedural ─────────────────────────────────────────────────
-        
-        /// <summary>
-        /// Genera decoración procedural determinística en el chunk.
-        /// Mismas coordenadas → misma semilla → mismos objetos siempre.
-        /// Requiere WorldBiomeMap en la escena. Si no existe, no genera nada.
-        /// </summary>
-        private System.Collections.IEnumerator SpawnProceduralDecorationCoroutine(ChunkData chunk)
-        {
-            if (WorldBiomeMap.Instance == null)
-            {
-                if (showDebugLogs)
-                    Debug.LogWarning("⚠️ WorldBiomeMap.Instance es null. No se genera decoración procedural.");
-                yield break;
-            }
-            
-            EnsurePropsRoot(chunk);
-            
-            // Semilla determinística basada en coordenadas del chunk
-            int seed = chunk.coordinates.x * 73856093 ^ chunk.coordinates.y * 19349663;
-            var rng = new System.Random(seed);
-            
-            // Origen = esquina SW del chunk
-            Vector3 chunkCenter = ChunkToWorldPos(chunk.coordinates);
-            Vector3 origin = chunkCenter - new Vector3(chunkSize * 0.5f, 0, chunkSize * 0.5f);
-            
-            int placedCount = 0;
-            int spawnedThisFrame = 0;
-
-            // Lista plana de posiciones XZ ya colocadas — O(1) acceso, sin overhead de Transform.
-            // Pre-alocar al máximo esperado para evitar re-allocations.
-            var placedPositions = new List<Vector2>(maxDecorativePropsPerChunk);
-            
-            for (int attempt = 0; attempt < proceduralPlacementAttempts; attempt++)
-            {
-                if (placedCount >= maxDecorativePropsPerChunk) break;
-                
-                // Posición candidata aleatoria dentro del chunk
-                float x = (float)rng.NextDouble() * chunkSize + origin.x;
-                float z = (float)rng.NextDouble() * chunkSize + origin.z;
-                float y = GetTerrainHeight(x, z);
-                Vector3 position = new Vector3(x, y, z);
-                
-                // Verificar exclusiones del chunk
-                if (chunk.IsInExclusionZone(position)) continue;
-                
-                // Samplear bioma en esta posición exacta
-                var sample = WorldBiomeMap.Instance.GetBiomeAt(position);
-                
-                // Si la zona es completamente manual (ciudad, dungeon), no generar
-                if (sample.IsFullyManual()) continue;
-                
-                // Intentar colocar árbol
-                float treeDensity = sample.BlendFloat(b => b.treeDensity);
-                if (rng.NextDouble() < treeDensity)
-                {
-                    var prefab = sample.PickTree(rng);
-                    if (prefab != null)
-                    {
-                        float minSpacing = sample.BlendFloat(b => b.minTreeSpacing);
-                        if (!IsTooClose(position, minSpacing, placedPositions))
-                        {
-                            PlaceDecorativeProp(prefab, position, sample, rng, chunk.propsRoot);
-                            placedPositions.Add(new Vector2(position.x, position.z));
-                            placedCount++;
-                            spawnedThisFrame++;
-                        }
-                    }
-                }
-                else
-                {
-                    // Intentar colocar roca
-                    float rockDensity = sample.BlendFloat(b => b.rockDensity);
-                    if (rng.NextDouble() < rockDensity)
-                    {
-                        var prefab = sample.PickRock(rng);
-                        if (prefab != null)
-                        {
-                            float minSpacing = sample.BlendFloat(b => b.minRockSpacing);
-                            if (!IsTooClose(position, minSpacing, placedPositions))
-                            {
-                                PlaceDecorativeProp(prefab, position, sample, rng, chunk.propsRoot);
-                                placedPositions.Add(new Vector2(position.x, position.z));
-                                placedCount++;
-                                spawnedThisFrame++;
-                            }
-                        }
-                    }
-                    // Intentar colocar sotobosque (arbustos, helechos, hongos)
-                    else
-                    {
-                        float understoryDensity = sample.BlendFloat(b => b.understoryDensity);
-                        if (rng.NextDouble() < understoryDensity)
-                        {
-                            var prefab = sample.PickUnderstory(rng);
-                            if (prefab != null)
-                            {
-                                float minSpacing = sample.BlendFloat(b => b.minUnderstorySpacing);
-                                if (!IsTooClose(position, minSpacing, placedPositions))
-                                {
-                                    PlaceDecorativeProp(prefab, position, sample, rng, chunk.propsRoot);
-                                    placedPositions.Add(new Vector2(position.x, position.z));
-                                    placedCount++;
-                                    spawnedThisFrame++;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Cobertura de suelo (pasto, musgo, hojas) — NO necesita spacing, puede solaparse
-                if (placedCount < maxDecorativePropsPerChunk)
-                {
-                    float groundCoverDensity = sample.BlendFloat(b => b.groundCoverDensity);
-                    if (rng.NextDouble() < groundCoverDensity)
-                    {
-                        float gcX = (float)rng.NextDouble() * chunkSize + origin.x;
-                        float gcZ = (float)rng.NextDouble() * chunkSize + origin.z;
-                        Vector3 gcPos = new Vector3(gcX, GetTerrainHeight(gcX, gcZ), gcZ);
-
-                        if (!chunk.IsInExclusionZone(gcPos) && !sample.IsFullyManual())
-                        {
-                            var prefab = sample.PickGroundCover(rng);
-                            if (prefab != null)
-                            {
-                                PlaceDecorativeProp(prefab, gcPos, sample, rng, chunk.propsRoot);
-                                // Cobertura de suelo no se agrega a placedPositions: no bloquea otros objetos
-                                placedCount++;
-                                spawnedThisFrame++;
-                            }
-                        }
-                    }
-                }
-
-                // Props tintados por bioma (biomeTintedTrees / Understory / GroundCover)
-                // Se instancian con MaterialPropertyBlock (_TopColor) = foliageColor del bioma.
-                if (placedCount < maxDecorativePropsPerChunk)
-                {
-                    float tintedTreeDensity = sample.BlendFloat(b => b.tintedTreeDensity);
-                    if (rng.NextDouble() < tintedTreeDensity)
-                    {
-                        var prefab = sample.PickTintedTree(rng);
-                        if (prefab != null)
-                        {
-                            float minSpacing = sample.BlendFloat(b => b.minTreeSpacing);
-                            if (!IsTooClose(position, minSpacing, placedPositions))
-                            {
-                                PlaceTintedProp(prefab, position, sample, rng, chunk.propsRoot);
-                                placedPositions.Add(new Vector2(position.x, position.z));
-                                placedCount++;
-                                spawnedThisFrame++;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        float tintedUnderstoryDensity = sample.BlendFloat(b => b.tintedUnderstoryDensity);
-                        if (rng.NextDouble() < tintedUnderstoryDensity)
-                        {
-                            var prefab = sample.PickTintedUnderstory(rng);
-                            if (prefab != null)
-                            {
-                                float minSpacing = sample.BlendFloat(b => b.minUnderstorySpacing);
-                                if (!IsTooClose(position, minSpacing, placedPositions))
-                                {
-                                    PlaceTintedProp(prefab, position, sample, rng, chunk.propsRoot);
-                                    placedPositions.Add(new Vector2(position.x, position.z));
-                                    placedCount++;
-                                    spawnedThisFrame++;
-                                }
-                            }
-                        }
-                        else
-                        {
-                            float tintedGroundCoverDensity = sample.BlendFloat(b => b.tintedGroundCoverDensity);
-                            if (rng.NextDouble() < tintedGroundCoverDensity)
-                            {
-                                float gcX = (float)rng.NextDouble() * chunkSize + origin.x;
-                                float gcZ = (float)rng.NextDouble() * chunkSize + origin.z;
-                                Vector3 gcPos = new Vector3(gcX, GetTerrainHeight(gcX, gcZ), gcZ);
-                                if (!chunk.IsInExclusionZone(gcPos) && !sample.IsFullyManual())
-                                {
-                                    var prefab = sample.PickTintedGroundCover(rng);
-                                    if (prefab != null)
-                                    {
-                                        PlaceTintedProp(prefab, gcPos, sample, rng, chunk.propsRoot);
-                                        placedCount++;
-                                        spawnedThisFrame++;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                // Distribuir la carga entre frames
-                if (spawnedThisFrame >= maxPropsPerFrame)
-                {
-                    spawnedThisFrame = 0;
-                    yield return null;
-                    
-                    // Verificar que el chunk siga cargado
-                    if (!chunk.isLoaded) yield break;
-                }
-            }
-            
-            if (showDebugLogs && placedCount > 0)
-                Debug.Log($"🌲 Chunk {chunk.coordinates}: {placedCount} props procedurales generados.");
-        }
-        
-        /// <summary>
-        /// Instancia un prop decorativo con variación de escala y rotación aleatoria.
-        /// Mantiene los materiales originales del prefab sin modificarlos.
-        /// </summary>
-        private void PlaceDecorativeProp(GameObject prefab, Vector3 position,
-            BiomeSample sample, System.Random rng, Transform parent)
-        {
-            float scaleVar = sample.BlendFloat(b => b.treeScaleVariation);
-            float scale = 1f + ((float)rng.NextDouble() * 2f - 1f) * scaleVar;
-            float rotY = (float)rng.NextDouble() * 360f;
-            
-            Instantiate(prefab, position, Quaternion.Euler(0, rotY, 0), parent)
-                .transform.localScale = Vector3.one * scale;
-        }
-
-        /// <summary>
-        /// Instancia un prop tintado por bioma usando MaterialPropertyBlock.
-        /// Escribe _TopColor = foliageColor blended sin crear instancias de material,
-        /// preservando GPU Instancing. Activa _CUSTOMCOLORSTINTING = 1 automáticamente.
-        /// </summary>
-        private void PlaceTintedProp(GameObject prefab, Vector3 position,
-            BiomeSample sample, System.Random rng, Transform parent)
-        {
-            float scaleVar = sample.BlendFloat(b => b.treeScaleVariation);
-            float scale = 1f + ((float)rng.NextDouble() * 2f - 1f) * scaleVar;
-            float rotY = (float)rng.NextDouble() * 360f;
-
-            var go = Instantiate(prefab, position, Quaternion.Euler(0, rotY, 0), parent);
-            go.transform.localScale = Vector3.one * scale;
-
-            // Aplicar color del bioma vía MPB a todos los Renderers del prefab
-            Color foliageColor = sample.BlendColor(b => b.foliageColor);
-            var mpb = new MaterialPropertyBlock();
-            foreach (var rend in go.GetComponentsInChildren<Renderer>())
-            {
-                rend.GetPropertyBlock(mpb);
-                mpb.SetColor("_TopColor", foliageColor);
-                mpb.SetFloat("_CUSTOMCOLORSTINTING", 1f);
-                rend.SetPropertyBlock(mpb);
-            }
-        }
-        
-        /// <summary>
-        /// Devuelve true si alguna posición ya colocada está dentro de minDistance.
-        /// Opera sobre una List<Vector2> de coordenadas XZ — sin overhead de Transform.
-        /// Usar como: if (!IsTooClose(pos, spacing, placedPositions)) → colocar objeto.
-        /// </summary>
-        private static bool IsTooClose(Vector3 position, float minDistance, List<Vector2> placedPositions)
-        {
-            if (minDistance <= 0f) return false;
-
-            float minDistSq = minDistance * minDistance;
-            float px = position.x;
-            float pz = position.z;
-
-            for (int i = 0; i < placedPositions.Count; i++)
-            {
-                float dx = placedPositions[i].x - px;
-                float dz = placedPositions[i].y - pz;
-                if ((dx * dx + dz * dz) < minDistSq)
-                    return true;
-            }
-
-            return false;
-        }
-        
-        /// <summary>
-        /// Devuelve la altura del terreno en una posición XZ.
-        /// Soporta múltiples Terrain tiles: busca el tile que contiene el punto.
-        /// </summary>
-        private float GetTerrainHeight(float x, float z)
-        {
-            Vector3 worldPos = new Vector3(x, 0f, z);
-
-            foreach (var terrain in Terrain.activeTerrains)
-            {
-                var td = terrain.terrainData;
-                Vector3 tp = terrain.transform.position;
-
-                if (x >= tp.x && x <= tp.x + td.size.x &&
-                    z >= tp.z && z <= tp.z + td.size.z)
-                {
-                    return terrain.SampleHeight(worldPos);
-                }
-            }
-
-            return 0f;
-        }
-        
-        // ─── Props con Identidad ──────────────────────────────────────────────────
-        
-        // ─── Terreno Dinámico ──────────────────────────────────────────────────
-        
-        /// <summary>
-        /// Carga el TerrainData del chunk desde Resources e instancia el Terrain en el mundo.
-        /// Ruta esperada: Resources/World/TerrainData/Chunk_X_Y_Terrain.asset
-        /// </summary>
-        private void LoadTerrainForChunk(ChunkData chunk)
-        {
-            if (chunk.terrainInstance != null) return;
-            
-            string resourcePath = $"World/TerrainData/Chunk_{chunk.coordinates.x}_{chunk.coordinates.y}_Terrain";
-            var tData = Resources.Load<TerrainData>(resourcePath);
-            
-            if (tData == null)
-            {
-                // No hay terreno para este chunk — es válido (chunk fuera del área generada)
-                // Solo loguear una vez por coordenada para evitar spam en consola
-                if (showDebugLogs && noTerrainChunks.Add(chunk.coordinates))
-                    Debug.Log($"ℹ️ Sin TerrainData para chunk {chunk.coordinates} — buscado en Resources/{resourcePath}");
-                return;
-            }
-            
-            var terrainGO = Terrain.CreateTerrainGameObject(tData);
-            terrainGO.transform.position = new Vector3(
-                chunk.coordinates.x * chunkSize, 0f, chunk.coordinates.y * chunkSize);
-            terrainGO.name = $"Terrain_{chunk.coordinates.x}_{chunk.coordinates.y}";
-            chunk.terrainInstance = terrainGO;
-            
-            if (showDebugLogs)
-                Debug.Log($"🏔️ Terreno cargado: {terrainGO.name}");
-        }
-        
-        /// <summary>
-        /// Destruye el Terrain GameObject del chunk.
-        /// </summary>
-        private void UnloadTerrainForChunk(ChunkData chunk)
-        {
-            if (chunk.terrainInstance == null) return;
-            
-            if (showDebugLogs)
-                Debug.Log($"🏔️ Terreno descargado: {chunk.terrainInstance.name}");
-            
-            Destroy(chunk.terrainInstance);
-            chunk.terrainInstance = null;
-        }
-        
-        // ─── Props ────────────────────────────────────────────────────────────────
-        
-        /// <summary>
-        /// Crea el GameObject contenedor de props para un chunk si no existe.
-        /// </summary>
-        private void EnsurePropsRoot(ChunkData chunk)
-        {
-            if (chunk.propsRoot != null) return;
-            
-            var root = new GameObject($"Props_{chunk.coordinates.x}_{chunk.coordinates.y}");
-            chunk.propsRoot = root.transform;
-        }
-        
-        /// <summary>
-        /// Instancia los props con identidad del chunk (edificios, cofres, NPCs, etc.).
-        /// </summary>
-        private void SpawnNamedProps(ChunkData chunk)
-        {
-            var spawnableProps = chunk.GetSpawnableProps();
-            if (spawnableProps.Count == 0) return;
-            
-            foreach (var config in spawnableProps)
-            {
-                if (config.propData == null)
-                {
-                    Debug.LogWarning($"⚠️ PropSpawnConfig '{config.propId}' no tiene PropData asignado.");
-                    continue;
-                }
-                
-                if (config.propData.prefab == null)
-                {
-                    Debug.LogWarning($"⚠️ PropData '{config.propData.propName}' no tiene prefab asignado.");
-                    continue;
-                }
-                
-                var go = Object.Instantiate(
-                    config.propData.prefab,
-                    config.position,
-                    config.rotation,
-                    chunk.propsRoot
-                );
-                go.transform.localScale = config.scale;
-                
-                // Si es interactivo, inicializar el PropController
-                if (config.propData.isInteractive)
-                {
-                    var controller = go.GetComponent<PropController>();
-                    if (controller != null)
-                    {
-                        controller.Initialize(config, chunk.coordinates);
-                        config.activeController = controller;
-                    }
-                    else
-                    {
-                        Debug.LogWarning($"⚠️ Prop '{config.propId}' marcado como interactivo pero " +
-                                         $"el prefab no tiene PropController.");
-                    }
-                }
-            }
-            
-            if (showDebugLogs)
-                Debug.Log($"🏠 Chunk {chunk.coordinates}: {spawnableProps.Count} props instanciados.");
-        }
-        
-        /// <summary>
-        /// Destruye todos los props del chunk de una sola vez.
-        /// </summary>
-        private void UnloadProps(ChunkData chunk)
-        {
-            if (chunk.propsRoot != null)
-            {
-                Destroy(chunk.propsRoot.gameObject);
-                chunk.propsRoot = null;
-            }
-            
-            // Limpiar referencias de controladores en los configs
-            foreach (var config in chunk.propSpawnConfigs)
-                config.activeController = null;
-        }
+        // ─── Notificaciones ───────────────────────────────────────────────────────
         
         /// <summary>
         /// Notifica que un prop fue consumido (el jugador interactuó y desapareció).
@@ -1065,8 +553,6 @@ namespace World.ChunkSystem
             if (showDebugLogs)
                 Debug.Log($"📦 Prop consumido: {propId} en chunk {chunkCoords}");
         }
-        
-        // ─── Notificaciones de Enemigos ───────────────────────────────────────────
         
         /// <summary>
         /// Notifica que un enemigo fue derrotado.
@@ -1092,25 +578,7 @@ namespace World.ChunkSystem
             }
             
             // Devolver al pool después del delay de la animación
-            StartCoroutine(DevolverControllerAlPoolConDelay(controller, 2.5f));
-        }
-        
-        /// <summary>
-        /// Devuelve un controller al pool después de un delay.
-        /// </summary>
-        private System.Collections.IEnumerator DevolverControllerAlPoolConDelay(EnemyController controller, float delay)
-        {
-            yield return new WaitForSeconds(delay);
-            
-            if (controller != null && enemyPoolManager != null)
-            {
-                enemyPoolManager.DevolverController(controller, controller.DatosEnemigo);
-                
-                if (showDebugLogs)
-                {
-                    Debug.Log($"♻️ Controller devuelto al pool: {controller.DatosEnemigo?.name}");
-                }
-            }
+            StartCoroutine(enemySpawner.ReturnControllerToPoolCoroutine(controller, 2.5f, showDebugLogs));
         }
         
         /// <summary>
@@ -1125,6 +593,8 @@ namespace World.ChunkSystem
             
             Debug.Log("🔄 Estado de sesión reseteado para todos los chunks");
         }
+        
+        // ─── Debug ────────────────────────────────────────────────────────────────
         
         void OnDrawGizmos()
         {

@@ -62,13 +62,17 @@ namespace World.ChunkSystem
         /// </summary>
         public List<EnemySpawnConfig> GenerateSpawnConfigs(Vector2Int chunkCoords, int chunkSize = 256)
         {
+            int effectiveChunkSize = WorldChunkManager.Instance != null 
+                ? (int)WorldChunkManager.Instance.ChunkSize 
+                : chunkSize;
+            
             List<EnemySpawnConfig> configs = new List<EnemySpawnConfig>();
             
             // Calcular posición base del chunk en el mundo
-            Vector3 chunkWorldPos = new Vector3(chunkCoords.x * chunkSize, 0, chunkCoords.y * chunkSize);
+            Vector3 chunkWorldPos = new Vector3(chunkCoords.x * effectiveChunkSize, 0, chunkCoords.y * effectiveChunkSize);
             
             // Área utilizable (restando margen)
-            float usableSize = chunkSize - (edgeMargin * 2);
+            float usableSize = effectiveChunkSize - (edgeMargin * 2);
             
             switch (distributionType)
             {

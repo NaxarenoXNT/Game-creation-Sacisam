@@ -109,23 +109,16 @@ public class ChunkSystemExample : MonoBehaviour
     
     /// <summary>
     /// Ejemplo: Marcar un enemigo único como derrotado.
+    /// Usa la API pública de WorldChunkManager.
     /// </summary>
     public void MarcarBossDerrotado(string uniqueId)
     {
-        // Buscar en todos los chunks
-        foreach (var chunk in WorldChunkManager.Instance.GetType()
-            .GetField("chunks", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-            .GetValue(WorldChunkManager.Instance) as System.Collections.Generic.Dictionary<Vector2Int, ChunkData>)
+        if (WorldChunkManager.Instance == null)
         {
-            var config = chunk.Value.enemySpawnConfigs.Find(c => c.uniqueId == uniqueId);
-            if (config != null)
-            {
-                config.isDefeated = true;
-                Debug.Log($"✅ Boss {uniqueId} marcado como derrotado");
-                return;
-            }
+            Debug.LogError("WorldChunkManager no encontrado");
+            return;
         }
         
-        Debug.LogWarning($"⚠️ Boss {uniqueId} no encontrado");
+        WorldChunkManager.Instance.MarcarUnicoDerrotado(uniqueId);
     }
 }

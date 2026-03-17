@@ -4,13 +4,19 @@ using System.Collections.Generic;
 namespace World.ChunkSystem
 {
     /// <summary>
-    /// Componente helper para cargar ChunkDataAssets en el WorldChunkManager al inicio.
-    /// Coloca esto en una escena para auto-cargar los chunks configurados.
+    /// Componente helper para registrar ChunkDataAssets específicos en el WorldChunkManager.
+    /// Útil cuando querés cargar chunks puntuales asignados desde el Inspector,
+    /// en lugar de depender únicamente del auto-load de Resources/World/Chunks/.
+    /// 
+    /// NOTA: WorldChunkManager ya carga automáticamente todos los ChunkDataAssets
+    /// desde Resources/World/Chunks/ en su Start(). Usá este componente solo
+    /// para chunks adicionales que no estén en esa carpeta.
     /// </summary>
     public class ChunkLoader : MonoBehaviour
     {
         [Header("Chunks a Cargar")]
-        [Tooltip("Lista de ChunkDataAssets a registrar al iniciar")]
+        [Tooltip("Lista de ChunkDataAssets adicionales a registrar al iniciar.\n" +
+                 "Los chunks en Resources/World/Chunks/ se cargan automáticamente por WorldChunkManager.")]
         [SerializeField] private List<ChunkDataAsset> chunkAssets = new List<ChunkDataAsset>();
         
         [Header("Opciones")]
@@ -26,7 +32,7 @@ namespace World.ChunkSystem
         }
         
         /// <summary>
-        /// Carga todos los chunks en el WorldChunkManager.
+        /// Registra los chunks asignados en el Inspector en el WorldChunkManager.
         /// </summary>
         [ContextMenu("Cargar Todos los Chunks")]
         public void LoadAllChunks()
@@ -49,24 +55,6 @@ namespace World.ChunkSystem
             }
             
             Debug.Log($"✅ ChunkLoader: {loaded}/{chunkAssets.Count} chunks cargados");
-        }
-        
-        /// <summary>
-        /// Encuentra y carga todos los ChunkDataAssets en Resources.
-        /// </summary>
-        [ContextMenu("Auto-Detectar Chunks en Resources")]
-        public void AutoLoadFromResources()
-        {
-            var assets = Resources.LoadAll<ChunkDataAsset>("World/Chunks");
-            chunkAssets.Clear();
-            chunkAssets.AddRange(assets);
-            
-            Debug.Log($"📦 Chunks detectados: {chunkAssets.Count}");
-            
-            if (Application.isPlaying)
-            {
-                LoadAllChunks();
-            }
         }
     }
 }

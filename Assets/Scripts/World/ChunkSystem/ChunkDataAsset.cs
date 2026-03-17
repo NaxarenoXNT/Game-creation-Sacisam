@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Serialization;
 using System.Collections.Generic;
 
 namespace World.ChunkSystem
@@ -16,7 +17,8 @@ namespace World.ChunkSystem
         
         [Header("Configuración de Enemigos")]
         [Tooltip("Lista de enemigos a spawnear en este chunk")]
-        public List<EnemySpawnConfig> enemySpawns = new List<EnemySpawnConfig>();
+        [FormerlySerializedAs("enemySpawns")]
+        public List<EnemySpawnConfig> enemySpawnConfigs = new List<EnemySpawnConfig>();
         
         [Header("Props con Identidad")]
         [Tooltip("Objetos con posición fija: edificios, cofres, NPCs, entradas a zonas.")]
@@ -43,7 +45,7 @@ namespace World.ChunkSystem
             {
                 coordinates = coordinates,
                 chunkId = $"chunk_{coordinates.x}_{coordinates.y}",
-                enemySpawnConfigs = new List<EnemySpawnConfig>(enemySpawns),
+                enemySpawnConfigs = new List<EnemySpawnConfig>(enemySpawnConfigs),
                 propSpawnConfigs = new List<PropSpawnConfig>(propSpawnConfigs),
                 proceduralExclusions = new List<ProceduralExclusion>(proceduralExclusions)
             };
@@ -69,15 +71,15 @@ namespace World.ChunkSystem
         void OnValidate()
         {
             // Auto-generar IDs únicos para spawns sin ID
-            for (int i = 0; i < enemySpawns.Count; i++)
+            for (int i = 0; i < enemySpawnConfigs.Count; i++)
             {
-                if (string.IsNullOrEmpty(enemySpawns[i].spawnId))
+                if (string.IsNullOrEmpty(enemySpawnConfigs[i].spawnId))
                 {
-                    enemySpawns[i].spawnId = $"{name}_spawn_{i}";
+                    enemySpawnConfigs[i].spawnId = $"{name}_spawn_{i}";
                 }
                 
                 // VALIDAR Y CORREGIR ROTACIÓN INVÁLIDA
-                enemySpawns[i].ValidateRotation();
+                enemySpawnConfigs[i].ValidateRotation();
             }
             
             // Auto-generar IDs únicos para props sin ID
