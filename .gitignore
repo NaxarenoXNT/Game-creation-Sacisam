@@ -19,6 +19,9 @@
 *.pdb
 *.mdb
 
+# Archivos de configuración
+Rules/
+
 # Ajustes de Unity que pueden variar entre usuarios o son sensibles
 [Uu]ser[Ss]ettings/
 ProjectSettings/UnityConnectSettings.asset

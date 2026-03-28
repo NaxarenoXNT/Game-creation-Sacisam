@@ -16,7 +16,8 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 81d05687bbf318b44affadd8ff3e97c0, type: 2}
   - {fileID: 11400000, guid: 403a17e16bba6164a84c45c4bf4aeab4, type: 2}
   - {fileID: 11400000, guid: bce27c7afa929614b8a59c4a162f88ff, type: 2}
-  playerPrefab: {fileID: 0}
+  playerPrefab: {fileID: 7028083994208308790, guid: 3702073860cc6fc46a21fe330ebefd63,
+    type: 3}
   maxPersonajesInicial: 1
   minPersonajesRequeridos: 1
   escenaDestino: Mundo
