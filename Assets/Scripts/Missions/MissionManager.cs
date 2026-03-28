@@ -644,6 +644,16 @@ namespace Missions
         /// <summary>Obtiene todos los IDs de personajes registrados.</summary>
         public IReadOnlyCollection<string> GetPersonajesRegistrados() => estadosPersonajes.Keys.ToList();
 
+        /// <summary>
+        /// Obtiene el EvolutionState de un personaje específico.
+        /// Devuelve null si el personaje no está registrado.
+        /// </summary>
+        public EvolutionState GetEstadoPersonaje(string characterId)
+        {
+            if (string.IsNullOrEmpty(characterId)) return null;
+            return estadosPersonajes.TryGetValue(characterId, out var state) ? state : null;
+        }
+
         #endregion
 
         #region Persistencia
