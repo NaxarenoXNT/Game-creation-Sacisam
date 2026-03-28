@@ -158,6 +158,8 @@ namespace CharacterSelection
                     continue;
                 }
 
+                controller.ConfigureIdentity(data.characterId, data.nombre);
+
                 // Inicializar con la clase elegida
                 controller.Inicializar(data.clase);
 
