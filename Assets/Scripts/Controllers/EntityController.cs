@@ -23,6 +23,9 @@ public class EntityController : MonoBehaviour, IEntidadCombate, IJugadorProgresi
     [Tooltip("ID único de este personaje. Se genera automáticamente si está vacío.")]
     [SerializeField] private string characterId;
 
+    [Tooltip("Nombre visible del personaje. Si está vacío, usa el nombre de la entidad lógica.")]
+    [SerializeField] private string displayNameOverride;
+
     /// <summary>ID único y estable del personaje. Generado en Awake si no se asigna.</summary>
     public string CharacterId
     {
@@ -50,6 +53,10 @@ public class EntityController : MonoBehaviour, IEntidadCombate, IJugadorProgresi
     // Propiedades publicas
     public Entidad EntidadLogica => entidadLogica;
     public EntityStats EntityStats => entityStats;
+    public ClaseData DatosClase => datosClase;
+    public string DisplayName => string.IsNullOrWhiteSpace(displayNameOverride)
+        ? (entidadLogica != null ? entidadLogica.Nombre_Entidad : datosClase?.nombreClase)
+        : displayNameOverride;
     
     /// <summary>Indica si este personaje pertenece al jugador.</summary>
     public bool IsPlayerOwned => isPlayerOwned;
@@ -62,6 +69,23 @@ public class EntityController : MonoBehaviour, IEntidadCombate, IJugadorProgresi
     {
         isPlayerOwned = owned;
         Debug.Log($"[EntityController] {Nombre_Entidad} → IsPlayerOwned = {owned}");
+    }
+
+    /// <summary>
+    /// Configura la identidad persistente del personaje antes o después de Inicializar().
+    /// </summary>
+    public void ConfigureIdentity(string newCharacterId, string displayName)
+    {
+        if (!string.IsNullOrWhiteSpace(newCharacterId))
+            characterId = newCharacterId.Trim();
+
+        if (!string.IsNullOrWhiteSpace(displayName))
+            displayNameOverride = displayName.Trim();
+
+        if (entidadLogica != null && !string.IsNullOrWhiteSpace(displayNameOverride))
+            entidadLogica.Renombrar(displayNameOverride);
+
+        RefreshGameObjectName();
     }
     
     // IGestorHabilidades
@@ -166,6 +190,11 @@ public class EntityController : MonoBehaviour, IEntidadCombate, IJugadorProgresi
         
         // 1. Crear la instancia lógica correcta
         entidadLogica = datos.CrearInstancia();
+
+        if (!string.IsNullOrWhiteSpace(displayNameOverride))
+        {
+            entidadLogica.Renombrar(displayNameOverride);
+        }
         
         // 2. Vincular EntityStats con la Entidad (BIDIRECCIONAL)
         entityStats.VincularEntidad(entidadLogica);
@@ -198,7 +227,19 @@ public class EntityController : MonoBehaviour, IEntidadCombate, IJugadorProgresi
                 if (hab != null) jugadorSeed.GestorHabilidades.AgregarHabilidad(hab, notificar: false);
         }
 
+        RefreshGameObjectName();
+
         Debug.Log($"Entidad inicializada: {entidadLogica.Nombre_Entidad} (Nivel {entidadLogica.Nivel_Entidad})");
+    }
+
+    private void RefreshGameObjectName()
+    {
+        string visibleName = string.IsNullOrWhiteSpace(displayNameOverride)
+            ? datosClase?.nombreClase
+            : displayNameOverride;
+
+        if (!string.IsNullOrWhiteSpace(visibleName))
+            gameObject.name = $"Player_{visibleName}";
     }
 
     private void AplicarElementosIniciales()
