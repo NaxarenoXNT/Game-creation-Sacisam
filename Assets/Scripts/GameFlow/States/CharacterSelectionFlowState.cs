@@ -39,7 +39,7 @@ namespace GameFlow
                 // Cargar la escena de selección de forma aditiva
                 _loadedAdditively = true;
                 SceneManager.sceneLoaded += OnSceneLoaded;
-                SceneManager.LoadScene("CharacterSelection", LoadSceneMode.Additive);
+                SceneManager.LoadScene("CharacterSelectorScene", LoadSceneMode.Additive);
             }
         }
 
@@ -56,7 +56,7 @@ namespace GameFlow
             // Descargar la escena de selección si fue cargada aditivamente y aún existe
             if (_loadedAdditively)
             {
-                var scene = SceneManager.GetSceneByName("CharacterSelection");
+                var scene = SceneManager.GetSceneByName("CharacterSelectorScene");
                 if (scene.isLoaded)
                 {
                     SceneManager.UnloadSceneAsync(scene);
@@ -66,7 +66,7 @@ namespace GameFlow
 
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
-            if (scene.name != "CharacterSelection") return;
+            if (scene.name != "CharacterSelectorScene") return;
 
             SceneManager.sceneLoaded -= OnSceneLoaded;
 

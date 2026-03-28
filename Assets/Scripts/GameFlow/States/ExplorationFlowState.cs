@@ -17,6 +17,8 @@ namespace GameFlow
         public IEnumerable<Type> AllowedTransitions => new[]
         {
             typeof(CombatFlowState),
+            typeof(TravelFlowState),
+            typeof(CharacterSheetFlowState),
             // Futuros estados:
             // typeof(InventoryFlowState),
             // typeof(DialogueFlowState),
