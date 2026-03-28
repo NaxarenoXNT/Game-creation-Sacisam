@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using GameFlow;
 using UnityEngine;
 using Managers;
 
@@ -103,6 +104,9 @@ namespace World.ChunkSystem
             
             Instance = this;
             DontDestroyOnLoad(gameObject);
+
+            // Suscribir antes de Start para no perder el evento si el GameFlow ya está activo
+            EventBus.Suscribir<EventoGameFlowChanged>(OnGameFlowChanged);
         }
         
         IEnumerator Start()
@@ -503,6 +507,21 @@ namespace World.ChunkSystem
         // ─── Gestión Global ───────────────────────────────────────────────────────
         
         /// <summary>
+        /// Fuerza la actualización del sistema de chunks como si el jugador estuviera en
+        /// <paramref name="position"/>. Útil tras un teleport para cargar inmediatamente
+        /// los chunks del destino sin esperar al siguiente ciclo de Update.
+        /// </summary>
+        public void ForceUpdateAtPosition(Vector3 position)
+        {
+            currentPlayerChunk = WorldToChunkCoords(position);
+            lastPlayerChunk    = currentPlayerChunk;
+            UpdateLoadedChunks();
+
+            if (showDebugLogs)
+                Debug.Log($"[WorldChunkManager] ForceUpdate desde posición {position} → chunk {currentPlayerChunk}");
+        }
+
+        /// <summary>
         /// Fuerza recarga de todos los chunks activos.
         /// </summary>
         public void ReloadAllChunks()
@@ -620,7 +639,41 @@ namespace World.ChunkSystem
         
         void OnDestroy()
         {
+            EventBus.Desuscribir<EventoGameFlowChanged>(OnGameFlowChanged);
             ClearAllChunks();
+        }
+
+        /// <summary>
+        /// Re-inicializa la carga de chunks al entrar en Exploration.
+        /// Garantiza que el jugador está en su posición real del mundo (no en (0,0,0)).
+        /// </summary>
+        private void OnGameFlowChanged(EventoGameFlowChanged evt)
+        {
+            if (!(evt.NuevoEstado is ExplorationFlowState)) return;
+
+            // Resolver playerTransform si aún no está asignado
+            if (playerTransform == null)
+            {
+                if (PlayerPartyManager.Instance != null)
+                    playerTransform = PlayerPartyManager.Instance.MainTransform;
+
+                if (playerTransform == null)
+                {
+                    var player = GameObject.FindGameObjectWithTag("Player");
+                    if (player != null)
+                        playerTransform = player.transform;
+                }
+            }
+
+            if (playerTransform == null) return;
+
+            // Forzar recarga desde la posición actual del jugador
+            currentPlayerChunk = WorldToChunkCoords(playerTransform.position);
+            lastPlayerChunk = currentPlayerChunk;
+            UpdateLoadedChunks();
+
+            if (showDebugLogs)
+                Debug.Log($"[WorldChunkManager] Carga inicial forzada al entrar en Exploration. Chunk: {currentPlayerChunk}");
         }
         
         #region Debug Methods
