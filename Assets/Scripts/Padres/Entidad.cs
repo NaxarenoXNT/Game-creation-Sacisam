@@ -65,6 +65,16 @@ namespace Padres
         protected void NotificarMuerte() => OnMuerte?.Invoke();
 
         /// <summary>
+        /// Permite actualizar el nombre visible de la entidad en runtime.
+        /// Útil para personajes creados por el jugador con nombre personalizado.
+        /// </summary>
+        public void Renombrar(string nuevoNombre)
+        {
+            if (string.IsNullOrWhiteSpace(nuevoNombre)) return;
+            Nombre_Entidad = nuevoNombre.Trim();
+        }
+
+        /// <summary>
         /// Inicializa el gestor de pasivas. Llamar desde el constructor de clases derivadas.
         /// </summary>
         protected void InicializarGestorPasivas()
