@@ -13,7 +13,8 @@ namespace GameInput
         Exploration,    // Movimiento libre
         Combat,         // En combate, seleccionando acciones
         Menu,           // En menú/UI
-        Dialogue        // En diálogo
+        Dialogue,       // En diálogo
+        Travel          // Viaje rápido en progreso
     }
     
     /// <summary>
@@ -95,8 +96,9 @@ namespace GameInput
         
         void Update()
         {
-            // No procesar input si estamos en menú o diálogo
-            if (currentContext == InputContext.Menu || currentContext == InputContext.Dialogue)
+            // No procesar input si estamos en menú, diálogo o viaje
+            if (currentContext == InputContext.Menu || currentContext == InputContext.Dialogue ||
+                currentContext == InputContext.Travel)
             {
                 return;
             }
@@ -188,28 +190,33 @@ namespace GameInput
         /// </summary>
         private void ProcessLeftClick()
         {
-            // Verificar si estamos sobre UI
+            // Verificar si estamos sobre UI (UGUI)
             if (UnityEngine.EventSystems.EventSystem.current != null &&
                 UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject())
             {
-                return; // Ignorar clicks sobre UI
+                return;
             }
-            
+
+            // Verificar si estamos sobre UI Toolkit (IsPointerOverGameObject no cubre UIToolkit)
+            if (IsPointerOverUIToolkit())
+            {
+                return;
+            }
+
+            // En combate, los clicks al suelo no tienen sentido (click-to-move desactivado).
+            // Los clicks en entidades/enemigos se procesan abajo y son válidos.
+            bool isInCombat = currentContext == InputContext.Combat;
+
             Ray ray = IsometricCameraController.Instance != null 
                 ? IsometricCameraController.Instance.GetMouseRay()
                 : UnityEngine.Camera.main.ScreenPointToRay(Input.mousePosition);
             
-            // Intentar detectar entidades primero.
-            // Si los LayerMasks no están configurados en el Inspector (valor 0)
-            // se usa Physics.DefaultRaycastLayers para no bloquear el click.
             LayerMask entityMask = (entityLayer | enemyLayer) != 0
                 ? (LayerMask)(entityLayer | enemyLayer)
                 : Physics.DefaultRaycastLayers;
 
             if (Physics.Raycast(ray, out RaycastHit entityHit, 100f, entityMask))
             {
-                // GetComponentInParent cubre el caso en que el Collider está
-                // en un hijo del GO que tiene EnemyController / EntityController.
                 var enemy = entityHit.collider.GetComponentInParent<EnemyController>();
                 if (enemy != null)
                 {
@@ -224,7 +231,10 @@ namespace GameInput
                     return;
                 }
             }
-            
+
+            // En combate no disparar click-to-move ni OnEmptyClick
+            if (isInCombat) return;
+
             // Intentar detectar suelo
             if (Physics.Raycast(ray, out RaycastHit groundHit, 100f, groundLayer))
             {
@@ -242,6 +252,22 @@ namespace GameInput
             
             // No pegó a nada
             OnEmptyClick?.Invoke();
+        }
+
+        /// <summary>
+        /// Detecta si el puntero está sobre algún panel de UI Toolkit.
+        /// IsPointerOverGameObject() del EventSystem solo aplica a UGUI, no a UIToolkit.
+        /// </summary>
+        private bool IsPointerOverUIToolkit()
+        {
+            // Convertir a coordenadas de panel (origen en esquina superior-izquierda)
+            var panelPos = new Vector2(Input.mousePosition.x, Screen.height - Input.mousePosition.y);
+            foreach (var doc in FindObjectsByType<UnityEngine.UIElements.UIDocument>(FindObjectsSortMode.None))
+            {
+                if (doc.rootVisualElement?.panel?.Pick(panelPos) != null)
+                    return true;
+            }
+            return false;
         }
         
         /// <summary>
