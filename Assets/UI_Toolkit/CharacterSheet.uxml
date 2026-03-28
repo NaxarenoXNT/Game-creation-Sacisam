@@ -1,0 +1,268 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="CharacterSheet.uss" />
+
+    <ui:VisualElement name="root" class="cs-root">
+
+        <!-- ============================================================
+             TOPBAR — Botones de party
+             ============================================================ -->
+        <ui:VisualElement name="Topbar" class="cs-topbar">
+            <ui:Label class="cs-topbar-group-label" text="PARTY" />
+            <ui:ScrollView name="PartyButtons" class="cs-party-scroll" horizontal="true" vertical="false">
+                <!--
+                    Desde C#, por cada personaje en la party:
+                    var btn = new Button();
+                    btn.AddToClassList("cs-party-btn");
+                    btn.text = personaje.nombre;
+                    btn.clicked += () => SelectChar(personaje);
+                    // Para el activo: btn.AddToClassList("cs-party-btn--active");
+                    PartyButtons.Add(btn);
+                -->
+            </ui:ScrollView>
+            <ui:Label name="RunLabel" class="cs-run-label" text="Run #1" />
+        </ui:VisualElement>
+
+        <!-- ============================================================
+             BODY — Columna izquierda + columna derecha
+             ============================================================ -->
+        <ui:VisualElement name="Body" class="cs-body">
+
+            <!-- ─── COLUMNA IZQUIERDA ─── -->
+            <ui:VisualElement name="LeftCol" class="cs-left-col">
+
+                <!-- Retrato -->
+                <ui:VisualElement name="Portrait" class="cs-portrait">
+                    <ui:Label name="LvBadge" class="cs-lv-badge" text="Lv. 1" />
+                    <ui:VisualElement name="PortraitImage" class="cs-portrait-image" />
+                </ui:VisualElement>
+
+                <!-- Nameplate + botón Traits -->
+                <ui:VisualElement class="cs-nameplate">
+                    <ui:VisualElement class="cs-nameplate-text">
+                        <ui:Label name="CharName"  class="cs-char-name"  text="—" />
+                        <ui:Label name="CharClass" class="cs-char-class" text="—" />
+                    </ui:VisualElement>
+                    <ui:Button name="BtnTraits" class="cs-btn-traits" text="Traits ▸" />
+                </ui:VisualElement>
+
+                <!-- Stats -->
+                <ui:VisualElement class="cs-section-block">
+                    <ui:Label class="cs-sec-label" text="STATS" />
+                    <ui:VisualElement name="StatsList" class="cs-stats-list">
+                        <!--
+                            Desde C# por cada stat:
+                            var row = new VisualElement(); row.AddToClassList("cs-stat-row");
+                            var label = new Label(stat.nombre); label.AddToClassList("cs-stat-name");
+                            var barBg = new VisualElement(); barBg.AddToClassList("cs-bar-bg");
+                            var barFill = new VisualElement(); barFill.AddToClassList("cs-bar-fill");
+                            barFill.AddToClassList("cs-bar-fill--" + stat.tipo); // vida, ataque, etc.
+                            barFill.style.width = Length.Percent((stat.valor / stat.maximo) * 100f);
+                            barBg.Add(barFill); row.Add(label); row.Add(barBg);
+                            var val = new Label(stat.valor.ToString()); val.AddToClassList("cs-stat-val");
+                            row.Add(val);
+                            StatsList.Add(row);
+                        -->
+                    </ui:VisualElement>
+                </ui:VisualElement>
+
+                <!-- Elementos -->
+                <ui:VisualElement class="cs-section-block">
+                    <ui:Label class="cs-sec-label" text="ELEMENTOS" />
+                    <ui:ScrollView name="ItemsList" class="cs-items-list">
+                        <!--
+                            Reservado para afinidades/elementos activos del personaje.
+                            Mantiene el name 'ItemsList' para no romper referencias futuras.
+
+                            Desde C# por cada elemento/afinidad:
+                            var row = new VisualElement(); row.AddToClassList("cs-item-row");
+                            var icon = new VisualElement(); icon.AddToClassList("cs-item-icon");
+                            var info = new VisualElement();
+                            var name = new Label(elemento.nombre); name.AddToClassList("cs-item-name");
+                            var type = new Label(elemento.detalle); type.AddToClassList("cs-item-type");
+                            info.Add(name); info.Add(type); row.Add(icon); row.Add(info);
+                            ItemsList.Add(row);
+                        -->
+                        <ui:Label name="ElementsEmptyState" class="cs-empty-state" text="Sin elementos o afinidades activas." />
+                    </ui:ScrollView>
+                </ui:VisualElement>
+
+                <!-- Equipo
+                     Placeholder reservado. No hay sistema runtime integrado todavía.
+                     El bloque queda para no romper la estructura general de la ficha.
+                -->
+                <ui:VisualElement name="EquipBlock" class="cs-section-block">
+                    <ui:Label class="cs-sec-label" text="EQUIPO" />
+                    <ui:VisualElement name="EquipList" class="cs-equip-list">
+                        <!--
+                            Cuando exista el sistema:
+                            Si clase no usa equipo:
+                            var note = new Label("Esta clase no usa equipamiento");
+                            note.AddToClassList("cs-no-equip-note");
+                            EquipList.Add(note);
+
+                            Si usa equipo, por cada slot:
+                            var slot = new VisualElement(); slot.AddToClassList("cs-equip-slot");
+                            var box = new VisualElement(); box.AddToClassList("cs-equip-box");
+                            if (tieneItem) box.AddToClassList("cs-equip-box--filled");
+                            var info = new VisualElement();
+                            var slotName = new Label(slot.nombre); slotName.AddToClassList("cs-equip-slot-name");
+                            var itemName = new Label(tieneItem ? item.nombre : "Vacío");
+                            itemName.AddToClassList(tieneItem ? "cs-equip-item-name" : "cs-equip-item-empty");
+                            info.Add(slotName); info.Add(itemName);
+                            slot.Add(box); slot.Add(info);
+                            EquipList.Add(slot);
+                        -->
+                        <ui:Label name="EquipEmptyState" class="cs-no-equip-note" text="Sistema de equipamiento no integrado todavía." />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+
+            </ui:VisualElement>
+
+            <!-- ─── COLUMNA DERECHA ─── -->
+            <ui:VisualElement name="RightCol" class="cs-right-col">
+
+                <!-- Concurrencias -->
+                <ui:VisualElement class="cs-right-top">
+                    <ui:Label class="cs-sec-label" text="CONCURRENCIAS" />
+                    <ui:ScrollView name="ConcList" class="cs-conc-list">
+                        <!--
+                            Placeholder reservado para una futura integración.
+                            No se puebla por ahora.
+
+                            Desde C# por cada concurrencia:
+                            var item = new VisualElement(); item.AddToClassList("cs-conc-item");
+                            var icon = new VisualElement(); icon.AddToClassList("cs-conc-icon");
+                            var info = new VisualElement();
+                            var name = new Label(c.nombre); name.AddToClassList("cs-conc-name");
+                            var desc = new Label(c.descripcion); desc.AddToClassList("cs-conc-desc");
+                            info.Add(name); info.Add(desc); item.Add(icon); item.Add(info);
+                            ConcList.Add(item);
+                        -->
+                        <ui:Label name="ConcEmptyState" class="cs-empty-state" text="Sección reservada para una integración futura." />
+                    </ui:ScrollView>
+                </ui:VisualElement>
+
+                <!-- Habilidades -->
+                <ui:VisualElement class="cs-right-bot">
+                    <ui:VisualElement class="cs-skill-tabs">
+                        <ui:Button name="TabActivas"  class="cs-skill-tab cs-skill-tab--active" text="ACTIVAS"  />
+                        <ui:Button name="TabPasivas"  class="cs-skill-tab"                      text="PASIVAS"  />
+                    </ui:VisualElement>
+                    <ui:ScrollView name="SkillsList" class="cs-skills-list">
+                        <!--
+                            Desde C# por cada habilidad activa o pasiva:
+                            var card = new VisualElement(); card.AddToClassList("cs-skill-card");
+
+                            var header = new VisualElement(); header.AddToClassList("cs-skill-header");
+                            var badge  = new VisualElement(); badge.AddToClassList("cs-skill-badge");
+                            if (esPasiva) badge.AddToClassList("cs-skill-badge--passive");
+                            var titleCol = new VisualElement();
+                            var title = new Label(esPasiva ? pasiva.nombrePasiva : habilidad.nombreHabilidad);
+                            title.AddToClassList("cs-skill-title");
+                            var meta  = new Label(metaTexto); meta.AddToClassList("cs-skill-meta");
+                            titleCol.Add(title); titleCol.Add(meta);
+                            var arrow = new Label("▼"); arrow.AddToClassList("cs-skill-arrow");
+                            header.Add(badge); header.Add(titleCol); header.Add(arrow);
+
+                            var body = new VisualElement(); body.AddToClassList("cs-skill-body");
+                            var desc = new Label(esPasiva ? pasiva.descripcion : habilidad.descripcion);
+                            desc.AddToClassList("cs-skill-desc");
+                            body.Add(desc);
+                            // tags desde datos reales: categoria, cooldown, costos, condicion, stacks, etc.
+
+                            card.Add(header); card.Add(body);
+
+                            // Toggle expand:
+                            card.RegisterCallback<ClickEvent>(evt => {
+                                bool expanded = card.ClassListContains("cs-skill-card--expanded");
+                                card.EnableInClassList("cs-skill-card--expanded", !expanded);
+                                body.style.display = expanded ? DisplayStyle.None : DisplayStyle.Flex;
+                            });
+
+                            SkillsList.Add(card);
+                        -->
+                        <ui:Label name="SkillsEmptyState" class="cs-empty-state" text="Sin habilidades para mostrar." />
+                    </ui:ScrollView>
+                </ui:VisualElement>
+
+            </ui:VisualElement>
+
+        </ui:VisualElement>
+
+        <!-- ============================================================
+             OVERLAY DE TRAITS — se muestra sobre el resto con DisplayStyle.Flex
+             Por defecto: display: none (CharacterSheetController.cs lo abre)
+             ============================================================ -->
+        <ui:VisualElement name="TraitsOverlay" class="cs-traits-overlay">
+
+            <ui:VisualElement class="cs-traits-header">
+                <ui:VisualElement class="cs-traits-header-text">
+                    <ui:Label name="TraitsTitle" class="cs-traits-title" text="— Traits" />
+                    <ui:Label name="TraitsSub"   class="cs-traits-sub"   text="" />
+                </ui:VisualElement>
+                <ui:Button name="BtnCloseTraits" class="cs-btn-close" text="✕ Cerrar" />
+            </ui:VisualElement>
+
+            <ui:VisualElement class="cs-traits-body">
+
+                <!-- Sidebar de categorías -->
+                <ui:ScrollView name="TraitsSidebar" class="cs-traits-sidebar" horizontal="false">
+                    <!--
+                        Generado dinámicamente desde C#.
+                        Estructura de grupos:
+                        - Label grupo (cs-sidebar-group-label)
+                        - Button categoría (cs-tcat-btn / cs-tcat-btn--active)
+                        - VisualElement separador (cs-sidebar-divider)
+
+                        Ejemplo:
+                        var groupLabel = new Label("COMBATE");
+                        groupLabel.AddToClassList("cs-sidebar-group-label");
+                        TraitsSidebar.Add(groupLabel);
+
+                        var btn = new Button();
+                        btn.AddToClassList("cs-tcat-btn");
+                        btn.text = "Obtenidos"; // o Cadenas / Evoluciones
+                        // badge de cantidad: agregar Label con cs-tcat-count
+                        TraitsSidebar.Add(btn);
+                    -->
+                    <ui:Label name="TraitsSidebarEmptyState" class="cs-empty-state" text="Sin categorías disponibles." />
+                </ui:ScrollView>
+
+                <!-- Contenido de traits -->
+                <ui:ScrollView name="TraitsContent" class="cs-traits-content" horizontal="false">
+                    <!--
+                        TRAITS INDIVIDUALES (obtenidos):
+                        var card = new VisualElement(); card.AddToClassList("cs-trait-card");
+
+                        var header = new VisualElement(); header.AddToClassList("cs-trait-card-header");
+                        var icon = new VisualElement(); icon.AddToClassList("cs-trait-icon");
+                        var info = new VisualElement();
+                        var name = new Label(t.nombre); name.AddToClassList("cs-trait-name");
+                        var statusRow = new VisualElement(); statusRow.AddToClassList("cs-trait-status-row");
+                        // badges: cs-badge-unlocked, cs-badge-type, cs-badge-rare, cs-badge-legendary
+                        info.Add(name); info.Add(statusRow);
+                        header.Add(icon); header.Add(info);
+                        var desc = new Label(t.descripcion); desc.AddToClassList("cs-trait-desc");
+                        // condiciones: cs-trait-conds > cs-cond-row > cs-cond-dot (+met) + cs-cond-text + cs-cond-bar-bg > cs-cond-bar-fill (+met)
+                        card.Add(header); card.Add(desc); card.Add(condBlock);
+                        TraitsContent.Add(card);
+
+                        CADENAS:
+                        var chain = new VisualElement(); chain.AddToClassList("cs-chain-card");
+                        // cs-chain-header, cs-chain-icon, cs-chain-name, cs-chain-sublabel
+                        // cs-chain-nodes > por cada nodo visible:
+                        //   cs-chain-node > cs-node-connector (cs-node-dot + cs-node-line) + cs-node-body
+                        //   Estados del dot: cs-node-dot--done / cs-node-dot--current
+                        //   Estado de la línea: cs-node-line--done / cs-node-line--pending
+                        // cs-chain-hidden (para nodos ocultos)
+                        // cs-chain-evo (evolución final) / cs-chain-evo--locked
+                    -->
+                    <ui:Label name="TraitsContentEmptyState" class="cs-empty-state" text="Sin traits ni cadenas para mostrar." />
+                </ui:ScrollView>
+
+            </ui:VisualElement>
+
+        </ui:VisualElement>
+
+    </ui:VisualElement>
+</ui:UXML>

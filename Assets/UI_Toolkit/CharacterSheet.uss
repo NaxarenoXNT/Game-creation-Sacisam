@@ -1,0 +1,1052 @@
+/* ============================================================
+   CharacterSheet.uss
+   Ficha de personaje + overlay de traits
+   Paleta oscura/púrpura — placeholder visual
+   ============================================================ */
+
+/* ─── Raíz ─── */
+.cs-root {
+    flex-direction: column;
+    background-color: rgba(12, 12, 18, 0.97);
+    border-color: rgba(100, 100, 130, 0.35);
+    border-width: 1px;
+    border-radius: 10px;
+    flex-grow: 1;
+    position: relative;
+}
+
+/* ══════════════════════════════════════════
+   TOPBAR
+   ══════════════════════════════════════════ */
+.cs-topbar {
+    flex-direction: row;
+    align-items: center;
+    padding: 8px 12px;
+    border-bottom-width: 1px;
+    border-color: rgba(100, 100, 130, 0.25);
+    background-color: rgba(20, 18, 35, 0.8);
+}
+
+.cs-topbar-group-label {
+    font-size: 9px;
+    -unity-font-style: bold;
+    letter-spacing: 1px;
+    color: rgba(130, 125, 165, 0.6);
+    margin-right: 8px;
+}
+
+.cs-party-scroll {
+    flex-direction: row;
+    flex-grow: 1;
+}
+
+.cs-party-btn {
+    padding: 5px 12px;
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: rgba(100, 100, 130, 0.35);
+    background-color: rgba(30, 28, 50, 0.7);
+    color: rgba(180, 175, 215, 0.8);
+    font-size: 11px;
+    margin-right: 6px;
+    transition-duration: 0.15s;
+    transition-property: background-color;
+}
+
+.cs-party-btn:hover {
+    background-color: rgba(100, 80, 200, 0.2);
+}
+
+.cs-party-btn--active {
+    background-color: rgba(100, 80, 200, 0.3);
+    border-color: rgba(140, 110, 255, 0.6);
+    color: rgba(215, 205, 255, 1.0);
+}
+
+.cs-run-label {
+    font-size: 10px;
+    color: rgba(130, 125, 165, 0.5);
+    margin-left: 8px;
+    flex-shrink: 0;
+}
+
+/* ══════════════════════════════════════════
+   BODY
+   ══════════════════════════════════════════ */
+.cs-body {
+    flex-direction: row;
+    flex-grow: 1;
+}
+
+/* ══════════════════════════════════════════
+   COLUMNA IZQUIERDA
+   ══════════════════════════════════════════ */
+.cs-left-col {
+    width: 260px;
+    flex-shrink: 0;
+    border-right-width: 1px;
+    border-color: rgba(100, 100, 130, 0.2);
+    flex-direction: column;
+}
+
+/* Retrato */
+.cs-portrait {
+    height: 190px;
+    background-color: rgba(30, 28, 50, 0.6);
+    border-bottom-width: 1px;
+    border-color: rgba(100, 100, 130, 0.2);
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.cs-lv-badge {
+    position: absolute;
+    top: 8px;
+    left: 10px;
+    font-size: 10px;
+    color: rgba(200, 190, 255, 0.8);
+    background-color: rgba(80, 60, 160, 0.4);
+    border-width: 1px;
+    border-color: rgba(100, 80, 200, 0.4);
+    border-radius: 5px;
+    padding: 2px 7px;
+}
+
+.cs-portrait-image {
+    width: 72px;
+    height: 100px;
+    border-width: 1px;
+    border-color: rgba(100, 100, 130, 0.3);
+    border-radius: 6px;
+    background-color: rgba(50, 45, 80, 0.5);
+    /* background-image se setea desde C# con style.backgroundImage */
+}
+
+/* Nameplate */
+.cs-nameplate {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 12px;
+    border-bottom-width: 1px;
+    border-color: rgba(100, 100, 130, 0.2);
+}
+
+.cs-nameplate-text {
+    flex-direction: column;
+    flex-grow: 1;
+}
+
+.cs-char-name {
+    font-size: 14px;
+    -unity-font-style: bold;
+    color: rgba(215, 205, 255, 0.98);
+}
+
+.cs-char-class {
+    font-size: 10px;
+    color: rgba(150, 140, 190, 0.7);
+    margin-top: 1px;
+}
+
+.cs-btn-traits {
+    padding: 4px 10px;
+    border-radius: 5px;
+    border-width: 1px;
+    border-color: rgba(130, 100, 230, 0.45);
+    background-color: rgba(90, 65, 180, 0.2);
+    color: rgba(190, 175, 255, 0.9);
+    font-size: 10px;
+    -unity-font-style: bold;
+    flex-shrink: 0;
+    transition-duration: 0.15s;
+    transition-property: background-color;
+}
+
+.cs-btn-traits:hover {
+    background-color: rgba(100, 75, 200, 0.38);
+}
+
+/* Bloques de sección */
+.cs-section-block {
+    padding: 9px 12px;
+    border-bottom-width: 1px;
+    border-color: rgba(100, 100, 130, 0.15);
+}
+
+.cs-sec-label {
+    font-size: 9px;
+    -unity-font-style: bold;
+    letter-spacing: 1px;
+    color: rgba(140, 135, 170, 0.6);
+    margin-bottom: 6px;
+}
+
+/* Stats */
+.cs-stats-list {
+    flex-direction: column;
+}
+
+.cs-stat-row {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.cs-stat-name {
+    width: 58px;
+    font-size: 10px;
+    color: rgba(155, 150, 185, 0.75);
+    flex-shrink: 0;
+}
+
+.cs-bar-bg {
+    flex-grow: 1;
+    height: 4px;
+    background-color: rgba(60, 55, 90, 0.7);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-right: 6px;
+}
+
+.cs-bar-fill {
+    height: 4px;
+    border-radius: 2px;
+    /* width se setea desde C# con Length.Percent() */
+}
+
+.cs-bar-fill--vida      { background-color: rgba(90, 210, 130, 0.85); }
+.cs-bar-fill--ataque    { background-color: rgba(230, 100, 80, 0.85); }
+.cs-bar-fill--defensa   { background-color: rgba(90, 160, 220, 0.85); }
+.cs-bar-fill--mana      { background-color: rgba(160, 100, 230, 0.85); }
+.cs-bar-fill--velocidad { background-color: rgba(240, 190, 60, 0.85); }
+
+.cs-stat-val {
+    width: 62px;
+    font-size: 11px;
+    -unity-font-style: bold;
+    color: rgba(210, 205, 240, 0.9);
+    -unity-text-align: middle-right;
+    flex-shrink: 0;
+}
+
+/* Elementos */
+.cs-items-list {
+    flex-direction: column;
+}
+
+.cs-item-row {
+    flex-direction: row;
+    align-items: center;
+    padding: 4px 0;
+    border-bottom-width: 1px;
+    border-color: rgba(80, 75, 110, 0.12);
+}
+
+.cs-item-icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    background-color: rgba(50, 45, 80, 0.6);
+    border-width: 1px;
+    border-color: rgba(100, 95, 140, 0.3);
+    flex-shrink: 0;
+    margin-right: 8px;
+}
+
+.cs-item-name {
+    font-size: 11px;
+    color: rgba(195, 190, 225, 0.85);
+}
+
+.cs-item-type {
+    font-size: 9px;
+    color: rgba(130, 125, 165, 0.55);
+    margin-top: 1px;
+}
+
+/* Equipo */
+.cs-equip-list {
+    flex-direction: column;
+}
+
+.cs-equip-slot {
+    flex-direction: row;
+    align-items: center;
+    padding: 3px 0;
+}
+
+.cs-equip-box {
+    width: 30px;
+    height: 30px;
+    border-radius: 5px;
+    border-width: 1px;
+    border-color: rgba(100, 95, 140, 0.4);
+    background-color: rgba(40, 36, 65, 0.5);
+    flex-shrink: 0;
+    margin-right: 8px;
+}
+
+.cs-equip-box--filled {
+    border-color: rgba(100, 95, 180, 0.45);
+    background-color: rgba(60, 55, 100, 0.4);
+}
+
+.cs-equip-slot-name {
+    font-size: 9px;
+    color: rgba(120, 115, 155, 0.6);
+    letter-spacing: 1px;
+}
+
+.cs-equip-item-name {
+    font-size: 11px;
+    color: rgba(195, 190, 225, 0.88);
+    margin-top: 1px;
+}
+
+.cs-equip-item-empty {
+    font-size: 11px;
+    color: rgba(100, 95, 140, 0.45);
+    margin-top: 1px;
+}
+
+.cs-no-equip-note {
+    font-size: 10px;
+    color: rgba(110, 105, 145, 0.45);
+    -unity-font-style: italic;
+    white-space: normal;
+}
+
+/* ══════════════════════════════════════════
+   COLUMNA DERECHA
+   ══════════════════════════════════════════ */
+.cs-right-col {
+    flex-grow: 1;
+    flex-direction: column;
+}
+
+.cs-right-top {
+    padding: 10px 14px;
+    border-bottom-width: 1px;
+    border-color: rgba(100, 100, 130, 0.2);
+}
+
+/* Concurrencias */
+.cs-conc-list {
+    flex-direction: column;
+}
+
+.cs-conc-item {
+    flex-direction: row;
+    align-items: center;
+    padding: 5px 8px;
+    border-radius: 6px;
+    background-color: rgba(35, 32, 58, 0.6);
+    border-width: 1px;
+    border-color: rgba(100, 95, 140, 0.25);
+    margin-bottom: 5px;
+}
+
+.cs-conc-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 5px;
+    flex-shrink: 0;
+    background-color: rgba(80, 60, 160, 0.25);
+    border-width: 1px;
+    border-color: rgba(100, 80, 200, 0.3);
+    margin-right: 9px;
+}
+
+.cs-conc-name {
+    font-size: 11px;
+    -unity-font-style: bold;
+    color: rgba(200, 195, 235, 0.9);
+}
+
+.cs-conc-desc {
+    font-size: 10px;
+    color: rgba(140, 135, 175, 0.65);
+    margin-top: 1px;
+    white-space: normal;
+}
+
+/* Habilidades */
+.cs-right-bot {
+    flex-grow: 1;
+    padding: 10px 14px;
+    flex-direction: column;
+}
+
+.cs-skill-tabs {
+    flex-direction: row;
+    margin-bottom: 9px;
+}
+
+.cs-skill-tab {
+    padding: 4px 12px;
+    border-radius: 5px;
+    font-size: 10px;
+    -unity-font-style: bold;
+    border-width: 1px;
+    border-color: rgba(100, 95, 140, 0.3);
+    background-color: rgba(30, 28, 50, 0.5);
+    color: rgba(150, 145, 185, 0.7);
+    margin-right: 6px;
+    transition-duration: 0.15s;
+    transition-property: background-color;
+}
+
+.cs-skill-tab:hover {
+    background-color: rgba(100, 80, 200, 0.15);
+}
+
+.cs-skill-tab--active {
+    background-color: rgba(100, 80, 200, 0.25);
+    border-color: rgba(130, 105, 230, 0.55);
+    color: rgba(210, 200, 255, 0.95);
+}
+
+.cs-skills-list {
+    flex-grow: 1;
+    flex-direction: column;
+}
+
+.cs-skill-card {
+    border-width: 1px;
+    border-color: rgba(100, 95, 140, 0.28);
+    border-radius: 7px;
+    background-color: rgba(30, 28, 50, 0.55);
+    margin-bottom: 6px;
+    overflow: hidden;
+    transition-duration: 0.15s;
+    transition-property: border-color;
+}
+
+.cs-skill-card:hover {
+    border-color: rgba(130, 110, 220, 0.5);
+}
+
+.cs-skill-card--expanded {
+    border-color: rgba(130, 110, 220, 0.6);
+    background-color: rgba(40, 36, 68, 0.7);
+}
+
+.cs-skill-header {
+    flex-direction: row;
+    align-items: center;
+    padding: 7px 9px;
+}
+
+.cs-skill-badge {
+    width: 30px;
+    height: 30px;
+    border-radius: 5px;
+    flex-shrink: 0;
+    background-color: rgba(80, 60, 160, 0.3);
+    border-width: 1px;
+    border-color: rgba(100, 80, 200, 0.35);
+    margin-right: 9px;
+}
+
+.cs-skill-badge--passive {
+    background-color: rgba(30, 120, 80, 0.25);
+    border-color: rgba(50, 170, 110, 0.35);
+}
+
+.cs-skill-title {
+    font-size: 12px;
+    -unity-font-style: bold;
+    color: rgba(205, 198, 245, 0.95);
+    flex-grow: 1;
+}
+
+.cs-skill-meta {
+    font-size: 10px;
+    color: rgba(140, 135, 175, 0.65);
+    margin-top: 2px;
+}
+
+.cs-skill-arrow {
+    font-size: 10px;
+    color: rgba(130, 120, 180, 0.5);
+    flex-shrink: 0;
+    /* rotación del ▼ se maneja desde C# al expandir */
+}
+
+.cs-skill-body {
+    padding: 0 9px 9px 9px;
+    border-top-width: 1px;
+    border-color: rgba(100, 95, 140, 0.2);
+    /* display: none por defecto, C# lo muestra con DisplayStyle.Flex */
+    display: none;
+}
+
+.cs-skill-desc {
+    font-size: 11px;
+    color: rgba(175, 168, 215, 0.8);
+    white-space: normal;
+    margin-top: 7px;
+}
+
+/* Tags de habilidad */
+.cs-skill-tags {
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin-top: 7px;
+}
+
+.cs-skill-tag {
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 10px;
+    margin-right: 5px;
+    margin-bottom: 4px;
+    border-width: 1px;
+}
+
+.cs-skill-tag--dmg {
+    background-color: rgba(180, 60, 60, 0.2);
+    border-color: rgba(200, 80, 80, 0.35);
+    color: rgba(240, 150, 140, 0.9);
+}
+
+.cs-skill-tag--cd {
+    background-color: rgba(50, 100, 200, 0.2);
+    border-color: rgba(80, 140, 230, 0.35);
+    color: rgba(150, 195, 255, 0.9);
+}
+
+.cs-skill-tag--lv {
+    background-color: rgba(100, 80, 200, 0.2);
+    border-color: rgba(130, 110, 240, 0.35);
+    color: rgba(190, 175, 255, 0.9);
+}
+
+.cs-skill-tag--info {
+    background-color: rgba(70, 75, 110, 0.2);
+    border-color: rgba(110, 115, 160, 0.3);
+    color: rgba(190, 195, 225, 0.85);
+}
+
+.cs-skill-tag--ok {
+    background-color: rgba(30, 140, 80, 0.22);
+    border-color: rgba(50, 180, 100, 0.35);
+    color: rgba(120, 220, 155, 0.9);
+}
+
+.cs-skill-tag--warn {
+    background-color: rgba(170, 120, 20, 0.18);
+    border-color: rgba(210, 165, 40, 0.35);
+    color: rgba(255, 215, 120, 0.92);
+}
+
+/* ══════════════════════════════════════════
+   OVERLAY DE TRAITS
+   ══════════════════════════════════════════ */
+.cs-traits-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(8, 7, 16, 0.93);
+    border-radius: 10px;
+    flex-direction: column;
+    overflow: hidden;
+    display: none;
+    /* CharacterSheetController.cs: TraitsOverlay.style.display = DisplayStyle.Flex; */
+}
+
+.cs-traits-header {
+    flex-direction: row;
+    align-items: center;
+    padding: 10px 14px;
+    border-bottom-width: 1px;
+    border-color: rgba(100, 100, 130, 0.3);
+    background-color: rgba(20, 18, 35, 0.9);
+}
+
+.cs-traits-header-text {
+    flex-grow: 1;
+    flex-direction: column;
+}
+
+.cs-traits-title {
+    font-size: 13px;
+    -unity-font-style: bold;
+    color: rgba(210, 200, 255, 0.95);
+}
+
+.cs-traits-sub {
+    font-size: 10px;
+    color: rgba(140, 130, 175, 0.65);
+    margin-top: 1px;
+}
+
+.cs-btn-close {
+    padding: 4px 10px;
+    border-radius: 5px;
+    border-width: 1px;
+    border-color: rgba(100, 95, 140, 0.4);
+    background-color: rgba(40, 35, 65, 0.6);
+    color: rgba(170, 160, 210, 0.8);
+    font-size: 11px;
+    transition-duration: 0.15s;
+    transition-property: background-color;
+}
+
+.cs-btn-close:hover {
+    background-color: rgba(80, 60, 140, 0.4);
+}
+
+.cs-traits-body {
+    flex-direction: row;
+    flex-grow: 1;
+    overflow: hidden;
+}
+
+/* Sidebar de categorías */
+.cs-traits-sidebar {
+    width: 145px;
+    flex-shrink: 0;
+    border-right-width: 1px;
+    border-color: rgba(100, 100, 130, 0.2);
+    flex-direction: column;
+    padding: 6px 0;
+}
+
+.cs-sidebar-group-label {
+    font-size: 9px;
+    -unity-font-style: bold;
+    letter-spacing: 1px;
+    color: rgba(110, 105, 145, 0.5);
+    padding: 8px 12px 4px 12px;
+}
+
+.cs-tcat-btn {
+    padding: 6px 12px;
+    border-width: 0;
+    border-left-width: 2px;
+    border-color: rgba(0, 0, 0, 0);
+    background-color: rgba(0, 0, 0, 0);
+    color: rgba(155, 150, 190, 0.75);
+    font-size: 11px;
+    -unity-text-align: middle-left;
+    width: 100%;
+    transition-duration: 0.15s;
+    transition-property: background-color;
+}
+
+.cs-tcat-btn:hover {
+    background-color: rgba(100, 80, 200, 0.1);
+}
+
+.cs-tcat-btn--active {
+    background-color: rgba(100, 80, 200, 0.18);
+    color: rgba(210, 200, 255, 0.95);
+    border-left-color: rgba(140, 110, 255, 0.7);
+}
+
+.cs-tcat-count {
+    font-size: 9px;
+    background-color: rgba(80, 65, 150, 0.35);
+    border-radius: 8px;
+    padding: 1px 6px;
+    color: rgba(170, 160, 215, 0.7);
+    margin-left: 4px;
+}
+
+.cs-sidebar-divider {
+    height: 1px;
+    background-color: rgba(80, 75, 110, 0.3);
+    margin: 6px 10px;
+}
+
+/* Contenido de traits */
+.cs-traits-content {
+    flex-grow: 1;
+    flex-direction: column;
+    padding: 10px 12px;
+}
+
+/* ─── Trait individual ─── */
+.cs-trait-card {
+    border-width: 1px;
+    border-color: rgba(100, 95, 140, 0.3);
+    border-radius: 8px;
+    background-color: rgba(28, 26, 48, 0.7);
+    margin-bottom: 8px;
+    overflow: hidden;
+}
+
+.cs-trait-card-header {
+    flex-direction: row;
+    align-items: center;
+    padding: 8px 10px;
+}
+
+.cs-trait-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 6px;
+    flex-shrink: 0;
+    background-color: rgba(80, 60, 160, 0.3);
+    border-width: 1px;
+    border-color: rgba(100, 80, 200, 0.4);
+    margin-right: 9px;
+}
+
+.cs-trait-name {
+    font-size: 12px;
+    -unity-font-style: bold;
+    color: rgba(205, 198, 245, 0.95);
+}
+
+.cs-trait-status-row {
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: 2px;
+}
+
+.cs-trait-desc {
+    font-size: 10px;
+    color: rgba(150, 145, 185, 0.7);
+    padding: 0 10px 8px 53px;
+    white-space: normal;
+}
+
+.cs-trait-conds {
+    padding: 0 10px 8px 10px;
+    flex-direction: column;
+}
+
+/* ─── Badges ─── */
+.cs-badge-unlocked {
+    padding: 1px 7px;
+    border-radius: 8px;
+    font-size: 9px;
+    background-color: rgba(30, 140, 80, 0.25);
+    border-width: 1px;
+    border-color: rgba(50, 180, 100, 0.4);
+    color: rgba(100, 220, 150, 0.9);
+    margin-right: 5px;
+}
+
+.cs-badge-type {
+    padding: 1px 7px;
+    border-radius: 8px;
+    font-size: 9px;
+    background-color: rgba(50, 100, 160, 0.2);
+    border-width: 1px;
+    border-color: rgba(70, 130, 200, 0.35);
+    color: rgba(140, 190, 255, 0.85);
+    margin-right: 5px;
+}
+
+.cs-badge-rare {
+    padding: 1px 7px;
+    border-radius: 8px;
+    font-size: 9px;
+    background-color: rgba(140, 80, 200, 0.2);
+    border-width: 1px;
+    border-color: rgba(160, 100, 230, 0.4);
+    color: rgba(200, 160, 255, 0.9);
+    margin-right: 5px;
+}
+
+.cs-badge-legendary {
+    padding: 1px 7px;
+    border-radius: 8px;
+    font-size: 9px;
+    background-color: rgba(180, 130, 20, 0.2);
+    border-width: 1px;
+    border-color: rgba(220, 170, 40, 0.4);
+    color: rgba(255, 215, 100, 0.9);
+    margin-right: 5px;
+}
+
+/* ─── Condiciones ─── */
+.cs-cond-row {
+    flex-direction: row;
+    align-items: center;
+    padding: 3px 0;
+}
+
+.cs-cond-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 3px;
+    flex-shrink: 0;
+    margin-right: 7px;
+    background-color: rgba(120, 115, 155, 0.5);
+}
+
+.cs-cond-dot--met {
+    background-color: rgba(80, 200, 120, 0.9);
+}
+
+.cs-cond-text {
+    font-size: 10px;
+    color: rgba(150, 145, 185, 0.75);
+    flex-grow: 1;
+}
+
+.cs-cond-bar-bg {
+    width: 60px;
+    height: 3px;
+    background-color: rgba(60, 55, 90, 0.7);
+    border-radius: 2px;
+    overflow: hidden;
+    flex-shrink: 0;
+    margin-right: 5px;
+}
+
+.cs-cond-bar-fill {
+    height: 3px;
+    border-radius: 2px;
+    background-color: rgba(100, 180, 255, 0.7);
+    /* width desde C# con Length.Percent() */
+}
+
+.cs-cond-bar-fill--met {
+    background-color: rgba(80, 200, 120, 0.8);
+}
+
+.cs-cond-prog-txt {
+    font-size: 9px;
+    color: rgba(130, 125, 165, 0.6);
+    flex-shrink: 0;
+}
+
+/* ─── Cadenas ─── */
+.cs-chain-card {
+    border-width: 1px;
+    border-color: rgba(100, 95, 140, 0.3);
+    border-radius: 8px;
+    background-color: rgba(28, 26, 48, 0.7);
+    margin-bottom: 10px;
+    overflow: hidden;
+}
+
+.cs-chain-header {
+    flex-direction: row;
+    align-items: center;
+    padding: 9px 12px;
+    border-bottom-width: 1px;
+    border-color: rgba(80, 75, 110, 0.25);
+}
+
+.cs-chain-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    flex-shrink: 0;
+    background-color: rgba(100, 65, 180, 0.3);
+    border-width: 1px;
+    border-color: rgba(120, 85, 220, 0.4);
+    margin-right: 9px;
+}
+
+.cs-chain-name {
+    font-size: 12px;
+    -unity-font-style: bold;
+    color: rgba(205, 198, 245, 0.95);
+}
+
+.cs-chain-sublabel {
+    font-size: 10px;
+    color: rgba(140, 130, 175, 0.6);
+    margin-top: 1px;
+}
+
+.cs-chain-nodes {
+    flex-direction: column;
+    padding: 10px 12px;
+}
+
+.cs-chain-node {
+    flex-direction: row;
+    align-items: flex-start;
+}
+
+.cs-node-connector {
+    flex-direction: column;
+    align-items: center;
+    flex-shrink: 0;
+    padding-top: 2px;
+    margin-right: 9px;
+    width: 14px;
+}
+
+.cs-node-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 7px;
+    border-width: 2px;
+    border-color: rgba(100, 95, 140, 0.5);
+    background-color: rgba(30, 28, 50, 0.8);
+    flex-shrink: 0;
+}
+
+.cs-node-dot--done {
+    border-color: rgba(80, 200, 120, 0.8);
+    background-color: rgba(40, 120, 70, 0.4);
+}
+
+.cs-node-dot--current {
+    border-color: rgba(140, 110, 255, 0.9);
+    background-color: rgba(90, 65, 180, 0.5);
+}
+
+.cs-node-line {
+    width: 1px;
+    min-height: 10px;
+    flex-grow: 1;
+    margin: 2px 0;
+    background-color: rgba(80, 75, 110, 0.3);
+}
+
+.cs-node-line--done {
+    background-color: rgba(70, 180, 110, 0.5);
+}
+
+.cs-node-body {
+    flex-grow: 1;
+    flex-direction: column;
+    padding-bottom: 6px;
+}
+
+.cs-node-title-done {
+    font-size: 11px;
+    -unity-font-style: bold;
+    color: rgba(110, 220, 150, 0.9);
+    margin-bottom: 2px;
+}
+
+.cs-node-title-current {
+    font-size: 11px;
+    -unity-font-style: bold;
+    color: rgba(190, 175, 255, 0.95);
+    margin-bottom: 2px;
+}
+
+.cs-node-reqs {
+    font-size: 10px;
+    color: rgba(130, 125, 165, 0.6);
+    white-space: normal;
+    margin-bottom: 3px;
+}
+
+.cs-node-effects {
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin-top: 4px;
+}
+
+.cs-node-effect {
+    padding: 1px 7px;
+    border-radius: 8px;
+    font-size: 9px;
+    background-color: rgba(80, 60, 160, 0.2);
+    border-width: 1px;
+    border-color: rgba(100, 80, 200, 0.3);
+    color: rgba(180, 165, 240, 0.85);
+    margin-right: 4px;
+    margin-bottom: 4px;
+}
+
+/* Nodos ocultos */
+.cs-chain-hidden {
+    flex-direction: row;
+    align-items: center;
+    padding: 6px 12px 8px 12px;
+}
+
+.cs-chain-hidden-line {
+    width: 1px;
+    height: 20px;
+    background-color: rgba(60, 55, 90, 0.5);
+    margin: 0 6px;
+    flex-shrink: 0;
+}
+
+.cs-chain-hidden-label {
+    font-size: 10px;
+    color: rgba(90, 85, 125, 0.55);
+    -unity-font-style: italic;
+}
+
+/* Evolución final */
+.cs-chain-evo {
+    flex-direction: row;
+    align-items: center;
+    margin: 0 12px 10px 12px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: rgba(160, 120, 255, 0.35);
+    background-color: rgba(80, 50, 150, 0.18);
+}
+
+.cs-chain-evo--locked {
+    border-color: rgba(80, 75, 110, 0.35);
+    background-color: rgba(35, 32, 58, 0.5);
+}
+
+.cs-evo-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 5px;
+    background-color: rgba(120, 80, 220, 0.3);
+    border-width: 1px;
+    border-color: rgba(150, 110, 255, 0.45);
+    flex-shrink: 0;
+    margin-right: 9px;
+}
+
+.cs-evo-icon--locked {
+    background-color: rgba(40, 38, 65, 0.5);
+    border-color: rgba(80, 75, 110, 0.3);
+    opacity: 0.5;
+}
+
+.cs-evo-name {
+    font-size: 11px;
+    -unity-font-style: bold;
+    color: rgba(200, 180, 255, 0.95);
+}
+
+.cs-evo-name--locked {
+    color: rgba(110, 105, 145, 0.6);
+}
+
+.cs-evo-sub {
+    font-size: 9px;
+    color: rgba(150, 135, 200, 0.65);
+    margin-top: 1px;
+    white-space: normal;
+}
+
+/* ─── Empty state ─── */
+.cs-empty-state {
+    padding: 16px;
+    -unity-text-align: middle-center;
+    font-size: 11px;
+    color: rgba(110, 105, 145, 0.5);
+    white-space: normal;
+}
+
+.cs-items-list > .cs-empty-state,
+.cs-conc-list > .cs-empty-state,
+.cs-skills-list > .cs-empty-state,
+.cs-traits-content > .cs-empty-state,
+.cs-traits-sidebar > .cs-empty-state {
+    margin-top: 4px;
+}
+
+.cs-equip-list > .cs-no-equip-note {
+    padding: 6px 0 2px 0;
+}
