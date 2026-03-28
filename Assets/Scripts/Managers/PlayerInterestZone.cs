@@ -40,6 +40,9 @@ namespace Managers
         
         // Timer para escaneo
         private float scanTimer;
+
+        // Pausa el scan durante el viaje rápido
+        private bool _isPaused;
         
         // Referencia al encounter manager
         private CombatEncounterManager encounterManager;
@@ -91,7 +94,10 @@ namespace Managers
             {
                 SetupTriggerCollider();
             }
-            
+
+            EventBus.Suscribir<EventoTravelIniciado>(OnTravelIniciado);
+            EventBus.Suscribir<EventoTravelCompletado>(OnTravelCompletado);
+
             Debug.Log($"[PlayerInterestZone] Inicializado. Siguiendo: {playerTransform?.name ?? "NINGUNO"}");
         }
         
@@ -102,6 +108,9 @@ namespace Managers
             {
                 partyManager.OnMainChanged -= OnMainCharacterChanged;
             }
+
+            EventBus.Desuscribir<EventoTravelIniciado>(OnTravelIniciado);
+            EventBus.Desuscribir<EventoTravelCompletado>(OnTravelCompletado);
         }
         
         private void Update()
@@ -111,8 +120,8 @@ namespace Managers
             {
                 UpdateTargetToMain();
             }
-            
-            if (useTriggerMode || combatRules == null || playerTransform == null) return;
+
+            if (_isPaused || useTriggerMode || combatRules == null || playerTransform == null) return;
             
             scanTimer += Time.deltaTime;
             if (scanTimer >= scanInterval)
@@ -410,6 +419,17 @@ namespace Managers
         {
             candidatesInRange.Clear();
             candidatesInEngagementRange.Clear();
+        }
+
+        private void OnTravelIniciado(EventoTravelIniciado _)
+        {
+            _isPaused = true;
+            ClearAllCandidates();
+        }
+
+        private void OnTravelCompletado(EventoTravelCompletado _)
+        {
+            _isPaused = false;
         }
     }
 }
