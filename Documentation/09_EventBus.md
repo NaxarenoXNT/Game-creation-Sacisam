@@ -1,5 +1,52 @@
 # Sistema de Eventos (EventBus)
 
+> Comunicación desacoplada entre sistemas mediante publicación/suscripción de eventos tipados.
+> Para eventos de misiones ver [22_Misiones.md](22_Misiones.md).
+> Para eventos de combate en detalle ver [17_Sistema_Combate.md](17_Sistema_Combate.md).
+
+## Índice
+
+- [Archivos Asociados](#archivos-asociados)
+- [Visión General](#visión-general)
+- [EventBus (Core)](#eventbus-core)
+- [Interfaz IEvento](#interfaz-ievento)
+- [Eventos de Entidad](#eventos-de-entidad)
+- [Eventos de Combate](#eventos-de-combate)
+- [Eventos de Encounter / Detección](#eventos-de-encounter--detección)
+- [Eventos de Party y Refuerzos](#eventos-de-party-y-refuerzos)
+- [Eventos de Progresión](#eventos-de-progresión)
+- [Eventos de Enemigos](#eventos-de-enemigos)
+- [Eventos de UI](#eventos-de-ui)
+- [Eventos de Travel](#eventos-de-travel)
+- [Eventos de GameFlow](#eventos-de-gameflow)
+- [Eventos de Misiones](#eventos-de-misiones)
+- [Uso Básico](#uso-básico)
+- [Publicación Diferida](#publicación-diferida)
+- [Buenas Prácticas](#buenas-prácticas)
+- [Diagrama de Flujo](#diagrama-de-flujo)
+- [Limpiar al Cambiar Escena](#limpiar-al-cambiar-escena)
+
+---
+
+## Archivos Asociados
+
+| Archivo | Descripción |
+|---------|-------------|
+| [Assets/Scripts/Managers/EventBus.cs](../Assets/Scripts/Managers/EventBus.cs) | Core estático del sistema de eventos |
+| [Assets/Scripts/Events/IEvento.cs](../Assets/Scripts/Events/IEvento.cs) | Interfaz marcador para todos los eventos |
+| [Assets/Scripts/Events/EventosEntidad.cs](../Assets/Scripts/Events/EventosEntidad.cs) | Eventos de entidad: daño, curación, muerte, estados |
+| [Assets/Scripts/Events/EventosCombate.cs](../Assets/Scripts/Events/EventosCombate.cs) | Eventos de combate: turnos, habilidades, acciones UI |
+| [Assets/Scripts/Events/EventosEncounter.cs](../Assets/Scripts/Events/EventosEncounter.cs) | Eventos de detección y encuentros de combate |
+| [Assets/Scripts/Events/EventosParty.cs](../Assets/Scripts/Events/EventosParty.cs) | Eventos de party y refuerzos |
+| [Assets/Scripts/Events/EventosProgresion.cs](../Assets/Scripts/Events/EventosProgresion.cs) | Eventos de nivel, XP, traits y evoluciones |
+| [Assets/Scripts/Events/EventosEnemigo.cs](../Assets/Scripts/Events/EventosEnemigo.cs) | Eventos de spawn y derrota de enemigos |
+| [Assets/Scripts/Events/EventosUI.cs](../Assets/Scripts/Events/EventosUI.cs) | Eventos de actualización de UI y mensajes |
+| [Assets/Scripts/Events/EventosTravel.cs](../Assets/Scripts/Events/EventosTravel.cs) | Eventos de viaje y waypoints |
+| [Assets/Scripts/Events/EventosGameFlow.cs](../Assets/Scripts/Events/EventosGameFlow.cs) | Eventos de cambio de estado del juego |
+| [Assets/Scripts/Missions/EventosMision.cs](../Assets/Scripts/Missions/EventosMision.cs) | Eventos del sistema de misiones |
+
+---
+
 ## Visión General
 
 EventBus permite comunicación desacoplada entre sistemas. En lugar de que un sistema llame directamente a otro, publica eventos que cualquier interesado puede escuchar.
@@ -14,150 +61,199 @@ Publicador                          Suscriptores
     │                                    │ Analytics
 ```
 
+Todos los eventos están en `namespace Managers` y deben implementar `IEvento`. La única excepción son los eventos de misiones, que están en `namespace Missions`.
+
 ---
 
-## EventBus (Singleton)
+## EventBus (Core)
 
 **Archivo**: `Assets/Scripts/Managers/EventBus.cs`
 
-### Métodos Estáticos
+Clase estática. Internamente usa un `Dictionary<Type, List<Delegate>>` de suscriptores y una `Queue<Action>` para publicación diferida.
+
+### Métodos
 
 | Método | Descripción |
 |--------|-------------|
-| `Suscribir<T>(callback)` | Registrar un listener para eventos tipo T |
-| `Desuscribir<T>(callback)` | Remover un listener |
-| `Publicar<T>(evento)` | Enviar un evento a todos los suscriptores |
-| `LimpiarTodo()` | Remover todos los suscriptores |
+| `Suscribir<T>(Action<T>)` | Registrar un listener para eventos tipo T |
+| `Desuscribir<T>(Action<T>)` | Remover un listener |
+| `Publicar<T>(T evento)` | Enviar un evento a todos los suscriptores de inmediato |
+| `PublicarDiferido<T>(T evento)` | Encolar el evento para publicarlo en el próximo `ProcesarCola()` |
+| `ProcesarCola()` | Procesar todos los eventos encolados (llamar desde el game loop) |
+| `LimpiarTodo()` | Remover todos los suscriptores y vaciar la cola |
+| `Limpiar<T>()` | Limpiar solo los suscriptores del tipo T |
+| `ObtenerCantidadSuscriptores<T>()` | Retorna cuántos listeners están registrados para T |
+
+> **Restricción genérica**: todos los métodos requieren `where T : IEvento`.
 
 ---
 
-## Tipos de Eventos
+## Interfaz IEvento
 
-### Eventos de Combate
+**Archivo**: `Assets/Scripts/Events/IEvento.cs`
 
 ```csharp
-// Cuando se inflige daño
-public class EventoDano
+namespace Managers
 {
-    public Entidad Origen { get; set; }
-    public Entidad Objetivo { get; set; }
-    public int Cantidad { get; set; }
-    public ElementFlag Elemento { get; set; }
-    public bool EsCritico { get; set; }
-}
-
-// Cuando una entidad muere
-public class EventoMuerte
-{
-    public Entidad Entidad { get; set; }
-    public Entidad Asesino { get; set; }
-}
-
-// Cuando se usa una habilidad
-public class EventoHabilidadUsada
-{
-    public Entidad Lanzador { get; set; }
-    public HabilidadData Habilidad { get; set; }
-    public Entidad[] Objetivos { get; set; }
+    public interface IEvento { }
 }
 ```
 
-### Eventos de Entidad
+Interfaz marcador vacía. Todo struct/class de evento debe implementarla para poder usarse con el EventBus. Preferir **structs** para evitar allocations.
+
+---
+
+## Eventos de Entidad
+
+**Archivo**: `Assets/Scripts/Events/EventosEntidad.cs`
 
 ```csharp
-// Cuando cambia la vida
-public class EventoVidaCambiada
+public struct EventoDanoRecibido : IEvento
 {
-    public Entidad Entidad { get; set; }
-    public int VidaAnterior { get; set; }
-    public int VidaActual { get; set; }
-    public int VidaMaxima { get; set; }
+    public IEntidadCombate Entidad;
+    public int Cantidad;
+    public ElementAttribute TipoDano;
+    public IEntidadCombate Atacante;
 }
 
-// Cuando sube de nivel
-public class EventoNivelSubido
+public struct EventoCuracion : IEvento
 {
-    public Jugador Jugador { get; set; }
-    public int NivelAnterior { get; set; }
-    public int NivelNuevo { get; set; }
+    public IEntidadCombate Entidad;
+    public int Cantidad;
 }
 
-// Cuando se aplica un estado
-public class EventoEstadoAplicado
+public struct EventoMuerte : IEvento
 {
-    public Entidad Entidad { get; set; }
-    public StatusFlag Estado { get; set; }
-    public int Duracion { get; set; }
+    public IEntidadCombate Entidad;
+    public IEntidadCombate Asesino;
+}
+
+public struct EventoEstadoAplicado : IEvento
+{
+    public IEntidadCombate Entidad;
+    public StatusFlag Estado;
+    public int Duracion;
+}
+
+public struct EventoEstadoRemovido : IEvento
+{
+    public IEntidadCombate Entidad;
+    public StatusFlag Estado;
 }
 ```
 
-### Eventos de Detección/Encuentro (Nuevo)
+---
+
+## Eventos de Combate
+
+**Archivo**: `Assets/Scripts/Events/EventosCombate.cs`
+
+### Flujo de combate
 
 ```csharp
-// Candidato (enemigo) detectado en rango
-public struct EventoCandidatoDetectado : IEvento
+public struct EventoCombateIniciado : IEvento
 {
-    public ICombatCandidate Candidato;
-    public bool EnRangoEngagement;
+    public List<IEntidadCombate> Jugadores;
+    public List<IEntidadCombate> Enemigos;
 }
 
-// Candidato entró en rango de combate
-public struct EventoCandidatoEnRangoCombate : IEvento
+public struct EventoCombateFinalizado : IEvento
 {
-    public ICombatCandidate Candidato;
+    public bool Victoria;
+    public int XPGanada;
+    public int OroGanado;
 }
 
-// Candidato salió del rango de combate
-public struct EventoCandidatoSalioRangoCombate : IEvento
+public struct EventoTurnoIniciado : IEvento
 {
-    public ICombatCandidate Candidato;
+    public IEntidadCombate Entidad;
+    public int NumeroTurno;
+    public bool EsJugador;
 }
 
-// Encuentro de combate iniciado
+public struct EventoTurnoFinalizado : IEvento { public IEntidadCombate Entidad; }
+```
+
+### Acciones del jugador (UI)
+
+```csharp
+public struct EventoEsperandoAccionJugador : IEvento
+{
+    public EntityController Entidad;
+    public List<IEntidadCombate> Aliados;
+    public List<IEntidadCombate> Enemigos;
+}
+
+public struct EventoAccionSeleccionada : IEvento
+{
+    public EntityController Entidad;
+    public CombatActionType TipoAccion;
+    public HabilidadData Habilidad;
+}
+
+public struct EventoObjetivoSeleccionado : IEvento
+{
+    public EntityController Atacante;
+    public IEntidadCombate Objetivo;
+    public HabilidadData Habilidad;
+}
+
+public struct EventoAccionCancelada : IEvento { public EntityController Entidad; }
+
+public enum CombatActionType { Atacar, UsarItem, Defender, CederTurno, Huir }
+```
+
+### Habilidades y pasivas
+
+```csharp
+public struct EventoHabilidadUsada : IEvento
+{
+    public IEntidadCombate Invocador;
+    public IEntidadCombate Objetivo;
+    public HabilidadData Habilidad;
+}
+
+public struct EventoHabilidadDesbloqueada : IEvento { public IEntidadCombate Entidad; public HabilidadData Habilidad; }
+public struct EventoHabilidadRemovida : IEvento { public IEntidadCombate Entidad; public HabilidadData Habilidad; }
+public struct EventoPasivaDesbloqueada : IEvento { public IEntidadCombate Entidad; public PasivaData Pasiva; }
+public struct EventoPasivaRemovida : IEvento { public IEntidadCombate Entidad; public PasivaData Pasiva; }
+```
+
+---
+
+## Eventos de Encounter / Detección
+
+**Archivo**: `Assets/Scripts/Events/EventosEncounter.cs`
+
+```csharp
+public struct EventoCandidatoDetectado : IEvento { public ICombatCandidate Candidato; public bool EnRangoEngagement; }
+public struct EventoCandidatoFueraDeRango : IEvento { public ICombatCandidate Candidato; }
+public struct EventoCandidatoEnRangoCombate : IEvento { public ICombatCandidate Candidato; }
+public struct EventoCandidatoSalioRangoCombate : IEvento { public ICombatCandidate Candidato; }
+
 public struct EventoEncounterIniciado : IEvento
 {
     public List<EntityController> Party;
     public List<EnemyController> Enemigos;
 }
 
-// Enemigos agregados mid-combat
-public struct EventoEnemigosAgregados : IEvento
-{
-    public List<EnemyController> NuevosEnemigos;
-}
+public struct EventoEnemigosAgregados : IEvento { public List<EnemyController> NuevosEnemigos; }
 ```
 
-### Eventos de Party/Personajes (Nuevo)
+---
+
+## Eventos de Party y Refuerzos
+
+**Archivo**: `Assets/Scripts/Events/EventosParty.cs`
+
+### Gestión de party
 
 ```csharp
-// Personaje registrado como propiedad del jugador
-public struct EventoPersonajeRegistrado : IEvento
-{
-    public EntityController Personaje;
-}
+public struct EventoPersonajeRegistrado : IEvento { public EntityController Personaje; }
+public struct EventoMainCambiado : IEvento { public EntityController MainAnterior; public EntityController NuevoMain; }
+public struct EventoPersonajeUnidoParty : IEvento { public EntityController Personaje; public int TamanoPartyActual; }
+public struct EventoPersonajeSalioParty : IEvento { public EntityController Personaje; public bool FueEstacionado; }
 
-// El personaje principal (controlado) cambió
-public struct EventoMainCambiado : IEvento
-{
-    public EntityController MainAnterior;
-    public EntityController NuevoMain;
-}
-
-// Personaje se unió al party activo
-public struct EventoPersonajeUnidoParty : IEvento
-{
-    public EntityController Personaje;
-    public int TamanoPartyActual;
-}
-
-// Personaje salió del party activo
-public struct EventoPersonajeSalioParty : IEvento
-{
-    public EntityController Personaje;
-    public bool FueEstacionado;
-}
-
-// Personaje fue estacionado (hibernando)
 public struct EventoPersonajeEstacionado : IEvento
 {
     public EntityController Personaje;
@@ -166,268 +262,215 @@ public struct EventoPersonajeEstacionado : IEvento
 }
 ```
 
-### Eventos de Refuerzos (Nuevo)
+### Refuerzos
 
 ```csharp
-// Se solicitaron refuerzos durante combate
 public struct EventoRefuerzosSolicitados : IEvento
 {
     public List<EntityController> RefuerzosDisponibles;
+    public List<EntityController> Refuerzos;
     public int CantidadSolicitada;
     public Vector3 PosicionCombate;
 }
 
-// Refuerzo programado para llegar
 public struct EventoRefuerzoProgramado : IEvento
 {
+    public EntityController Refuerzo;
     public EntityController Personaje;
     public int TurnoLlegada;
     public int TurnosRestantes;
+    public float Distancia;
 }
 
-// Refuerzo llegó al combate
-public struct EventoRefuerzoLlegado : IEvento
+public struct EventoRefuerzoLlegado : IEvento { public EntityController Refuerzo; public EntityController Personaje; public int TurnoLlegada; }
+public struct EventoRefuerzosCancelados : IEvento { public List<EntityController> RefuerzosCancelados; }
+```
+
+---
+
+## Eventos de Progresión
+
+**Archivo**: `Assets/Scripts/Events/EventosProgresion.cs`
+
+```csharp
+public struct EventoNivelSubido : IEvento { public IEntidadCombate Entidad; public int NuevoNivel; }
+
+public struct EventoXPGanada : IEvento
 {
-    public EntityController Personaje;
-    public int TurnoLlegada;
+    public IEntidadCombate Entidad;
+    public float Cantidad;
+    public float Total;
+    public float Necesaria;
 }
 
-// Refuerzos cancelados (combate terminó antes)
-public struct EventoRefuerzosCancelados : IEvento
+public struct EventoTraitObtenido : IEvento
 {
-    public List<EntityController> RefuerzosCancelados;
+    public string TraitId;
+    public string CharacterId;
+    public int StacksActuales;
+    public bool EsGlobalmenteUnico;
+}
+
+public struct EventoEvolucionAplicada : IEvento
+{
+    public string EvolucionId;
+    public string CharacterId;
 }
 ```
 
-### Eventos de Progresión
+---
+
+## Eventos de Enemigos
+
+**Archivo**: `Assets/Scripts/Events/EventosEnemigo.cs`
 
 ```csharp
-// Cuando se gana experiencia
-public class EventoExperienciaGanada
+public struct EventoEnemigoDerrotado : IEvento
 {
-    public Jugador Jugador { get; set; }
-    public int Cantidad { get; set; }
-    public int ExpTotal { get; set; }
+    public string IDInstanciaEnemigo;
+    public TipoEntidades TipoEnemigo;
+    public string NombreEnemigo;
+    public int NivelEnemigo;
+    public float XPOtorgada;
+    public Vector3 PosicionMuerte;
+    public IEntidadCombate Asesino;
+    public float Timestamp;
 }
 
-// Cuando se obtiene un item
-public class EventoItemObtenido
+public struct EventoEnemigoSpawneado : IEvento
 {
-    public string ItemId { get; set; }
-    public int Cantidad { get; set; }
+    public string IDInstanciaEnemigo;
+    public TipoEntidades TipoEnemigo;
+    public Vector3 Posicion;
 }
+```
+
+---
+
+## Eventos de UI
+
+**Archivo**: `Assets/Scripts/Events/EventosUI.cs`
+
+```csharp
+public struct EventoMostrarMensaje : IEvento { public string Mensaje; public float Duracion; public Color? ColorTexto; }
+public struct EventoActualizarUI : IEvento { public string PanelId; }
+```
+
+---
+
+## Eventos de Travel
+
+**Archivo**: `Assets/Scripts/Events/EventosTravel.cs`
+
+```csharp
+public struct EventoTravelSolicitado : IEvento { public TravelRequest Request; }
+public struct EventoTravelIniciado : IEvento { public TravelRequest Request; }
+public struct EventoTravelCompletado : IEvento { public TravelRequest Request; public Vector3 PosicionFinal; }
+public struct EventoTravelCancelado : IEvento { public TravelRequest Request; public string Razon; }
+public struct EventoWaypointDesbloqueado : IEvento { public string WaypointId; public string NombreWaypoint; }
+```
+
+---
+
+## Eventos de GameFlow
+
+**Archivo**: `Assets/Scripts/Events/EventosGameFlow.cs`
+
+```csharp
+public struct EventoGameFlowChanged : IEvento
+{
+    public IGameFlowState NuevoEstado;
+    public string TipoEstado;
+}
+```
+
+---
+
+## Eventos de Misiones
+
+**Archivo**: `Assets/Scripts/Missions/EventosMision.cs` — `namespace Missions`
+
+> Ver [22_Misiones.md](22_Misiones.md) para detalles del sistema de misiones.
+
+```csharp
+public struct EventoMisionDisponible : IEvento { public MissionDefinitionSO Mision; }
+public struct EventoMisionAceptada : IEvento { public MissionInstance Instancia; }
+
+public struct EventoMisionProgreso : IEvento
+{
+    public MissionInstance Instancia;
+    public int IndiceObjetivo;
+    public float ProgresoAnterior;
+    public float ProgresoNuevo;
+}
+
+public struct EventoObjetivoCompletado : IEvento { public MissionInstance Instancia; public int IndiceObjetivo; }
+public struct EventoMisionCompletada : IEvento { public MissionInstance Instancia; public MissionRewards Recompensas; }
+public struct EventoMisionFallida : IEvento { public MissionInstance Instancia; public string Razon; }
 ```
 
 ---
 
 ## Uso Básico
 
-### Suscribirse a Eventos
+### Suscribirse y desuscribirse
 
 ```csharp
 public class UIVida : MonoBehaviour
 {
     void OnEnable()
     {
-        EventBus.Suscribir<EventoVidaCambiada>(OnVidaCambiada);
+        EventBus.Suscribir<EventoDanoRecibido>(OnDano);
+        EventBus.Suscribir<EventoCuracion>(OnCuracion);
         EventBus.Suscribir<EventoMuerte>(OnMuerte);
     }
-    
+
     void OnDisable()
     {
-        EventBus.Desuscribir<EventoVidaCambiada>(OnVidaCambiada);
+        EventBus.Desuscribir<EventoDanoRecibido>(OnDano);
+        EventBus.Desuscribir<EventoCuracion>(OnCuracion);
         EventBus.Desuscribir<EventoMuerte>(OnMuerte);
     }
-    
-    private void OnVidaCambiada(EventoVidaCambiada evento)
+
+    private void OnDano(EventoDanoRecibido e)
     {
-        // Actualizar barra de vida
-        float porcentaje = (float)evento.VidaActual / evento.VidaMaxima;
+        float porcentaje = (float)e.Entidad.Stats.VidaActual / e.Entidad.Stats.VidaMaxima;
         barraVida.fillAmount = porcentaje;
-        textoVida.text = $"{evento.VidaActual}/{evento.VidaMaxima}";
     }
-    
-    private void OnMuerte(EventoMuerte evento)
-    {
-        // Mostrar animación de muerte
-        panelMuerte.SetActive(true);
-    }
+
+    private void OnCuracion(EventoCuracion e) { /* actualizar barra */ }
+    private void OnMuerte(EventoMuerte e) { panelMuerte.SetActive(true); }
 }
 ```
 
-### Publicar Eventos
+### Publicar un evento
 
 ```csharp
-// En Entidad.cs cuando recibe daño
-public void RecibirDano(int cantidad, Entidad origen = null, bool esCritico = false)
+// Al recibir daño
+EventBus.Publicar(new EventoDanoRecibido
 {
-    int vidaAnterior = Stats.VidaActual;
-    Stats.VidaActual = Mathf.Max(0, Stats.VidaActual - cantidad);
-    
-    // Publicar evento de daño
-    EventBus.Publicar(new EventoDano
-    {
-        Origen = origen,
-        Objetivo = this,
-        Cantidad = cantidad,
-        EsCritico = esCritico
-    });
-    
-    // Publicar evento de vida cambiada
-    EventBus.Publicar(new EventoVidaCambiada
-    {
-        Entidad = this,
-        VidaAnterior = vidaAnterior,
-        VidaActual = Stats.VidaActual,
-        VidaMaxima = Stats.VidaMaxima
-    });
-    
-    // Si murió, publicar evento de muerte
-    if (Stats.VidaActual <= 0)
-    {
-        EventBus.Publicar(new EventoMuerte
-        {
-            Entidad = this,
-            Asesino = origen
-        });
-    }
-}
+    Entidad = this,
+    Cantidad = danioFinal,
+    TipoDano = elemento,
+    Atacante = atacante
+});
+
+// Al morir
+EventBus.Publicar(new EventoMuerte { Entidad = this, Asesino = atacante });
 ```
 
 ---
 
-## Ejemplos por Sistema
+## Publicación Diferida
 
-### Sistema de Audio
-
-```csharp
-public class AudioManager : MonoBehaviour
-{
-    [SerializeField] private AudioClip sonidoDano;
-    [SerializeField] private AudioClip sonidoCritico;
-    [SerializeField] private AudioClip sonidoMuerte;
-    [SerializeField] private AudioClip sonidoNivelSubido;
-    
-    void OnEnable()
-    {
-        EventBus.Suscribir<EventoDano>(OnDano);
-        EventBus.Suscribir<EventoMuerte>(OnMuerte);
-        EventBus.Suscribir<EventoNivelSubido>(OnNivelSubido);
-    }
-    
-    void OnDisable()
-    {
-        EventBus.Desuscribir<EventoDano>(OnDano);
-        EventBus.Desuscribir<EventoMuerte>(OnMuerte);
-        EventBus.Desuscribir<EventoNivelSubido>(OnNivelSubido);
-    }
-    
-    private void OnDano(EventoDano e)
-    {
-        if (e.EsCritico)
-            AudioSource.PlayClipAtPoint(sonidoCritico, Vector3.zero);
-        else
-            AudioSource.PlayClipAtPoint(sonidoDano, Vector3.zero);
-    }
-    
-    private void OnMuerte(EventoMuerte e)
-    {
-        AudioSource.PlayClipAtPoint(sonidoMuerte, Vector3.zero);
-    }
-    
-    private void OnNivelSubido(EventoNivelSubido e)
-    {
-        AudioSource.PlayClipAtPoint(sonidoNivelSubido, Vector3.zero);
-    }
-}
-```
-
-### Sistema de Logros
+`PublicarDiferido` encola el evento en lugar de enviarlo de inmediato. Útil para evitar modificar colecciones mientras se itera, o para diferir efectos a final de frame.
 
 ```csharp
-public class LogrosManager : MonoBehaviour
-{
-    private int enemigosDerotados = 0;
-    
-    void OnEnable()
-    {
-        EventBus.Suscribir<EventoMuerte>(OnMuerte);
-        EventBus.Suscribir<EventoNivelSubido>(OnNivelSubido);
-    }
-    
-    void OnDisable()
-    {
-        EventBus.Desuscribir<EventoMuerte>(OnMuerte);
-        EventBus.Desuscribir<EventoNivelSubido>(OnNivelSubido);
-    }
-    
-    private void OnMuerte(EventoMuerte e)
-    {
-        // Si el que murió es un enemigo
-        if (e.Entidad is Enemigos)
-        {
-            enemigosDerotados++;
-            
-            if (enemigosDerotados == 10)
-                DesbloquearLogro("Cazador Novato");
-            else if (enemigosDerotados == 100)
-                DesbloquearLogro("Cazador Experto");
-        }
-    }
-    
-    private void OnNivelSubido(EventoNivelSubido e)
-    {
-        if (e.NivelNuevo >= 10)
-            DesbloquearLogro("Nivel 10");
-    }
-}
-```
+// Encolar para procesar después
+EventBus.PublicarDiferido(new EventoEnemigoDerrotado { ... });
 
-### Sistema de Números Flotantes
-
-```csharp
-public class DamageNumberSpawner : MonoBehaviour
-{
-    [SerializeField] private GameObject prefabNumero;
-    
-    void OnEnable()
-    {
-        EventBus.Suscribir<EventoDano>(OnDano);
-        EventBus.Suscribir<EventoVidaCambiada>(OnCuracion);
-    }
-    
-    void OnDisable()
-    {
-        EventBus.Desuscribir<EventoDano>(OnDano);
-        EventBus.Desuscribir<EventoVidaCambiada>(OnCuracion);
-    }
-    
-    private void OnDano(EventoDano e)
-    {
-        // Mostrar número de daño rojo
-        var numero = Instantiate(prefabNumero);
-        numero.GetComponent<DamageNumber>().Mostrar(
-            e.Cantidad.ToString(),
-            e.EsCritico ? Color.yellow : Color.red,
-            ObtenerPosicion(e.Objetivo)
-        );
-    }
-    
-    private void OnCuracion(EventoVidaCambiada e)
-    {
-        // Si la vida aumentó, mostrar curación verde
-        if (e.VidaActual > e.VidaAnterior)
-        {
-            int curacion = e.VidaActual - e.VidaAnterior;
-            var numero = Instantiate(prefabNumero);
-            numero.GetComponent<DamageNumber>().Mostrar(
-                "+" + curacion,
-                Color.green,
-                ObtenerPosicion(e.Entidad)
-            );
-        }
-    }
-}
+// Procesar toda la cola (llamar desde un manager central, ej. en LateUpdate)
+EventBus.ProcesarCola();
 ```
 
 ---
@@ -437,38 +480,34 @@ public class DamageNumberSpawner : MonoBehaviour
 ### ✅ Hacer
 
 ```csharp
-// Siempre desuscribirse al desactivarse
+// Siempre desuscribirse en OnDisable para evitar memory leaks
 void OnDisable()
 {
-    EventBus.Desuscribir<EventoDano>(OnDano);
+    EventBus.Desuscribir<EventoDanoRecibido>(OnDano);
 }
 
-// Usar eventos para comunicación entre sistemas
-EventBus.Publicar(new EventoVidaCambiada { ... });
+// Usar structs para eventos (sin GC allocation)
+public struct MiEvento : IEvento { ... }
 
-// Crear eventos específicos con datos relevantes
-public class EventoMuerte
-{
-    public Entidad Entidad { get; set; }
-    public Entidad Asesino { get; set; }  // Útil para dar crédito
-}
+// Usar Limpiar<T>() si solo querés resetear un tipo específico
+EventBus.Limpiar<EventoCombateIniciado>();
 ```
 
 ### ❌ Evitar
 
 ```csharp
-// NO olvidar desuscribirse (causa memory leaks)
+// NO olvidar desuscribirse (el objeto nunca se libera)
 void OnEnable()
 {
-    EventBus.Suscribir<EventoDano>(OnDano);
-    // Si no te desuscribes, el objeto nunca se libera
+    EventBus.Suscribir<EventoDanoRecibido>(OnDano);
+    // falta el OnDisable correspondiente
 }
 
-// NO usar eventos para lógica crítica de gameplay
-// Los eventos son "fire and forget", no garantizan orden
+// NO usar clases para eventos cuando un struct alcanza
+public class MiEvento : IEvento { ... } // genera GC
 
-// NO modificar el estado del juego en múltiples handlers
-// Puede causar condiciones de carrera
+// NO modificar estado crítico del juego en múltiples handlers del mismo evento
+// puede causar orden de ejecución impredecible
 ```
 
 ---
@@ -482,18 +521,18 @@ Jugador usa Ataque Pesado
 DamageEffect.Aplicar()
         │
         ▼
-Enemigo.RecibirDano(50)
+Entidad.RecibirDano(50)
         │
         ├─────────────────────────────────┐
         ▼                                 ▼
-EventBus.Publicar(EventoDano)    EventBus.Publicar(EventoVidaCambiada)
+EventBus.Publicar(EventoDanoRecibido)  EventBus.Publicar(EventoMuerte)
         │                                 │
         ├──────────┐                      ├──────────┐
         ▼          ▼                      ▼          ▼
-   AudioManager  UIPopups            BarraVida   LogrosManager
+   AudioManager  UIPopups           LogrosManager  CombatManager
         │          │                      │          │
         ▼          ▼                      ▼          ▼
-   PlaySound   ShowNumber            UpdateBar  CheckLogro
+   PlaySound   ShowNumber          CheckLogro   TerminarCombate
 ```
 
 ---
@@ -501,22 +540,13 @@ EventBus.Publicar(EventoDano)    EventBus.Publicar(EventoVidaCambiada)
 ## Limpiar al Cambiar Escena
 
 ```csharp
-// En un GameManager o similar
 public class GameManager : MonoBehaviour
 {
-    void OnEnable()
-    {
-        SceneManager.sceneLoaded += OnSceneLoaded;
-    }
-    
-    void OnDisable()
-    {
-        SceneManager.sceneLoaded -= OnSceneLoaded;
-    }
-    
+    void OnEnable()  => SceneManager.sceneLoaded += OnSceneLoaded;
+    void OnDisable() => SceneManager.sceneLoaded -= OnSceneLoaded;
+
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
-        // Limpiar eventos al cargar nueva escena
         EventBus.LimpiarTodo();
     }
 }

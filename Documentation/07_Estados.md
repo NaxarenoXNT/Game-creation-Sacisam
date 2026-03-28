@@ -1,8 +1,32 @@
 # Sistema de Estados Alterados
 
-## Visión General
+> Documentación del sistema de estados temporales sobre entidades: veneno, aturdimiento, quemado, congelado.
+> Para el efecto que aplica estados desde habilidades ver [06_Efectos.md](06_Efectos.md) (`StatusEffect`).
 
-El sistema de estados permite aplicar efectos temporales a las entidades: veneno, aturdimiento, buffs, debuffs, etc.
+## Índice
+
+- [Archivos Asociados](#archivos-asociados)
+- [Visión General](#visión-general)
+- [StatusFlag (Enum)](#statusflag-enum)
+- [EstadoActivo](#estadoactivo)
+- [GestorEstados](#gestorestados)
+- [Flujo de Estados](#flujo-de-estados)
+- [Uso en Combate](#uso-en-combate)
+- [Tabla de Estados](#tabla-de-estados)
+
+---
+
+## Archivos Asociados
+
+| Archivo | Descripción |
+|---------|-------------|
+| [Assets/Scripts/Flags/Tipo.cs](../Assets/Scripts/Flags/Tipo.cs) | Define el enum `StatusFlag` |
+| [Assets/Scripts/Estados/EstadoActivo.cs](../Assets/Scripts/Estados/EstadoActivo.cs) | Clase que representa un estado en curso |
+| [Assets/Scripts/Estados/GestorEstados.cs](../Assets/Scripts/Estados/GestorEstados.cs) | Gestor de todos los estados de una entidad |
+
+---
+
+## Visión General
 
 ```
 Entidad
@@ -16,41 +40,20 @@ Entidad
 
 ---
 
-## GestorEstados
+## StatusFlag (Enum)
 
-**Archivo**: `Assets/Scripts/Estados/GestorEstados.cs`
-
-### Propiedades
-
-| Propiedad | Tipo | Descripción |
-|-----------|------|-------------|
-| `EstaIncapacitado` | bool | Si tiene un estado que impide actuar |
-| `estadosActivos` | List<EstadoActivo> | Lista de estados actuales |
-
-### Estados Incapacitantes
+**Archivo**: `Assets/Scripts/Flags/Tipo.cs`
 
 ```csharp
-// Estos estados impiden actuar
-StatusFlag.Stunned    // Aturdido
-StatusFlag.Paralyzed  // Paralizado
-StatusFlag.Sleeping   // Dormido
-StatusFlag.Frozen     // Congelado
-```
-
-### Métodos Principales
-
-```csharp
-// Aplicar un nuevo estado
-void AplicarEstado(StatusFlag status, int duracion, int danoPorTurno, float modificador)
-
-// Verificar si tiene un estado
-bool TieneEstado(StatusFlag status)
-
-// Remover un estado específico
-bool RemoverEstado(StatusFlag status)
-
-// Procesar al inicio del turno (retorna daño de estados)
-int ProcesarInicioTurno()
+[Flags]
+public enum StatusFlag
+{
+    None       = 0,
+    Envenenado = 1 << 0,   // Daño por turno
+    Aturdido   = 1 << 1,   // No puede actuar (impide actuar)
+    Quemado    = 1 << 2,   // Daño por turno (fuego)
+    Congelado  = 1 << 3    // No puede actuar, reducción de velocidad
+}
 ```
 
 ---
@@ -65,52 +68,85 @@ int ProcesarInicioTurno()
 |-----------|------|-------------|
 | `tipo` | StatusFlag | Tipo de estado |
 | `turnosRestantes` | int | Turnos que quedan |
-| `danoPorTurno` | int | Daño cada turno (veneno, quemado) |
-| `modificadorStats` | float | Modificador de stats |
+| `danoPorTurno` | int | Daño aplicado cada turno (veneno, quemado) |
+| `modificadorStats` | float | Modificador de stats (ej: 0.3 = -30% velocidad) |
+| `HaExpirado` | bool | `turnosRestantes <= 0` |
+| `ImpidenActuar` | bool | `true` si es `Aturdido` o `Congelado` |
 
-### Verificar si Impide Actuar
+### ImpidenActuar
 
 ```csharp
-public bool ImpidenActuar
+public bool ImpidenActuar => tipo == StatusFlag.Aturdido || tipo == StatusFlag.Congelado;
+```
+
+### Color por Estado (UI)
+
+```csharp
+public Color ObtenerColor()
 {
-    get
+    return tipo switch
     {
-        return tipo == StatusFlag.Stunned ||
-               tipo == StatusFlag.Paralyzed ||
-               tipo == StatusFlag.Sleeping ||
-               tipo == StatusFlag.Frozen;
-    }
+        StatusFlag.Envenenado => new Color(0.5f, 0f, 0.5f),   // Violeta
+        StatusFlag.Aturdido   => Color.yellow,
+        StatusFlag.Quemado    => new Color(1f, 0.5f, 0f),     // Naranja
+        StatusFlag.Congelado  => Color.cyan,
+        _                     => Color.white
+    };
 }
 ```
 
 ---
 
-## StatusFlag (Enum)
+## GestorEstados
 
-**Archivo**: `Assets/Scripts/Flags/Tipo.cs`
+**Archivo**: `Assets/Scripts/Estados/GestorEstados.cs`
+
+### Propiedades
+
+| Propiedad | Tipo | Descripción |
+|-----------|------|-------------|
+| `EstadosActivos` | IReadOnlyList\<EstadoActivo\> | Lista de estados activos (solo lectura) |
+| `EstaIncapacitado` | bool | `true` si algún estado tiene `ImpidenActuar` |
+| `EstadosActualesFlag` | StatusFlag | OR de todos los tipos activos |
+
+### Eventos
+
+| Evento | Firma | Cuándo se dispara |
+|--------|-------|-------------------|
+| `OnEstadoAplicado` | `Action<EstadoActivo>` | Al agregar un estado nuevo |
+| `OnEstadoExpirado` | `Action<StatusFlag>` | Al expirar o remover manualmente |
+| `OnDanoPorEstado` | `Action<int, StatusFlag>` | Cada turno que un estado causa daño |
+
+### Métodos Principales
 
 ```csharp
-[Flags]
-public enum StatusFlag
-{
-    None = 0,           // Sin estado
-    
-    // Estados de daño por turno
-    Poisoned = 1,       // Envenenado (daño por turno)
-    Burned = 2,         // Quemado (daño por turno)
-    
-    // Estados de control
-    Frozen = 4,         // Congelado (no puede actuar, -velocidad)
-    Stunned = 8,        // Aturdido (no puede actuar)
-    Paralyzed = 16,     // Paralizado (no puede actuar)
-    Sleeping = 128,     // Dormido (no puede actuar)
-    Confused = 256,     // Confundido (puede atacar aliados)
-    
-    // Estados de modificación de stats
-    Buffed = 32,        // Mejorado (+stats)
-    Debuffed = 64       // Debilitado (-stats)
-}
+// Aplicar un estado (si ya existe, sube duración/daño al mayor de los dos)
+void AplicarEstado(StatusFlag tipo, int duracion, int danoPorTurno = 0, float modificador = 0f)
+
+// Verificar si tiene un estado
+bool TieneEstado(StatusFlag tipo)
+
+// Obtener instancia de un estado activo
+EstadoActivo ObtenerEstado(StatusFlag tipo)
+
+// Remover un estado específico manualmente
+bool RemoverEstado(StatusFlag tipo)
+
+// Limpiar todos los estados (fin de combate, muerte, etc.)
+void LimpiarTodosLosEstados()
+
+// Procesar al inicio del turno: reduce duración, retorna daño total
+int ProcesarInicioTurno()
+
+// Retorna multiplicador de velocidad (Congelado = 0, resto acumulativo)
+float ObtenerModificadorVelocidad()
 ```
+
+### Comportamiento al Aplicar Estado Existente
+
+Si se intenta aplicar un estado que ya está activo:
+- La **duración** se reemplaza solo si la nueva es **mayor**
+- El **daño por turno** se reemplaza solo si el nuevo es **mayor**
 
 ---
 
@@ -122,45 +158,41 @@ public enum StatusFlag
 StatusEffect.Aplicar()
         │
         ▼
-Entidad.AplicarEstado(status, duracion, dano, mod)
+Entidad.AplicarEstado(tipo, duracion, dano, modificador)
         │
         ▼
 GestorEstados.AplicarEstado()
         │
-        ├── ¿Ya tiene el estado?
-        │       │
-        │       ├── Sí → Refrescar duración (usar la mayor)
-        │       │
-        │       └── No → Crear nuevo EstadoActivo
+        ├── ¿Ya existe ese tipo?
+        │       ├── Sí → Actualizar duración/daño si el nuevo es mayor
+        │       └── No → Crear EstadoActivo, disparar OnEstadoAplicado
         │
         ▼
-Debug.Log("[Estado]: X ahora tiene Poisoned x3 turnos")
+Debug.Log("[Estado]: X tiene Envenenado x3 turnos")
 ```
 
 ### Procesar Inicio de Turno
 
 ```
-CombateManager → Entidad.ProcesarEstadosInicioTurno()
+CombateManager → entidad.gestorEstados.ProcesarInicioTurno()
                         │
                         ▼
                 GestorEstados.ProcesarInicioTurno()
                         │
-                        ├── Para cada estado:
-                        │       │
-                        │       ├── Si tiene daño → sumar al total
-                        │       │
-                        │       ├── Reducir turnosRestantes
-                        │       │
-                        │       └── Si turnos = 0 → remover
+                        ├── Por cada EstadoActivo:
+                        │       ├── estado.ProcesarTurno() → retorna danoPorTurno
+                        │       ├── turnosRestantes--
+                        │       └── Si HaExpirado → marcar para remover
                         │
-                        ▼
-                Retornar daño total
+                        ├── Remover los expirados (dispara OnEstadoExpirado)
                         │
-                        ▼
-                Entidad aplica daño a VidaActual
-                        │
-                        ▼
-                Retornar true/false (puede actuar)
+                        └── Retornar dañoTotal
+                                │
+                                ▼
+                        Entidad aplica daño recibido
+                                │
+                                ▼
+                        Consultar EstaIncapacitado
 ```
 
 ---
@@ -170,149 +202,47 @@ CombateManager → Entidad.ProcesarEstadosInicioTurno()
 ### En CombateManager
 
 ```csharp
-private void EjecutarTurno(IEntidadCombate entidad)
+private void EjecutarTurno(Entidad entidad)
 {
-    // Obtener la entidad lógica
-    Entidad entidadLogica = ObtenerEntidadLogica(entidad);
-    
     // Procesar estados al inicio del turno
-    bool puedeActuar = entidadLogica.ProcesarEstadosInicioTurno();
-    
-    if (!puedeActuar)
+    int danoEstados = entidad.gestorEstados.ProcesarInicioTurno();
+    if (danoEstados > 0)
+        entidad.RecibirDanoPuro(danoEstados, ElementAttribute.None);
+
+    // Verificar si puede actuar
+    if (entidad.gestorEstados.EstaIncapacitado)
     {
         Debug.Log(entidad.Nombre_Entidad + " está incapacitado!");
-        return; // Saltar turno
+        return;
     }
-    
+
     // Continuar con el turno normal...
 }
 ```
 
-### En Habilidades (StatusEffect)
+### Desde StatusEffect (Habilidades)
 
 ```csharp
-// Aplicar veneno que hace 5 de daño por 3 turnos
-objetivo.AplicarEstado(StatusFlag.Poisoned, 3, 5, 0);
+// Envenenar: 5 daño por turno, 3 turnos
+objetivo.AplicarEstado(StatusFlag.Envenenado, 3, 5, 0);
 
-// Aplicar aturdimiento por 1 turno
-objetivo.AplicarEstado(StatusFlag.Stunned, 1, 0, 0);
+// Aturdir 1 turno (sin daño)
+objetivo.AplicarEstado(StatusFlag.Aturdido, 1, 0, 0);
 
-// Aplicar buff de +20% stats por 3 turnos
-aliado.AplicarEstado(StatusFlag.Buffed, 3, 0, 0.2f);
-```
+// Congelar 2 turnos con -30% velocidad
+objetivo.AplicarEstado(StatusFlag.Congelado, 2, 0, 0.3f);
 
----
-
-## Ejemplos de Configuración
-
-### Veneno Débil
-```
-StatusFlag: Poisoned
-Duración: 3 turnos
-Daño/turno: 5
-Modificador: 0
-```
-
-### Veneno Fuerte
-```
-StatusFlag: Poisoned
-Duración: 5 turnos
-Daño/turno: 12
-Modificador: 0
-```
-
-### Quemadura
-```
-StatusFlag: Burned
-Duración: 3 turnos
-Daño/turno: 8
-Modificador: 0
-```
-
-### Aturdimiento
-```
-StatusFlag: Stunned
-Duración: 1 turno
-Daño/turno: 0
-Modificador: 0
-```
-
-### Parálisis
-```
-StatusFlag: Paralyzed
-Duración: 2 turnos
-Daño/turno: 0
-Modificador: 0
-```
-
-### Congelación
-```
-StatusFlag: Frozen
-Duración: 2 turnos
-Daño/turno: 0
-Modificador: 0.3  ← -30% velocidad si se implementa
-```
-
-### Buff de Ataque
-```
-StatusFlag: Buffed
-Duración: 3 turnos
-Daño/turno: 0
-Modificador: 0.25  ← +25% stats
-```
-
-### Debuff de Defensa
-```
-StatusFlag: Debuffed
-Duración: 3 turnos
-Daño/turno: 0
-Modificador: 0.20  ← -20% stats
+// Quemar: 8 daño por turno, 3 turnos
+objetivo.AplicarEstado(StatusFlag.Quemado, 3, 8, 0);
 ```
 
 ---
 
 ## Tabla de Estados
 
-| Estado | Impide Actuar | Daño/Turno | Mod Stats | Descripción |
-|--------|---------------|------------|-----------|-------------|
-| Poisoned | No | Sí | No | Daño constante |
-| Burned | No | Sí | No | Daño de fuego |
-| Frozen | Sí | No | Sí (-vel) | No puede moverse |
-| Stunned | Sí | No | No | Aturdido |
-| Paralyzed | Sí | No | No | Paralizado |
-| Sleeping | Sí | No | No | Dormido |
-| Confused | No | No | No | Ataca aleatorio |
-| Buffed | No | No | Sí (+) | Stats aumentadas |
-| Debuffed | No | No | Sí (-) | Stats reducidas |
-
----
-
-## Integración con EventBus
-
-```csharp
-// Cuando se aplica un estado
-EventBus.Publicar(new EventoEstadoAplicado 
-{
-    Entidad = entidad,
-    Estado = statusFlag,
-    Duracion = duracion
-});
-
-// Cuando se remueve un estado
-EventBus.Publicar(new EventoEstadoRemovido 
-{
-    Entidad = entidad,
-    Estado = statusFlag
-});
-```
-
-Esto permite que la UI escuche y muestre iconos de estado:
-
-```csharp
-// En un script de UI
-void Start()
-{
-    EventBus.Suscribir<EventoEstadoAplicado>(MostrarIconoEstado);
-    EventBus.Suscribir<EventoEstadoRemovido>(OcultarIconoEstado);
-}
-```
+| Estado | Impide Actuar | Daño/Turno | modificadorStats | Descripción |
+|--------|:---:|:---:|:---:|-------------|
+| `Envenenado` | No | Sí | No | Daño por veneno cada turno |
+| `Quemado` | No | Sí | No | Daño por fuego cada turno |
+| `Aturdido` | **Sí** | No | No | Incapacitado por impacto |
+| `Congelado` | **Sí** | No | Sí (vel.) | Incapacitado, reduce velocidad vía `ObtenerModificadorVelocidad()` |

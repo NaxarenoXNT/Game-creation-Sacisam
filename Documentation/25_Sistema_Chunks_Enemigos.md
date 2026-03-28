@@ -51,12 +51,19 @@ EnemySpawnConfig
 ChunkDataAsset (SO - Editor) → ChunkData (Runtime)
 ├─> coordinates: Vector2Int
 ├─> enemySpawnConfigs: List<EnemySpawnConfig>
+├─> propSpawnConfigs: List<PropSpawnConfig>
+├─> proceduralExclusions: List<ProceduralExclusion>
 └─> Estado runtime:
     ├─> isLoaded: bool
     ├─> activeEnemies: List<EnemyController>
+    ├─> propsRoot: Transform (contenedor de props)
+    ├─> terrainInstance: GameObject (terreno dinámico)
     └─> Métodos:
-        ├─> GetSpawnableConfigs() - solo vivos
+        ├─> GetSpawnableConfigs() - solo enemigos vivos
+        ├─> GetSpawnableProps() - solo props no consumidos
         ├─> MarkEnemyDefeated()
+        ├─> MarkPropConsumed()
+        ├─> IsInExclusionZone()
         └─> ResetSessionState()
 ```
 
@@ -71,23 +78,26 @@ graph TD
     A[Jugador entra en chunk] --> B[WorldChunkManager.LoadChunk]
     B --> C{Chunk tiene configs?}
     C -->|No| D[Crear chunk vacío]
-    C -->|Sí| E[Obtener configs spawneables]
-    E --> F{Config muerto esta sesión?}
-    F -->|Sí| G[Omitir]
-    F -->|No| H[SpawnEnemy]
-    H --> I[Pool.ObtenerController]
-    I --> J[controller.InicializarDesdeChunk]
-    J --> K[Crear Enemigos lógica]
+    C -->|Sí| E[ChunkTerrainLoader: cargar terreno]
+    E --> F[ChunkPropsManager: instanciar props]
+    F --> G[ChunkProceduralDecorator: decoración por bioma]
+    G --> H[ChunkEnemySpawner: obtener configs spawneables]
+    H --> I{Config muerto esta sesión?}
+    I -->|Sí| J[Omitir]
+    I -->|No| K[SpawnEnemy]
+    K --> L[Pool.ObtenerController]
+    L --> M[controller.InicializarDesdeChunk]
+    M --> N[Crear Enemigos lógica]
     K --> L[Vincular EntityStats]
     L --> M[Activar GameObject]
 ```
 
 ### Código simplificado:
 ```csharp
-// WorldChunkManager.SpawnEnemy()
+// ChunkEnemySpawner.SpawnEnemy()
 var controller = enemyPoolManager.ObtenerController(config.enemyData);
 controller.transform.position = config.spawnPosition;
-controller.InicializarDesdeChunk(config.enemyData, config.spawnId, chunkCoords);
+controller.InicializarDesdeChunk(config.enemyData, config.spawnId, chunkCoords, config);
 config.activeController = controller;
 controller.gameObject.SetActive(true);
 ```
@@ -126,7 +136,7 @@ WorldChunkManager.Instance.NotificarEnemigoDerrotado(
 // WorldChunkManager.NotificarEnemigoDerrotado()
 chunk.MarkEnemyDefeated(spawnId, isPermanent: false);
 chunk.RemoveActiveEnemy(controller);
-StartCoroutine(DevolverControllerAlPoolConDelay(controller, 2.5f));
+StartCoroutine(enemySpawner.ReturnControllerToPoolCoroutine(controller, 2.5f, showDebugLogs));
 ```
 
 ---
@@ -305,25 +315,23 @@ ChunkStats GetStats()
 
 ## 🔮 Próximos Pasos (TODO)
 
-### 1. Sistema de IA
-- Implementar `ApplyAIConfiguration()` en WorldChunkManager
-- Crear componente `EnemyAI` en EnemyController
-- Patrullaje, detección, persecución
-
-### 2. Enemigos Únicos
-- Guardar `isDefeated` permanentemente
-- Sistema de guardado (SaveManager)
+### 1. Enemigos Únicos Persistentes
+- Guardar `isDefeated` permanentemente entre sesiones
+- Integrar con sistema de guardado (SaveManager)
 - Bosses que no respawnean nunca
 
-### 3. Animaciones
+### 2. Animaciones
 - Integrar con `AnimatorOverrideController`
 - Estados: Idle, Patrol, Alert, Chase, Attack, Death
 - Transiciones basadas en AIState
 
-### 4. Configuración Visual en Editor
-- Custom Inspector para EnemySpawnConfig
+### 3. Configuración Visual en Editor
 - Visualización de waypoints en Scene View
 - Botón "Test Spawn" para debugging
+
+### 4. Streaming
+- Para mundos muy grandes, carga chunks desde archivos
+- Soporte de LOD por distancia
 
 ---
 

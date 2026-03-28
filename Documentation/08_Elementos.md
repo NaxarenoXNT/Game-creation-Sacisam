@@ -1,344 +1,281 @@
 # Sistema Elemental
 
+> Documentación del sistema de elementos: enum `ElementAttribute`, `ElementDefinition` (ScriptableObject de progresión), `ElementStatus` (estado de nivel por entidad) y `EntityStats` (componente Unity).
+
+## Índice
+
+- [Archivos Asociados](#archivos-asociados)
+- [Visión General](#visión-general)
+- [ElementAttribute (Enum)](#elementattribute-enum)
+- [ElementDefinition (ScriptableObject)](#elementdefinition-scriptableobject)
+- [ElementStatus](#elementstatus)
+- [EntityStats (MonoBehaviour)](#entitystats-monobehaviour)
+- [Flujo de Aplicación de Elemento](#flujo-de-aplicación-de-elemento)
+- [Crear y Configurar Elementos en Unity](#crear-y-configurar-elementos-en-unity)
+- [⚠ TODOs en código](#-todos-en-código)
+
+---
+
+## Archivos Asociados
+
+| Archivo | Descripción |
+|---------|-------------|
+| [Assets/Scripts/Flags/Tipo.cs](../Assets/Scripts/Flags/Tipo.cs) | Define el enum `ElementAttribute` |
+| [Assets/Scripts/SO/ElementDefinition.cs](../Assets/Scripts/SO/ElementDefinition.cs) | ScriptableObject de configuración y progresión de un elemento |
+| [Assets/Scripts/Estados/ElementStatus.cs](../Assets/Scripts/Estados/ElementStatus.cs) | Estado de nivel/XP de un elemento en una entidad |
+| [Assets/Scripts/Controllers/EntityStats.cs](../Assets/Scripts/Controllers/EntityStats.cs) | Componente Unity que aplica bonos elementales a la Entidad |
+
+---
+
 ## Visión General
 
-El sistema elemental define las ventajas y desventajas entre tipos de daño, similar a Pokémon.
+El sistema elemental **no es un triángulo de ventajas/desventajas**. Es un sistema de **progresión por elementos**: cada entidad puede poseer uno o más elementos, y cada elemento tiene un nivel que sube con XP y otorga bonos acumulativos de stats.
 
 ```
+EntityStats (MonoBehaviour)
+    ├── activeAttributes (ElementAttribute flags)
+    └── activeStatuses (List<ElementStatus>)
+            └── ElementStatus
+                    ├── definition (ElementDefinition SO)
+                    ├── level (1..maxLevel)
+                    └── currentXP
+
 ElementDefinition (ScriptableObject)
-        │
-        ├── tipoElemento (ElementFlag)
-        ├── fortalezas[] (ElementFlag[])
-        ├── debilidades[] (ElementFlag[])
-        └── multiplicadorCritico
+    ├── elementFlag (ElementAttribute)
+    ├── baseDamageMultiplier, baseHealthBonus, baseDefenseBonus, baseSpeedBonus
+    └── Progresión: xpPerLevel, xpScaling, maxLevel, damagePerLevel, healthPerLevel, ...
 ```
 
 ---
 
-## ElementFlag (Enum)
+## ElementAttribute (Enum)
 
 **Archivo**: `Assets/Scripts/Flags/Tipo.cs`
 
 ```csharp
 [Flags]
-public enum ElementFlag
+public enum ElementAttribute
 {
-    None = 0,
-    Fire = 1,      // Fuego
-    Water = 2,     // Agua
-    Earth = 4,     // Tierra
-    Wind = 8,      // Viento
-    Light = 16,    // Luz
-    Dark = 32,     // Oscuridad
-    Physical = 64  // Físico (sin elemento)
+    None        = 0,
+    Fire        = 1 << 0,
+    Water       = 1 << 1,
+    Light       = 1 << 2,
+    Dark        = 1 << 3,
+    Air         = 1 << 4,
+    Geo         = 1 << 5,
+    Electric    = 1 << 6,
+    BloodSpilet = 1 << 7
 }
 ```
+
+> Es un `[Flags]` enum — una entidad puede tener múltiples elementos simultáneamente: `ElementAttribute.Fire | ElementAttribute.Dark`.
 
 ---
 
 ## ElementDefinition (ScriptableObject)
 
-**Ubicación**: `Assets/Resources/Elements/`
+**Archivo**: `Assets/Scripts/SO/ElementDefinition.cs`  
+**Menú Unity**: `Combate/Element Definition`  
+**Ubicación sugerida**: `Assets/Resources/Elements/`
 
-### Crear Elemento
+Define la configuración base y la progresión de un elemento.
 
-1. **Assets → Create → RPG → Element Definition**
-2. Configurar propiedades
+### Propiedades
+
+#### Identificación
+
+| Propiedad | Tipo | Descripción |
+|-----------|------|-------------|
+| `elementName` | string | Nombre para mostrar |
+| `elementFlag` | ElementAttribute | Flag del elemento |
+
+#### Modificadores Base (Nivel 1)
+
+| Propiedad | Tipo | Descripción |
+|-----------|------|-------------|
+| `baseDamageMultiplier` | float | Multiplicador de daño base (1.0 = sin cambio) |
+| `baseHealthBonus` | int | Bonus de vida máxima (valor absoluto) |
+| `baseDefenseBonus` | float | Bonus de defensa (valor absoluto) |
+| `baseSpeedBonus` | int | Bonus de velocidad (valor absoluto) |
+
+#### Progresión por Nivel
+
+| Propiedad | Tipo | Descripción |
+|-----------|------|-------------|
+| `xpPerLevel` | float | XP base para subir del nivel 1 al 2 |
+| `xpScaling` | float | Multiplicador de XP por nivel (`xpPerLevel * xpScaling^(nivel-2)`) |
+| `maxLevel` | int | Nivel máximo del elemento |
+| `damagePerLevel` | float | Incremento del multiplicador de daño por nivel |
+| `healthPerLevel` | int | Incremento de HP máximo por nivel |
+| `defensePerLevel` | float | Incremento de defensa por nivel |
+| `speedPerLevel` | int | Incremento de velocidad por nivel |
+
+#### Visual (Fase 3)
+
+| Propiedad | Tipo | Descripción |
+|-----------|------|-------------|
+| `elementColor` | Color | Color representativo |
+| `particlePrefab` | GameObject | Prefab de partículas |
+| `activationSound` | AudioClip | Sonido al activar |
+
+### XP Requerida por Nivel
+
+```csharp
+public float GetXPRequiredForLevel(int level)
+{
+    if (level <= 1) return 0;
+    if (level > maxLevel) return float.MaxValue;
+    return xpPerLevel * Mathf.Pow(xpScaling, level - 2);
+}
+```
+
+### Ejemplo de Configuración: Fire
+
+```
+elementName: "Fuego"
+elementFlag: Fire
+baseDamageMultiplier: 1.1    ← +10% daño desde nivel 1
+baseHealthBonus: 0
+baseDefenseBonus: 0
+baseSpeedBonus: 0
+
+xpPerLevel: 1000
+xpScaling: 1.45
+maxLevel: 10
+damagePerLevel: 0.1          ← +10% daño por nivel adicional
+healthPerLevel: 50
+defensePerLevel: 2
+speedPerLevel: 5
+```
+
+---
+
+## ElementStatus
+
+**Archivo**: `Assets/Scripts/Estados/ElementStatus.cs`
+
+Seguimiento del nivel y XP de un elemento específico en una entidad.
 
 ### Propiedades
 
 | Propiedad | Tipo | Descripción |
 |-----------|------|-------------|
-| `nombreElemento` | string | Nombre para mostrar |
-| `tipoElemento` | ElementFlag | El tipo de elemento |
-| `fortalezas` | ElementFlag[] | Elementos contra los que es fuerte |
-| `debilidades` | ElementFlag[] | Elementos contra los que es débil |
-| `multiplicadorCritico` | float | Multiplicador de daño crítico |
+| `definition` | ElementDefinition | SO del elemento |
+| `level` | int | Nivel actual (1..maxLevel) |
+| `currentXP` | float | XP acumulada en el nivel actual |
 
----
-
-## Triángulo Elemental Básico
-
-```
-        Fuego
-       /     \
-      /   ↑   \
-     /         \
-   Tierra ←──── Agua
-```
-
-### Relaciones
-
-| Atacante | Fuerte Contra | Débil Contra |
-|----------|---------------|--------------|
-| Fire | Earth, Wind | Water |
-| Water | Fire | Earth, Wind |
-| Earth | Water, Wind | Fire |
-| Wind | Water | Earth, Fire |
-| Light | Dark | Dark |
-| Dark | Light | Light |
-
----
-
-## EntityStats
-
-**Archivo**: `Assets/Scripts/Padres/EntityStats.cs`
-
-### Propiedades
+### Métodos
 
 ```csharp
-public class EntityStats
-{
-    // Stats base
-    public int VidaMaxima { get; set; }
-    public int VidaActual { get; set; }
-    public int Ataque { get; set; }
-    public int Defensa { get; set; }
-    public int Magia { get; set; }
-    public int Velocidad { get; set; }
-    
-    // Elemento
-    public ElementFlag Elemento { get; set; }
-}
+// Multiplicador de daño final (base + damagePerLevel * (level-1))
+float GetFinalDamageMultiplier()
+
+// Bonus de HP final (base + healthPerLevel * (level-1))
+int GetFinalHealthBonus()
+
+// Bonus de defensa final
+float GetFinalDefenseBonus()
+
+// Bonus de velocidad final
+int GetFinalSpeedBonus()
+
+// Añade XP; retorna true si subió de nivel
+bool GainXP(float amount)
+
+// Progreso de XP en el nivel actual (0..1)
+float GetXPProgress()
 ```
 
-### Método de Cálculo de Daño
+---
+
+## EntityStats (MonoBehaviour)
+
+**Archivo**: `Assets/Scripts/Controllers/EntityStats.cs`
+
+Componente Unity adjunto al GameObject de la entidad. Gestiona los elementos activos y aplica sus bonos a la `Entidad` lógica vinculada.
+
+### Propiedades Públicas
+
+| Propiedad | Tipo | Descripción |
+|-----------|------|-------------|
+| `activeAttributes` | ElementAttribute | Flags de elementos activos |
+| `activeStatuses` | List\<ElementStatus\> | Estado de nivel por cada elemento |
+| `CurrentDamage` | int | Daño con bonos elementales aplicados |
+| `CurrentMaxHealth` | int | HP máximo con bonos |
+| `CurrentDefense` | float | Defensa con bonos |
+| `CurrentSpeed` | int | Velocidad con bonos |
+
+### Métodos Principales
 
 ```csharp
-public int CalcularDanoContra(ElementFlag elementoAtaque, int danoBase, bool esMagico)
-{
-    float multiplicador = 1.0f;
-    
-    // Cargar definiciones de elementos
-    var elementDefs = Resources.LoadAll<ElementDefinition>("Elements");
-    
-    foreach (var def in elementDefs)
-    {
-        if (def.tipoElemento == elementoAtaque)
-        {
-            // Verificar si el defensor es débil
-            foreach (var debilidad in def.fortalezas)
-            {
-                if ((this.Elemento & debilidad) != 0)
-                {
-                    multiplicador = 1.5f; // Daño aumentado
-                    break;
-                }
-            }
-            
-            // Verificar si el defensor resiste
-            foreach (var resistencia in def.debilidades)
-            {
-                if ((this.Elemento & resistencia) != 0)
-                {
-                    multiplicador = 0.5f; // Daño reducido
-                    break;
-                }
-            }
-            break;
-        }
-    }
-    
-    int defensa = esMagico ? Magia / 2 : Defensa;
-    int danoFinal = Mathf.Max(1, (int)((danoBase - defensa) * multiplicador));
-    
-    return danoFinal;
-}
+// Vincular con la Entidad lógica (llamar desde EntityController.Inicializar)
+void VincularEntidad(Entidad entidad)
+
+// Aplicar un elemento nuevo (busca definición en GameConfig)
+void AplicarElemento(ElementAttribute elementFlag)
+
+// Remover un elemento
+void RemoverElemento(ElementAttribute elementFlag)
+
+// Verificar si tiene un elemento
+bool TieneElemento(ElementAttribute elemento)
+
+// Añadir XP a un elemento activo
+void AñadirXPAElemento(ElementAttribute elementFlag, float xpAmount)
+
+// Re-sincronizar stats base desde Entidad y recalcular bonos
+// (usar cuando las stats base cambian, ej: subida de nivel)
+void ActualizarBaseYRecalcular()
+```
+
+### Flujo de Cálculo de Stats
+
+`ApplyElementalModifiers()` calcula stats en tres pasos:
+
+1. Reset a `baseDamage / baseHealth / baseDefense / baseSpeed` (sincronizados al vincular)
+2. Acumula multiplicadores de daño y bonos aditivos de cada `ElementStatus` activo
+3. Llama `AplicarStatsAEntidad()` → escribe en la `Entidad` lógica vía `AplicarBonusElementales()`
+
+> **Importante**: `SincronizarStatsBase()` NO se llama dentro de `ApplyElementalModifiers()` para evitar que los bonos escritos en la Entidad se lean como "base" en la siguiente llamada (compounding).
+
+---
+
+## Flujo de Aplicación de Elemento
+
+```
+EntityStats.AplicarElemento(Fire)
+        │
+        ▼
+GameConfig.GetDefinition(Fire)  ← busca el ElementDefinition SO
+        │
+        ├── ¿Ya tiene Fire?
+        │       ├── Sí → ElementStatus.GainXP(50) → ¿subió de nivel?
+        │       └── No → Crear ElementStatus nuevo, activeAttributes |= Fire
+        │
+        ▼
+ApplyElementalModifiers()
+        │
+        ├── Resetear a stats base
+        ├── Acumular multiplicadores/bonos de cada ElementStatus
+        └── AplicarStatsAEntidad() → Entidad.AplicarBonusElementales(...)
 ```
 
 ---
 
-## Configurar Elementos en Unity
+## Crear y Configurar Elementos en Unity
 
-### Paso 1: Crear ElementDefinition
-
-1. **Project → Assets/Resources/Elements**
-2. **Clic derecho → Create → RPG → Element Definition**
-3. Nombrar: "Fire", "Water", "Earth", etc.
-
-### Paso 2: Configurar Fire
-
-```
-nombreElemento: "Fuego"
-tipoElemento: Fire
-fortalezas: [Earth, Wind]   ← Es fuerte contra
-debilidades: [Water]        ← Es débil contra
-multiplicadorCritico: 1.5
-```
-
-### Paso 3: Configurar Water
-
-```
-nombreElemento: "Agua"
-tipoElemento: Water
-fortalezas: [Fire]
-debilidades: [Earth, Wind]
-multiplicadorCritico: 1.5
-```
-
-### Paso 4: Configurar Earth
-
-```
-nombreElemento: "Tierra"
-tipoElemento: Earth
-fortalezas: [Water, Wind]
-debilidades: [Fire]
-multiplicadorCritico: 1.5
-```
+1. **Assets → Create → Combate → Element Definition**
+2. Configurar `elementName`, `elementFlag`, modificadores base y progresión
+3. Abrir `Assets/Resources/GameConfig.asset` y agregar el mapping `ElementAttribute → ElementDefinition` en **Element Mappings**
+4. Desde código, llamar `entityStats.AplicarElemento(ElementAttribute.Fire)` para activarlo
 
 ---
 
-## Uso en Habilidades
+## ⚠ TODOs en código
 
-### HabilidadData
-
-```csharp
-[CreateAssetMenu(fileName = "NuevaHabilidad", menuName = "RPG/Habilidad")]
-public class HabilidadData : ScriptableObject
-{
-    public ElementFlag tipoDano;  // Elemento del daño
-    public int potencia;          // Daño base
-    public bool esMagico;         // ¿Usa Magia o Ataque?
-    // ...
-}
-```
-
-### Ejemplo: Bola de Fuego
-
-```
-tipoDano: Fire
-potencia: 25
-esMagico: true
-```
-
-### Ejemplo: Estocada
-
-```
-tipoDano: Physical
-potencia: 15
-esMagico: false
-```
+| Archivo | TODO |
+|---------|------|
+| `EntityStats.cs` | La propiedad visual (color, partículas, sonido) de `ElementDefinition` está marcada como "Fase 3" — no está integrada aún. |
+| `EntityStats.cs` | `GameConfig` se carga lazy en `Awake`; si el singleton no está disponible al primer uso, `AplicarElemento` logea un error y no aplica. |
 
 ---
-
-## Uso en DamageEffect
-
-**Archivo**: `Assets/Scripts/Habilidades/DamageEffect.cs`
-
-```csharp
-public void Aplicar(Entidad objetivo, Entidad lanzador, int potencia, bool esMagico)
-{
-    // Obtener el elemento del lanzador o la habilidad
-    ElementFlag elementoAtaque = ObtenerElementoAtaque();
-    
-    // Calcular daño con modificador elemental
-    int dano = objetivo.Stats.CalcularDanoContra(elementoAtaque, potencia, esMagico);
-    
-    // Aplicar el daño
-    objetivo.RecibirDano(dano);
-    
-    Debug.Log($"[Daño] {lanzador.Nombre} → {objetivo.Nombre}: {dano} ({elementoAtaque})");
-}
-```
-
----
-
-## Asignar Elemento a Entidades
-
-### En ClaseData (Jugador)
-
-```csharp
-[CreateAssetMenu(fileName = "NuevaClase", menuName = "RPG/Clase Jugador")]
-public class ClaseData : ScriptableObject
-{
-    public ElementFlag elementoBase = ElementFlag.Physical;
-    // ...
-}
-```
-
-### En EnemigoData (Enemigos)
-
-```csharp
-[CreateAssetMenu(fileName = "NuevoEnemigo", menuName = "RPG/Enemigo")]
-public class EnemigoData : ScriptableObject
-{
-    public ElementFlag elemento = ElementFlag.Physical;
-    // ...
-}
-```
-
----
-
-## Elementos Combinados
-
-El sistema soporta elementos combinados usando flags:
-
-```csharp
-// Entidad con dos elementos
-EntityStats stats = new EntityStats
-{
-    Elemento = ElementFlag.Fire | ElementFlag.Dark  // Fuego + Oscuridad
-};
-```
-
-Esto permite crear enemigos o clases híbridas.
-
----
-
-## Tabla de Multiplicadores
-
-| Condición | Multiplicador | Efecto |
-|-----------|---------------|--------|
-| Neutro | 1.0x | Daño normal |
-| Fuerte contra | 1.5x | "¡Es muy efectivo!" |
-| Débil contra | 0.5x | "No es muy efectivo..." |
-| Mismo elemento | 0.75x | Resistencia natural |
-
----
-
-## Mostrar en UI
-
-```csharp
-// Obtener color según elemento
-public static Color ObtenerColorElemento(ElementFlag elemento)
-{
-    switch (elemento)
-    {
-        case ElementFlag.Fire: return Color.red;
-        case ElementFlag.Water: return Color.blue;
-        case ElementFlag.Earth: return new Color(0.6f, 0.4f, 0.2f);
-        case ElementFlag.Wind: return Color.cyan;
-        case ElementFlag.Light: return Color.yellow;
-        case ElementFlag.Dark: return new Color(0.3f, 0f, 0.3f);
-        default: return Color.gray;
-    }
-}
-```
-
----
-
-## Ejemplo Completo de Combate
-
-```
-Mago (Fire) usa Bola de Fuego → Slime de Agua (Water)
-
-1. tipoDano: Fire
-2. potencia: 25
-3. Verificar: Fire es débil contra Water
-4. multiplicador: 0.5x
-5. Daño final: 25 * 0.5 = 12
-
-→ "¡No es muy efectivo!"
-```
-
-```
-Mago (Fire) usa Bola de Fuego → Golem de Tierra (Earth)
-
-1. tipoDano: Fire
-2. potencia: 25
-3. Verificar: Fire es fuerte contra Earth
-4. multiplicador: 1.5x
-5. Daño final: 25 * 1.5 = 37
-
-→ "¡Es súper efectivo!"
-```

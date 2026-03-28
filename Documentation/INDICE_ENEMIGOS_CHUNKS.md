@@ -100,11 +100,18 @@ Este índice cubre específicamente el sistema de enemigos, chunks y pooling del
 ```
 Assets/Scripts/
 ├── World/ChunkSystem/
-│   ├── WorldChunkManager.cs        → Manager principal
+│   ├── WorldChunkManager.cs        → Orquestador principal (delega a sub-módulos)
 │   ├── ChunkData.cs                → Datos de chunk runtime
-│   ├── ChunkDataAsset.cs           → Asset del editor
-│   ├── EnemySpawnConfig.cs         → Config de spawn
-│   └── ChunkLoader.cs              → Helper para cargar chunks
+│   ├── ChunkDataAsset.cs           → Asset del editor (ScriptableObject)
+│   ├── EnemySpawnConfig.cs         → Config de spawn de enemigos
+│   ├── ChunkTerrainLoader.cs       → Carga dinámica de TerrainData
+│   ├── ChunkEnemySpawner.cs        → Spawning/despawning de enemigos
+│   ├── ChunkProceduralDecorator.cs → Decoración procedural por bioma
+│   ├── ChunkPropsManager.cs        → Props con identidad (edificios, cofres, NPCs)
+│   ├── ChunkLoader.cs              → Helper para chunks adicionales fuera de auto-carga
+│   ├── ChunkSpawnTemplate.cs       → Plantillas reutilizables de spawn
+│   ├── ChunkSystemExample.cs       → Ejemplos de uso programático
+│   └── PropMarker.cs               → Marcador para bakear props desde la escena
 │
 ├── Managers/
 │   ├── DynamicEnemyPoolManager.cs  → Pool de enemigos

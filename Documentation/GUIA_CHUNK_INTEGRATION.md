@@ -71,21 +71,31 @@ Ya debería estar en tu escena. Si no:
 
 ### Paso 4: Cargar el Chunk
 
-**Opción A - Modo Fácil (Automático):**
+**Opción A - Automático (Recomendado):**
 ```
+WorldChunkManager auto-carga todos los ChunkDataAssets de Resources/World/Chunks/
+al iniciar. Solo asegurate de que tu ChunkDataAsset esté en esa carpeta.
+No se requiere configuración extra.
+```
+
+**Opción B - ChunkLoader (para chunks adicionales):**
+```
+Si tenés chunks fuera de Resources/World/Chunks/:
 1. Hierarchy: Create Empty > "ChunkLoader"
 2. Add Component > ChunkLoader
 3. En Inspector:
    - Chunk Assets: Arrastra "Chunk_Test_00"
    - Load On Start: ✅
+
+NOTA: ChunkLoader es solo para chunks adicionales.
+Los chunks en Resources/World/Chunks/ se cargan solos.
 ```
 
-**Opción B - Modo Manual (Código):**
+**Opción C - Manual (Código):**
 ```csharp
-// En algún script de inicio
 void Start()
 {
-    ChunkDataAsset chunk = Resources.Load<ChunkDataAsset>("Chunks/Chunk_Test_00");
+    ChunkDataAsset chunk = Resources.Load<ChunkDataAsset>("World/Chunks/Chunk_Test_00");
     WorldChunkManager.Instance.RegisterChunk(chunk.ToRuntimeData());
 }
 ```
@@ -263,14 +273,14 @@ Al salir:
 ✅ Verifica que Spawn Position esté en el chunk correcto
    Ejemplo: Chunk (0,0) → Posiciones entre (0-100, 0-100)
 ✅ Asigna EnemigoData al spawn config
-✅ Verifica que ChunkLoader esté cargando los chunks
+✅ Verifica que los chunks estén en Resources/World/Chunks/ (auto-carga)
 ✅ Mueve al jugador al chunk (mira gizmos amarillos)
 ```
 
 ### "Enemigos aparecen duplicados"
 ```
 ✅ NO llames a RegisterChunk() múltiples veces para el mismo chunk
-✅ Usa un ChunkLoader O código manual, no ambos
+✅ No dupliques chunks: Resources/World/Chunks/ se auto-carga
 ✅ Llama RegisterChunk() solo una vez al inicio
 ``` ### "Waypoints no se muestran en Scene View"
 ```
@@ -291,7 +301,7 @@ Al salir:
 3. Ajusta manualmente en Scene View
 4. Agrega waypoints con botón o handles
 5. Asigna EnemigoData a cada spawn
-6. Carga con ChunkLoader
+6. Coloca en Resources/World/Chunks/
 ```
 
 ### B. Generación Procedural
@@ -379,7 +389,7 @@ CREAR CHUNKS:
 ☐ ChunkDataAssets creados
 ☐ Spawns configurados con EnemigoData
 ☐ Waypoints definidos (opcional)
-☐ Chunks registrados (ChunkLoader o código)
+☐ Chunks en Resources/World/Chunks/ (auto-carga) o registrados por código
 
 TESTING:
 ☐ Play mode funciona

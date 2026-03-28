@@ -19,18 +19,25 @@ Sistema de chunks para optimizar el rendimiento dividiendo el mundo en secciones
 
 ---
 
-## 🏗️ Arquitectura Simplificada
+## 🏗️ Arquitectura
 
 ```
-WorldChunkManager (Singleton)
+WorldChunkManager (Singleton — Orquestador)
 ├── Dictionary<Vector2Int, ChunkData> chunks
 ├── Detecta posición del jugador
-└── Carga/descarga chunks dinámicamente
+├── Carga/descarga chunks dinámicamente
+└── Delega a sub-módulos especializados:
+    ├── ChunkTerrainLoader         ← Terreno dinámico (Resources/TerrainData)
+    ├── ChunkEnemySpawner          ← Spawning/despawning de enemigos
+    ├── ChunkProceduralDecorator   ← Decoración procedural por bioma
+    └── ChunkPropsManager          ← Props con identidad (edificios, cofres, NPCs)
 
 ChunkData (por chunk)
 ├── Vector2Int coordinates
 ├── List<EnemySpawnConfig> enemySpawnConfigs  ← Config estática
-└── List<EnemyController> activeEnemies        ← Referencias runtime
+├── List<PropSpawnConfig> propSpawnConfigs    ← Props manuales
+├── List<ProceduralExclusion> proceduralExclusions  ← Zonas sin vegetación
+└── List<EnemyController> activeEnemies       ← Referencias runtime
 
 EnemySpawnConfig (por enemigo)
 ├── EnemigoData enemyData               ← ScriptableObject
@@ -69,8 +76,13 @@ Configurar:
 ### 3. Cargar el Chunk
 
 ```csharp
-// Opción A: Automático con ChunkLoader component
-// Opción B: Manual
+// Opción A: Automático (WorldChunkManager carga todos los assets de Resources/World/Chunks/)
+// No requiere configuración extra.
+
+// Opción B: ChunkLoader component (para chunks adicionales fuera de Resources/World/Chunks/)
+// Arrastra ChunkDataAssets específicos al Inspector del ChunkLoader.
+
+// Opción C: Manual
 WorldChunkManager.Instance.RegisterChunk(chunkAsset.ToRuntimeData());
 ```
 
@@ -81,10 +93,11 @@ WorldChunkManager.Instance.RegisterChunk(chunkAsset.ToRuntimeData());
 ## 🔧 Componentes Principales
 
 ### WorldChunkManager
-- **Singleton** que gestiona todos los chunks
+- **Singleton** que orquesta todos los chunks
 - Detecta cambios de posición del jugador
 - Carga/descarga chunks automáticamente
-- Integra con `DynamicEnemyPoolManager`
+- Delega a sub-módulos: `ChunkTerrainLoader`, `ChunkEnemySpawner`, `ChunkProceduralDecorator`, `ChunkPropsManager`
+- Auto-carga ChunkDataAssets desde `Resources/World/Chunks/` al iniciar
 
 ```csharp
 // API principal
@@ -92,6 +105,8 @@ WorldChunkManager.Instance.RegisterChunk(chunkData);
 WorldChunkManager.Instance.GetChunk(Vector2Int coords);
 WorldChunkManager.Instance.ReloadAllChunks();
 WorldChunkManager.Instance.ResetAllSessionState(); // Resetea muertes de enemigos
+WorldChunkManager.Instance.MarcarUnicoDerrotado(uniqueId); // Marca boss como derrotado
+WorldChunkManager.Instance.NotificarPropConsumido(propId, chunkCoords); // Prop consumido
 ```
 
 ### ChunkData
@@ -231,5 +246,5 @@ Show Debug Gizmos: ✅
 Ahora que conoces el sistema básico de chunks:
 1. 📖 Lee [25_Sistema_Chunks_Enemigos.md](25_Sistema_Chunks_Enemigos.md) para la integración completa
 2. 🛠️ Usa [GUIA_CHUNK_INTEGRATION.md](GUIA_CHUNK_INTEGRATION.md) para setup paso a paso
-3. 🎮 Revisa [ChunkSystemIntegrationExample.cs](../Assets/Scripts/Examples/ChunkSystemIntegrationExample.cs) para código de ejemplo
+3. 🎮 Revisa `ChunkSystemExample.cs` en `Assets/Scripts/World/ChunkSystem/` para código de ejemplo
 

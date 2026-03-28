@@ -1,235 +1,63 @@
-# 14. Sistema ObjectPool - Arquitectura Refactorizada
+﻿# 14. Sistema ObjectPool - Arquitectura Refactorizada
 
-## 📋 Índice
+> Documentación del sistema de Object Pooling modular.
+> Para integración con el sistema de enemigos dinámicos ver [25_Sistema_Chunks_Enemigos.md](25_Sistema_Chunks_Enemigos.md).
+
+## Índice
+
+- [Archivos Asociados](#archivos-asociados)
 - [Visión General](#visión-general)
-- [Arquitectura Anterior vs Nueva](#arquitectura-anterior-vs-nueva)
-- [Estructura de Archivos](#estructura-de-archivos)
+- [Arquitectura Modular](#arquitectura-modular)
 - [Componentes del Sistema](#componentes-del-sistema)
-- [API Pública](#api-pública)
+- [API Pública — Singleton](#api-pública--singleton)
+- [API Pública — Pool Genérico](#api-pública--pool-genérico)
 - [Uso y Ejemplos](#uso-y-ejemplos)
 - [Optimizaciones de Performance](#optimizaciones-de-performance)
 - [Mejores Prácticas](#mejores-prácticas)
-- [Migración y Compatibilidad](#migración-y-compatibilidad)
+
+---
+
+## Archivos Asociados
+
+| Archivo | Descripción |
+|---------|-------------|
+| [Assets/Scripts/Managers/ObjectPool/IPooleable.cs](../Assets/Scripts/Managers/ObjectPool/IPooleable.cs) | Interfaz de callbacks para objetos pooleados |
+| [Assets/Scripts/Managers/ObjectPool/PoolStats.cs](../Assets/Scripts/Managers/ObjectPool/PoolStats.cs) | Struct de estadísticas de un pool |
+| [Assets/Scripts/Managers/ObjectPool/PoolConfig.cs](../Assets/Scripts/Managers/ObjectPool/PoolConfig.cs) | Clase de configuración serializable |
+| [Assets/Scripts/Managers/ObjectPool/PoolLogic.cs](../Assets/Scripts/Managers/ObjectPool/PoolLogic.cs) | Lógica core de un pool individual (`internal`) |
+| [Assets/Scripts/Managers/ObjectPool/ObjectPoolGeneric.cs](../Assets/Scripts/Managers/ObjectPool/ObjectPoolGeneric.cs) | Pool genérico tipado `ObjectPool<T>` |
+| [Assets/Scripts/Managers/ObjectPool/PooledObject.cs](../Assets/Scripts/Managers/ObjectPool/PooledObject.cs) | Componente auxiliar de tracking en objetos instanciados |
+| [Assets/Scripts/Managers/ObjectPool/ObjectPool.cs](../Assets/Scripts/Managers/ObjectPool/ObjectPool.cs) | Singleton `MonoBehaviour` — fachada principal |
 
 ---
 
 ## Visión General
 
-El sistema ObjectPool ha sido completamente refactorizado para mejorar la **performance**, **mantenibilidad** y **arquitectura** del código, manteniendo **100% de compatibilidad hacia atrás** con el código existente.
+El sistema ObjectPool está estructurado de forma modular. Todos los archivos pertenecen al namespace `Managers`.
 
-### Objetivos del Refactor
+### Objetivos del Diseño
 
-✅ **Eliminar código duplicado** entre el Singleton y la clase genérica  
-✅ **Separar responsabilidades** mediante arquitectura modular  
-✅ **Optimizar performance** eliminando overhead innecesario (locks)  
-✅ **Mejorar testabilidad** con clases más pequeñas y enfocadas  
-✅ **Mantener compatibilidad** con toda la API pública existente  
-
-### Métricas de Mejora
-
-| Métrica | Antes | Después | Mejora |
-|---------|-------|---------|--------|
-| **Líneas en archivo principal** | 992 | 349 | -65% |
-| **Archivos modulares** | 1 | 7 | +600% |
-| **Código duplicado** | ~300 líneas | 0 | -100% |
-| **Thread-safety locks** | Sí (innecesario) | No | +15-20% performance |
-| **Separación de concerns** | ❌ | ✅ | ✨ |
+- **Eliminar código duplicado** mediante la clase interna `PoolLogic`
+- **Separar responsabilidades** — cada archivo tiene un único propósito
+- **Sin locks** — optimizado para Unity (main thread only)
+- **Compatibilidad total** con la API pública existente
 
 ---
 
-## Arquitectura Anterior vs Nueva
+## Arquitectura Modular
 
-### 🔴 Arquitectura Anterior (Monolítica)
-
-```
-ObjectPool.cs (992 líneas)
-├── IPooleable interface
-├── PoolStats struct
-├── PoolConfig class
-├── ObjectPool<T> generic (con locks)
-├── ObjectPool Singleton (lógica duplicada)
-└── PooledObject component
-```
-
-**Problemas:**
-- ❌ Código duplicado entre `ObjectPool<T>` y `ObjectPool` Singleton
-- ❌ Archivo difícil de navegar y mantener
-- ❌ Locks innecesarios (Unity corre en main thread)
-- ❌ Difícil de testear componentes individuales
-- ❌ Violación del principio SRP (Single Responsibility)
-
-### 🟢 Arquitectura Nueva (Modular)
+### Estructura de Archivos
 
 ```
-Managers/
-├── IPooleable.cs             (20 líneas)  - Interfaz de callbacks
-├── PoolStats.cs              (32 líneas)  - Struct de estadísticas
-├── PoolConfig.cs             (26 líneas)  - Configuración serializable
-├── PoolLogic.cs              (296 líneas) - Lógica core (internal)
-├── ObjectPoolGeneric.cs      (281 líneas) - Pool genérico ObjectPool<T>
-├── PooledObject.cs           (43 líneas)  - Componente auxiliar
-└── ObjectPool.cs             (349 líneas) - Singleton (fachada)
+Assets/Scripts/Managers/ObjectPool/
+├── IPooleable.cs            (21 líneas)  — Interfaz de callbacks
+├── PoolStats.cs             (31 líneas)  — Struct de estadísticas
+├── PoolConfig.cs            (25 líneas)  — Configuración serializable
+├── PoolLogic.cs            (282 líneas)  — Lógica core (internal)
+├── ObjectPoolGeneric.cs    (278 líneas)  — Pool genérico ObjectPool<T>
+├── PooledObject.cs          (39 líneas)  — Componente auxiliar
+└── ObjectPool.cs           (333 líneas)  — Singleton (fachada)
 ```
-
-**Ventajas:**
-- ✅ Código limpio y modular
-- ✅ Sin duplicación (clase `PoolLogic` compartida)
-- ✅ Sin locks (optimizado para Unity)
-- ✅ Fácil navegación y mantenimiento
-- ✅ Testeable unitariamente
-- ✅ Compatible con código existente
-
----
-
-## Estructura de Archivos
-
-### 1. **IPooleable.cs** - Interfaz de Callbacks
-
-```csharp
-namespace Managers
-{
-    public interface IPooleable
-    {
-        void OnObtenidoDelPool();   // Al salir del pool
-        void OnDevueltoAlPool();    // Al volver al pool
-    }
-}
-```
-
-**Uso:** Implementa esta interfaz en tus componentes para reiniciar/limpiar estado.
-
----
-
-### 2. **PoolStats.cs** - Estadísticas
-
-```csharp
-public struct PoolStats
-{
-    public string PoolId;
-    public int TotalCreados;
-    public int TotalReusos;
-    public int Activos;
-    public int Disponibles;
-    public int Total;
-    public int TamanoMaximo;
-    public float RatioReuso;
-    public bool Destruido;
-    public bool EsEficiente => RatioReuso >= 0.8f;
-}
-```
-
-**Uso:** Para debugging y monitoring de pools.
-
----
-
-### 3. **PoolConfig.cs** - Configuración
-
-```csharp
-[System.Serializable]
-public class PoolConfig
-{
-    public string poolId;
-    public GameObject prefab;
-    public int tamanoInicial = 10;
-    public int tamanoMaximo = 50;
-    public bool expandirSiNecesario = true;
-    public bool autoReturn = false;
-    public float autoReturnDelay = 2f;
-    public bool reutilizarMasAntiguo = true;
-}
-```
-
-**Uso:** Configurar pools desde el Inspector o código.
-
----
-
-### 4. **PoolLogic.cs** - Lógica Core (Internal)
-
-Clase `internal` que encapsula **toda la lógica de un pool individual**:
-
-- ✅ Instanciación de objetos
-- ✅ Manejo de cola (Queue + List)
-- ✅ Tracking de objetos activos/disponibles
-- ✅ Callbacks de `IPooleable`
-- ✅ Auto-return con coroutines
-- ✅ Reutilización de objetos más antiguos
-
-**Características clave:**
-- Solo instanciable por `ObjectPool` Singleton
-- Sin locks (Unity main thread only)
-- Optimizada para evitar GC allocations
-
----
-
-### 5. **ObjectPoolGeneric.cs** - Pool Genérico
-
-```csharp
-public class ObjectPool<T> : IDisposable where T : Component
-{
-    public T Obtener();
-    public T Obtener(Vector3 pos, Quaternion rot);
-    public void Devolver(T obj);
-    public void DevolverTodos();
-    public PoolStats GetStats();
-    public void Destruir();
-}
-```
-
-**Uso típico:**
-```csharp
-// En DynamicEnemyPoolManager u otros sistemas específicos
-var pool = new ObjectPool<EnemyController>(prefab, 20, container);
-var enemy = pool.Obtener();
-pool.Devolver(enemy);
-```
-
----
-
-### 6. **PooledObject.cs** - Componente Auxiliar
-
-```csharp
-public class PooledObject : MonoBehaviour, IPooleable
-{
-    public string PoolId { get; set; }
-    
-    public void DevolverAlPool();
-    public void DevolverAlPoolDespuesDe(float delay);
-    public virtual void OnObtenidoDelPool();
-    public virtual void OnDevueltoAlPool();
-}
-```
-
-**Uso:** Se agrega automáticamente a objetos pooleados para tracking.
-
----
-
-### 7. **ObjectPool.cs** - Singleton (Fachada)
-
-Versión simplificada que **delega toda la lógica** a `PoolLogic`:
-
-```csharp
-public class ObjectPool : MonoBehaviour
-{
-    public static ObjectPool Instance { get; }
-    
-    // API pública mantenida
-    public void CrearPool(PoolConfig config);
-    public void CrearPool(string id, GameObject prefab, ...);
-    public GameObject Obtener(string poolId);
-    public GameObject Obtener(string poolId, Vector3 pos, Quaternion rot);
-    public void Devolver(GameObject obj);
-    public void Devolver(string poolId, GameObject obj);
-    public void DevolverDespuesDe(GameObject obj, float delay);
-    public void DevolverTodos(string poolId);
-    public PoolStats ObtenerEstadisticas(string poolId);
-    public void LimpiarPool(string poolId);
-    public void LimpiarTodo();
-}
-```
-
----
-
-## Componentes del Sistema
 
 ### Diagrama de Dependencias
 
@@ -238,22 +66,20 @@ public class ObjectPool : MonoBehaviour
 │            ObjectPool (Singleton)               │
 │              MonoBehaviour                      │
 └────────────────┬────────────────────────────────┘
-                 │ contiene Dictionary<string, PoolLogic>
-                 │
+                 │ Dictionary<string, PoolLogic>
                  ▼
 ┌─────────────────────────────────────────────────┐
 │              PoolLogic (internal)               │
 │        Lógica core de un pool individual        │
 └────────┬─────────────────────────────────┬──────┘
-         │ usa                             │ usa
+         │                                 │
          ▼                                 ▼
 ┌────────────────┐              ┌──────────────────┐
 │  PoolConfig    │              │  PooledObject    │
 │ Configuración  │              │   (tracking)     │
 └────────────────┘              └──────────────────┘
-         │                                 │
-         │ implementa                      │ implementa
-         ▼                                 ▼
+                                          │
+                                          ▼
 ┌─────────────────────────────────────────────────┐
 │              IPooleable (interface)             │
 │         OnObtenidoDelPool / OnDevueltoAlPool    │
@@ -261,20 +87,234 @@ public class ObjectPool : MonoBehaviour
 
 ┌─────────────────────────────────────────────────┐
 │          ObjectPool<T> (Genérico)               │
-│    Para uso específico (DynamicEnemyPool, etc)  │
+│  Uso autónomo — no depende del Singleton        │
+│  También usa IPooleable y PoolStats             │
 └─────────────────────────────────────────────────┘
 ```
 
 ---
 
-## API Pública
+## Componentes del Sistema
 
-### ObjectPool Singleton
-
-#### Crear Pools
+### IPooleable.cs
 
 ```csharp
-// Opción 1: Con configuración
+namespace Managers
+{
+    public interface IPooleable
+    {
+        void OnObtenidoDelPool();   // Llamado al salir del pool (activación)
+        void OnDevueltoAlPool();    // Llamado al volver al pool (desactivación)
+    }
+}
+```
+
+Implementa esta interfaz para reiniciar/limpiar estado en cualquier componente pooleado.
+
+---
+
+### PoolStats.cs
+
+```csharp
+namespace Managers
+{
+    public struct PoolStats
+    {
+        public string PoolId;
+        public int TotalCreados;
+        public int TotalReusos;
+        public int Activos;
+        public int Disponibles;
+        public int Total;
+        public int TamanoMaximo;
+        public float RatioReuso;
+        public bool Destruido;
+
+        public bool EsEficiente => RatioReuso >= 0.8f;
+        public override string ToString(); // Formato legible para Debug.Log
+    }
+}
+```
+
+---
+
+### PoolConfig.cs
+
+```csharp
+namespace Managers
+{
+    [System.Serializable]
+    public class PoolConfig
+    {
+        public string poolId;
+        public GameObject prefab;
+        public int tamanoInicial = 10;
+        public int tamanoMaximo = 50;
+        public bool expandirSiNecesario = true;
+        public bool autoReturn = false;
+        public float autoReturnDelay = 2f;
+        public bool reutilizarMasAntiguo = true;
+    }
+}
+```
+
+Serializable — configurable desde el Inspector o por código.
+
+---
+
+### PoolLogic.cs (internal)
+
+Clase `internal` que encapsula la lógica de **un único pool**. Solo `ObjectPool` Singleton puede instanciarla.
+
+**Propiedades públicas:**
+```csharp
+int TotalCreados
+int TotalReusos
+int ActiveCount
+int AvailableCount
+int TotalCount
+bool IsDestroyed
+```
+
+**Métodos públicos:**
+```csharp
+GameObject Obtener()
+GameObject Obtener(Vector3 posicion, Quaternion rotacion)
+void Devolver(GameObject obj)
+void DevolverTodos()
+PoolStats GetStats()
+void Destruir()
+```
+
+**Comportamiento interno:**
+- `Queue<GameObject>` para disponibles, `List<GameObject>` para activos, `HashSet<GameObject>` para validación O(1)
+- Pre-crea objetos en el constructor hasta `tamanoInicial`
+- Detecta y limpia objetos destruidos externamente
+- Llama callbacks `IPooleable` en todos los componentes del objeto
+- Coroutine de auto-return gestionada por el `MonoBehaviour` del Singleton
+- Al devolver: resetea position/rotation/scale locales y reparenta al contenedor
+
+---
+
+### ObjectPoolGeneric.cs
+
+Pool independiente del Singleton, tipado por componente. Implementa `IDisposable`.
+
+```csharp
+namespace Managers
+{
+    public class ObjectPool<T> : IDisposable where T : Component
+    {
+        // Propiedades
+        int TotalCreated      // Nota: nombre en inglés (vs TotalCreados en PoolLogic)
+        int TotalReusos
+        int ActiveCount
+        int AvailableCount
+        int TotalCount
+
+        // Constructor
+        ObjectPool(T prefab, int cantidadInicial, Transform contenedor = null,
+                   int maxSize = -1, bool allowGrowth = true,
+                   bool autoReturn = false, float autoReturnDelay = 2f)
+
+        // Métodos
+        T Obtener()
+        T Obtener(Vector3 posicion, Quaternion rotacion)
+        void Devolver(T obj)
+        void DevolverTodos()
+        PoolStats GetStats()
+        void Destruir()
+        void Dispose()    // llama Destruir()
+    }
+}
+```
+
+**Diferencias con el Singleton:**
+- Tipado — devuelve `T` directamente, sin casteo
+- Autónomo — no depende de `ObjectPool.Instance`
+- El auto-return usa una coroutine en el propio componente `T` (debe ser `MonoBehaviour`)
+- `GetStats()` usa `typeof(T).Name` como `PoolId`
+
+---
+
+### PooledObject.cs
+
+Componente que se agrega automáticamente a cada objeto instanciado por `PoolLogic`.
+
+```csharp
+namespace Managers
+{
+    public class PooledObject : MonoBehaviour, IPooleable
+    {
+        public string PoolId { get; set; }
+
+        public void DevolverAlPool();
+        public void DevolverAlPoolDespuesDe(float delay);
+
+        public virtual void OnObtenidoDelPool();  // override para reiniciar
+        public virtual void OnDevueltoAlPool();   // llama StopAllCoroutines()
+    }
+}
+```
+
+Permite subclasear: extender `PooledObject` en lugar de implementar `IPooleable` desde cero.
+
+---
+
+### ObjectPool.cs (Singleton)
+
+`MonoBehaviour` con `DontDestroyOnLoad`. Gestiona un `Dictionary<string, PoolLogic>`.
+
+```csharp
+namespace Managers
+{
+    public class ObjectPool : MonoBehaviour
+    {
+        public static ObjectPool Instance { get; }
+
+        // Crear pools
+        void CrearPool(PoolConfig config)
+        void CrearPool(string poolId, GameObject prefab, int tamanoInicial = 10,
+                       int tamanoMaximo = 50, bool autoReturn = false,
+                       float autoReturnDelay = 2f, bool reutilizarMasAntiguo = true)
+
+        // Obtener objetos
+        GameObject Obtener(string poolId)
+        GameObject Obtener(string poolId, Vector3 posicion, Quaternion rotacion)
+
+        // Devolver objetos
+        void Devolver(GameObject obj)               // usa PooledObject para determinar el poolId
+        void Devolver(string poolId, GameObject obj)
+        void DevolverDespuesDe(GameObject obj, float delay)
+        void DevolverTodos(string poolId)
+
+        // Consultas
+        int ObtenerDisponibles(string poolId)
+        int ObtenerActivos(string poolId)
+        int ObtenerTotal(string poolId)
+        PoolStats ObtenerEstadisticas(string poolId)
+
+        // Limpieza
+        void LimpiarPool(string poolId)
+        void LimpiarTodo()
+    }
+}
+```
+
+**Inicialización:** Los pools configurados en el Inspector (lista `configuraciones`) se crean en `Awake()`.
+
+**Métodos de debug (`[ContextMenu]`):**
+- `"Debug: Mostrar Estado"` — imprime `PoolStats.ToString()` de todos los pools activos
+- `"Debug: Devolver Todos"` — devuelve todos los objetos activos a sus pools
+
+---
+
+## API Pública — Singleton
+
+### Crear Pools
+
+```csharp
+// Opción 1: Con PoolConfig
 var config = new PoolConfig {
     poolId = "Projectile",
     prefab = projectilePrefab,
@@ -285,7 +325,7 @@ var config = new PoolConfig {
 };
 ObjectPool.Instance.CrearPool(config);
 
-// Opción 2: Desde código
+// Opción 2: Inline desde código
 ObjectPool.Instance.CrearPool(
     poolId: "VFX_Explosion",
     prefab: explosionPrefab,
@@ -296,64 +336,56 @@ ObjectPool.Instance.CrearPool(
 );
 ```
 
-#### Obtener Objetos
+### Obtener Objetos
 
 ```csharp
-// Obtener simple
+// Simple
 GameObject projectile = ObjectPool.Instance.Obtener("Projectile");
 
-// Obtener con posición y rotación
-GameObject vfx = ObjectPool.Instance.Obtener(
-    "VFX_Hit", 
-    hitPosition, 
-    Quaternion.identity
-);
+// Con posición y rotación
+GameObject vfx = ObjectPool.Instance.Obtener("VFX_Hit", hitPosition, Quaternion.identity);
 ```
 
-#### Devolver Objetos
+### Devolver Objetos
 
 ```csharp
-// Devolver inmediatamente
+// Inmediato (el componente PooledObject determina el pool)
 ObjectPool.Instance.Devolver(projectile);
 
-// Devolver con delay
+// Con delay
 ObjectPool.Instance.DevolverDespuesDe(vfx, 2f);
 
-// Devolver todos de un pool
+// Todos los activos de un pool
 ObjectPool.Instance.DevolverTodos("Projectile");
 ```
 
-#### Estadísticas y Debugging
+### Estadísticas y Debugging
 
 ```csharp
-// Obtener estadísticas
 PoolStats stats = ObjectPool.Instance.ObtenerEstadisticas("Projectile");
-Debug.Log($"Pool: {stats.PoolId}");
-Debug.Log($"Activos: {stats.Activos} / {stats.Total}");
-Debug.Log($"Eficiencia: {stats.RatioReuso:P1}");
-Debug.Log($"Es eficiente: {stats.EsEficiente}");
+Debug.Log(stats.ToString());
+// => "=== Pool<Projectile> Stats ===\n  Creados: X | Reusos: Y ..."
 
-// Métodos de utilidad
+Debug.Log($"Activos: {stats.Activos} / {stats.Total}");
+Debug.Log($"Eficiente: {stats.EsEficiente}");  // true si RatioReuso >= 80%
+
 int disponibles = ObjectPool.Instance.ObtenerDisponibles("Projectile");
-int activos = ObjectPool.Instance.ObtenerActivos("Projectile");
-int total = ObjectPool.Instance.ObtenerTotal("Projectile");
+int activos     = ObjectPool.Instance.ObtenerActivos("Projectile");
+int total       = ObjectPool.Instance.ObtenerTotal("Projectile");
 ```
 
 ---
 
-### ObjectPool<T> Genérico
-
-#### Uso en Sistemas Específicos
+## API Pública — Pool Genérico
 
 ```csharp
 public class DynamicEnemyPoolManager : MonoBehaviour
 {
     [SerializeField] private EnemyController enemyPrefab;
     private ObjectPool<EnemyController> enemyPool;
-    
+
     private void Awake()
     {
-        // Crear pool tipado
         enemyPool = new ObjectPool<EnemyController>(
             prefab: enemyPrefab,
             cantidadInicial: 10,
@@ -362,22 +394,14 @@ public class DynamicEnemyPoolManager : MonoBehaviour
             allowGrowth: true
         );
     }
-    
+
     public EnemyController SpawnEnemy(Vector3 position)
-    {
-        EnemyController enemy = enemyPool.Obtener(position, Quaternion.identity);
-        return enemy;
-    }
-    
+        => enemyPool.Obtener(position, Quaternion.identity);
+
     public void ReturnEnemy(EnemyController enemy)
-    {
-        enemyPool.Devolver(enemy);
-    }
-    
-    private void OnDestroy()
-    {
-        enemyPool?.Destruir();
-    }
+        => enemyPool.Devolver(enemy);
+
+    private void OnDestroy() => enemyPool?.Destruir();
 }
 ```
 
@@ -391,245 +415,107 @@ public class DynamicEnemyPoolManager : MonoBehaviour
 public class ProjectileManager : MonoBehaviour
 {
     [SerializeField] private GameObject bulletPrefab;
-    
+
     private void Start()
     {
-        // Configurar pool
-        ObjectPool.Instance.CrearPool(
-            "Bullet",
-            bulletPrefab,
-            tamanoInicial: 30,
-            tamanoMaximo: 100
-        );
+        ObjectPool.Instance.CrearPool("Bullet", bulletPrefab, tamanoInicial: 30, tamanoMaximo: 100);
     }
-    
+
     public void FireBullet(Vector3 origin, Vector3 direction)
     {
         GameObject bullet = ObjectPool.Instance.Obtener("Bullet", origin, Quaternion.identity);
-        
-        var bulletScript = bullet.GetComponent<Bullet>();
-        bulletScript.Initialize(direction);
+        bullet.GetComponent<Bullet>().Initialize(direction);
     }
 }
 
-// En Bullet.cs
 public class Bullet : MonoBehaviour, IPooleable
 {
-    private float lifetime = 5f;
     private Vector3 velocity;
-    
-    public void Initialize(Vector3 direction)
-    {
-        velocity = direction * 10f;
-        StartCoroutine(LifetimeCoroutine());
-    }
-    
-    private void Update()
-    {
-        transform.position += velocity * Time.deltaTime;
-    }
-    
-    private IEnumerator LifetimeCoroutine()
-    {
-        yield return new WaitForSeconds(lifetime);
-        ObjectPool.Instance.Devolver(gameObject);
-    }
-    
-    public void OnObtenidoDelPool()
-    {
-        // Reiniciar estado
-        velocity = Vector3.zero;
-    }
-    
-    public void OnDevueltoAlPool()
-    {
-        // Limpiar estado
-        StopAllCoroutines();
-    }
-    
-    private void OnCollisionEnter(Collision collision)
-    {
-        // Devolver al pool al impactar
-        ObjectPool.Instance.Devolver(gameObject);
-    }
+
+    public void Initialize(Vector3 direction) => velocity = direction * 10f;
+
+    private void Update() => transform.position += velocity * Time.deltaTime;
+
+    public void OnObtenidoDelPool()  => velocity = Vector3.zero;
+    public void OnDevueltoAlPool()   => StopAllCoroutines();
+
+    private void OnCollisionEnter(Collision _) => ObjectPool.Instance.Devolver(gameObject);
 }
 ```
 
 ---
 
-### Ejemplo 2: Sistema de VFX con Auto-Return
+### Ejemplo 2: VFX con Auto-Return
 
 ```csharp
-public class VFXManager : MonoBehaviour
+ObjectPool.Instance.CrearPool(
+    poolId: "VFX_Hit",
+    prefab: hitEffectPrefab,
+    tamanoInicial: 15,
+    tamanoMaximo: 50,
+    autoReturn: true,       // se devuelve solo
+    autoReturnDelay: 2f
+);
+
+// No necesitas devolver manualmente
+ObjectPool.Instance.Obtener("VFX_Hit", position, rotation);
+```
+
+---
+
+### Ejemplo 3: Subclase de PooledObject
+
+```csharp
+// En lugar de implementar IPooleable desde cero, extender PooledObject
+public class EnemyPooled : PooledObject
 {
-    [SerializeField] private GameObject hitEffectPrefab;
-    [SerializeField] private GameObject explosionPrefab;
-    
-    private void Start()
+    private int health;
+
+    public override void OnObtenidoDelPool()
     {
-        // Pool con auto-return activado
-        ObjectPool.Instance.CrearPool(
-            poolId: "VFX_Hit",
-            prefab: hitEffectPrefab,
-            tamanoInicial: 15,
-            tamanoMaximo: 50,
-            autoReturn: true,      // ← Auto-return activado
-            autoReturnDelay: 2f    // Devuelve después de 2 segundos
-        );
-        
-        ObjectPool.Instance.CrearPool(
-            poolId: "VFX_Explosion",
-            prefab: explosionPrefab,
-            tamanoInicial: 10,
-            tamanoMaximo: 30,
-            autoReturn: true,
-            autoReturnDelay: 3f
-        );
+        base.OnObtenidoDelPool();
+        health = 100;
+        GetComponent<Collider>().enabled = true;
     }
-    
-    public void PlayHitEffect(Vector3 position, Quaternion rotation)
+
+    public override void OnDevueltoAlPool()
     {
-        // No necesitas devolver manualmente - se devuelve automáticamente
-        ObjectPool.Instance.Obtener("VFX_Hit", position, rotation);
-    }
-    
-    public void PlayExplosion(Vector3 position)
-    {
-        ObjectPool.Instance.Obtener("VFX_Explosion", position, Quaternion.identity);
+        base.OnDevueltoAlPool();   // llama StopAllCoroutines()
+        GetComponent<Collider>().enabled = false;
     }
 }
 ```
 
 ---
 
-### Ejemplo 3: Pool Genérico para Componentes Específicos
+### Ejemplo 4: Pool Genérico Tipado
 
 ```csharp
 public class ParticlePoolManager : MonoBehaviour
 {
     [SerializeField] private ParticleSystem particlePrefab;
     private ObjectPool<ParticleSystem> particlePool;
-    
+
     private void Awake()
     {
-        // Pool tipado con ParticleSystem
         particlePool = new ObjectPool<ParticleSystem>(
             prefab: particlePrefab,
             cantidadInicial: 20,
             contenedor: transform,
             maxSize: 100,
-            allowGrowth: true,
             autoReturn: true,
             autoReturnDelay: 5f
         );
     }
-    
+
     public void PlayParticle(Vector3 position)
     {
         ParticleSystem ps = particlePool.Obtener(position, Quaternion.identity);
         ps.Play();
     }
-    
-    // Mostrar estadísticas en el inspector
+
     [ContextMenu("Show Pool Stats")]
-    private void ShowStats()
-    {
-        var stats = particlePool.GetStats();
-        Debug.Log(stats.ToString());
-    }
-}
-```
-
----
-
-### Ejemplo 4: Implementación Avanzada de IPooleable
-
-```csharp
-public class Enemy : MonoBehaviour, IPooleable
-{
-    [SerializeField] private int maxHealth = 100;
-    private int currentHealth;
-    private List<StatusEffect> activeEffects = new List<StatusEffect>();
-    private Rigidbody rb;
-    private Animator animator;
-    
-    private void Awake()
-    {
-        rb = GetComponent<Rigidbody>();
-        animator = GetComponent<Animator>();
-    }
-    
-    public void OnObtenidoDelPool()
-    {
-        // Reiniciar completamente el enemigo
-        currentHealth = maxHealth;
-        activeEffects.Clear();
-        
-        // Resetear física
-        rb.velocity = Vector3.zero;
-        rb.angularVelocity = Vector3.zero;
-        
-        // Resetear animaciones
-        animator.Rebind();
-        animator.Update(0f);
-        
-        // Reactivar componentes
-        GetComponent<Collider>().enabled = true;
-        
-        Debug.Log($"Enemy {name} obtenido del pool y reiniciado");
-    }
-    
-    public void OnDevueltoAlPool()
-    {
-        // Limpiar completamente
-        StopAllCoroutines();
-        
-        // Cancelar efectos activos
-        foreach (var effect in activeEffects)
-        {
-            effect.Cancel();
-        }
-        activeEffects.Clear();
-        
-        // Desactivar componentes
-        GetComponent<Collider>().enabled = false;
-        
-        // Desvincular eventos
-        UnsubscribeFromEvents();
-        
-        Debug.Log($"Enemy {name} devuelto al pool y limpiado");
-    }
-    
-    public void TakeDamage(int damage)
-    {
-        currentHealth -= damage;
-        
-        if (currentHealth <= 0)
-        {
-            Die();
-        }
-    }
-    
-    private void Die()
-    {
-        // Reproducir animación de muerte
-        animator.SetTrigger("Die");
-        
-        // Devolver al pool después de la animación
-        StartCoroutine(ReturnToPoolAfterDelay(2f));
-    }
-    
-    private IEnumerator ReturnToPoolAfterDelay(float delay)
-    {
-        yield return new WaitForSeconds(delay);
-        ObjectPool.Instance.Devolver(gameObject);
-    }
-    
-    private void UnsubscribeFromEvents()
-    {
-        // Desuscribirse de eventos globales
-        EventBus<EnemyDiedEvent>.Unsubscribe(OnEnemyDied);
-    }
+    private void ShowStats() => Debug.Log(particlePool.GetStats());
 }
 ```
 
@@ -637,249 +523,88 @@ public class Enemy : MonoBehaviour, IPooleable
 
 ## Optimizaciones de Performance
 
-### 1. Eliminación de Locks (Thread-Safety)
+### Sin Locks
 
-**Antes:**
-```csharp
-public T Obtener()
-{
-    lock (_lock)  // ❌ Overhead innecesario
-    {
-        // ... lógica
-    }
-}
-```
+Unity corre en main thread. No hay locks en ningún método.
+Resultado estimado: ~15-20% mejora en llamadas `Obtener()` y `Devolver()`.
 
-**Después:**
-```csharp
-public T Obtener()
-{
-    // ✅ Sin locks - Unity corre en main thread
-    // ... lógica directa
-}
-```
+### Estructuras de Datos
 
-**Resultado:** ~15-20% mejora en llamadas `Obtener()` y `Devolver()`
+| Estructura | Uso | Beneficio |
+|------------|-----|-----------|
+| `Queue<T>` | Disponibles | FIFO, O(1) enqueue/dequeue |
+| `List<T>` | Activos | Acceso por índice para reutilizar el más antiguo |
+| `HashSet<T>` | Todos los objetos | Validación de pertenencia O(1) |
 
----
+### Reutilización del Objeto Más Antiguo
 
-### 2. Reducción de GC Allocations
+Cuando el pool está lleno y `reutilizarMasAntiguo = true`, el sistema reutiliza el primer elemento activo en lugar de fallar:
 
 ```csharp
-// ✅ ToArray() solo cuando sea necesario (evitar modificar colección mientras iteras)
-foreach (var obj in objetosActivos.ToArray())
-{
-    Devolver(obj);
-}
-
-// ✅ Uso de HashSet para validación O(1)
-if (!todosLosObjetos.Contains(obj)) return;
-
-// ✅ Reutilización de objetos en lugar de Destroy/Instantiate
-T obj = objetosDisponibles.Dequeue();
-```
-
----
-
-### 3. Auto-Return Optimizado
-
-```csharp
-// Evita tener que devolver manualmente objetos temporales
-var config = new PoolConfig {
-    autoReturn = true,
-    autoReturnDelay = 2f
-};
-
-// El objeto se devuelve automáticamente después del delay
-GameObject vfx = ObjectPool.Instance.Obtener("VFX_Hit");
-// No necesitas: ObjectPool.Instance.DevolverDespuesDe(vfx, 2f);
-```
-
----
-
-### 4. Reutilización de Objetos Antiguos
-
-Cuando el pool está lleno, en lugar de fallar, reutiliza el objeto activo más antiguo:
-
-```csharp
-private GameObject ReutilizarMasAntiguo()
-{
-    GameObject oldest = objetosActivos[0];
-    objetosActivos.RemoveAt(0);
-    
-    NotificarDevuelto(oldest);
-    NotificarObtenido(oldest);
-    
-    objetosActivos.Add(oldest);  // Se convierte en el más nuevo
-    return oldest;
-}
+// PoolLogic.ReutilizarMasAntiguo()
+GameObject oldest = objetosActivos[0];
+objetosActivos.RemoveAt(0);
+NotificarDevuelto(oldest);
+NotificarObtenido(oldest);
+objetosActivos.Add(oldest);
+return oldest;
 ```
 
 ---
 
 ## Mejores Prácticas
 
-### ✅ DO - Recomendaciones
+### Recomendaciones
 
-1. **Implementa IPooleable en tus componentes**
-   ```csharp
-   public class MyComponent : MonoBehaviour, IPooleable
-   {
-       public void OnObtenidoDelPool() { /* reiniciar */ }
-       public void OnDevueltoAlPool() { /* limpiar */ }
-   }
-   ```
+1. **Implementa `IPooleable`** o extiende `PooledObject` para reiniciar/limpiar estado correctamente.
 
-2. **Configura tamaños apropiados**
+2. **Configura tamaños apropiados** — monitorea con `PoolStats`:
    ```csharp
-   // Usa estadísticas para ajustar
-   var stats = ObjectPool.Instance.ObtenerEstadisticas("Projectile");
+   var stats = ObjectPool.Instance.ObtenerEstadisticas("Enemies");
    if (stats.Activos >= stats.TamanoMaximo * 0.9f)
-   {
-       Debug.LogWarning("Pool cerca del límite, considera aumentar tamanoMaximo");
-   }
+       Debug.LogWarning("Pool cerca del límite");
    ```
 
-3. **Usa auto-return para efectos temporales**
+3. **Usa `autoReturn`** para efectos temporales (VFX, partículas, audio).
+
+4. **Usa `ObjectPool<T>`** para sistemas con tipo específico — evita casteos y es type-safe.
+
+5. **Limpia pools en transiciones de escena:**
    ```csharp
-   ObjectPool.Instance.CrearPool(
-       "VFX_Particle",
-       prefab,
-       autoReturn: true,  // ← Para VFX
-       autoReturnDelay: 3f
-   );
+   ObjectPool.Instance.LimpiarPool("Enemies");
    ```
 
-4. **Aprovecha el pool genérico para componentes específicos**
-   ```csharp
-   var pool = new ObjectPool<AudioSource>(audioPrefab, 10);
-   AudioSource audio = pool.Obtener();  // Type-safe
-   ```
-
-5. **Limpia pools en transiciones de escena**
-   ```csharp
-   private void OnSceneUnload()
-   {
-       ObjectPool.Instance.LimpiarPool("Enemies");
-   }
-   ```
-
----
-
-### ❌ DON'T - Anti-patrones
-
-1. **No uses Destroy() en objetos pooleados**
-   ```csharp
-   // ❌ MAL
-   Destroy(pooledObject);
-   
-   // ✅ BIEN
-   ObjectPool.Instance.Devolver(pooledObject);
-   ```
-
-2. **No olvides limpiar referencias**
-   ```csharp
-   public void OnDevueltoAlPool()
-   {
-       // ✅ Limpia referencias para evitar memory leaks
-       target = null;
-       owner = null;
-       StopAllCoroutines();
-   }
-   ```
-
-3. **No crees pools muy pequeños para objetos frecuentes**
-   ```csharp
-   // ❌ MAL - Pool demasiado pequeño para projectiles
-   ObjectPool.Instance.CrearPool("Bullet", bulletPrefab, 5, 10);
-   
-   // ✅ BIEN - Tamaño apropiado
-   ObjectPool.Instance.CrearPool("Bullet", bulletPrefab, 50, 200);
-   ```
-
-4. **No uses pools para objetos únicos/permanentes**
-   ```csharp
-   // ❌ MAL - El jugador no debería estar en un pool
-   // ✅ BIEN - Usa pools para objetos que se instancian/destruyen frecuentemente
-   ```
-
----
-
-## Migración y Compatibilidad
-
-### 🔄 Compatibilidad Hacia Atrás
-
-**Todo el código existente sigue funcionando sin cambios:**
+### Anti-patrones
 
 ```csharp
-// ✅ API antigua funciona exactamente igual
-ObjectPool.Instance.Obtener("Projectile");
-ObjectPool.Instance.Devolver(obj);
-ObjectPool.Instance.CrearPool(config);
+// ❌ NUNCA destruir un objeto pooleado
+Destroy(pooledObject);
 
-// ✅ Pool genérico mantiene misma API
-var pool = new ObjectPool<T>(prefab, 10);
-T obj = pool.Obtener();
-pool.Devolver(obj);
+// ✅ Siempre devolver al pool
+ObjectPool.Instance.Devolver(pooledObject);
 ```
 
-### 📝 No Requiere Cambios en Código Existente
+```csharp
+// ❌ Pool demasiado pequeño para objetos frecuentes
+ObjectPool.Instance.CrearPool("Bullet", bulletPrefab, 5, 10);
 
-- ✅ Mismos nombres de métodos
-- ✅ Mismas firmas de métodos
-- ✅ Mismo comportamiento
-- ✅ Misma semántica
+// ✅ Tamaño apropiado al uso real
+ObjectPool.Instance.CrearPool("Bullet", bulletPrefab, 50, 200);
+```
 
-### 🔍 Verificación Post-Migración
+```csharp
+// ❌ Olvidar limpiar referencias en OnDevueltoAlPool
+public void OnDevueltoAlPool() { }
 
-1. **Recompilación automática**
-   - Unity detectará los nuevos archivos
-   - Generará archivos `.meta` automáticamente
-   - Recompilará sin errores
-
-2. **Testing**
-   ```csharp
-   [Test]
-   public void TestPoolCompatibility()
-   {
-       // Verificar que la API funciona igual
-       ObjectPool.Instance.CrearPool("Test", prefab, 10, 50);
-       GameObject obj = ObjectPool.Instance.Obtener("Test");
-       Assert.IsNotNull(obj);
-       ObjectPool.Instance.Devolver(obj);
-   }
-   ```
+// ✅ Limpiar para evitar memory leaks
+public void OnDevueltoAlPool()
+{
+    target = null;
+    owner = null;
+    StopAllCoroutines();
+}
+```
 
 ---
 
-## Resumen de Beneficios
-
-| Aspecto | Mejora |
-|---------|--------|
-| 📦 **Modularidad** | 7 archivos especializados vs 1 monolítico |
-| 🧹 **Código Limpio** | -65% líneas en archivo principal |
-| ⚡ **Performance** | +15-20% en operaciones de pool |
-| 🔧 **Mantenibilidad** | Separación clara de responsabilidades |
-| 🧪 **Testabilidad** | Clases pequeñas y enfocadas |
-| 📚 **Documentación** | Código auto-documentado |
-| 🔄 **Compatibilidad** | 100% compatible con código existente |
-| 🎯 **SRP** | Una clase, una responsabilidad |
-
----
-
-## Conclusión
-
-El refactor del sistema ObjectPool representa una mejora significativa en la arquitectura del proyecto sin romper compatibilidad. La nueva estructura modular facilita el mantenimiento, testing y extensión futura del sistema, mientras que las optimizaciones de performance garantizan mejor rendimiento en tiempo de ejecución.
-
-### Próximos Pasos Sugeridos
-
-1. ✅ **Revisar uso actual** - Verificar que todo funciona correctamente
-2. 📊 **Monitorear estadísticas** - Usar `PoolStats` para optimizar tamaños
-3. 🧪 **Crear unit tests** - Aprovechar la nueva modularidad
-4. 📖 **Actualizar documentación** - Si hay guías de equipo específicas
-5. 🎓 **Capacitar al equipo** - Compartir mejores prácticas
-
----
-
-**Última actualización:** Febrero 2026  
-**Versión del sistema:** 2.0 (Refactorizado)
+**Última actualización:** Marzo 2026
